@@ -1,169 +1,318 @@
 # SnapPlate Algorithm Plan
 
-Scope: taste analysis, recommendation engine, embeddings, and collaborative signals.
-Out of scope: frontend screens, backend CRUD, auth UI, upload plumbing, and Kakao API integration.
+Owner: Juneha
+
+Scope: two user-facing algorithm features:
+
+1. Taste analysis report.
+2. Restaurant recommendation.
+
+Internal tools such as embeddings, profile vectors, collaborative signals, and ranking scores exist only to support these two features.
 
 ## 1. Goal
 
-Build the algorithm layer that turns validated diary and restaurant data into taste profiles and restaurant recommendations.
+Build the algorithm part of SnapPlate.
 
-- The layer should be explainable enough for the taste-analysis screen and fast enough for the SRS recommendation target.
-- The backend should call it through service boundaries; the frontend should only receive chart-ready analysis data and client-safe recommendation payloads.
-- Raw recommendation scores should stay internal.
-- Primary outputs are (1) taste summaries, (2) profile labels, (3) vectors, (4) collaborative signals, (5) ranked restaurants, (6) explanations, and (7) logs.
+The algorithm part should answer two questions:
 
-## 2. SRS Alignment
+1. What does this user seem to like?
+2. Which restaurants should we recommend to this user?
 
-The plan covers REQ-4.8 for taste analysis and profile generation.
+The frontend and backend are owned by teammates.
 
-- It covers REQ-4.9 for restaurant profiling and hybrid recommendation.
-- It supports REQ-SW-005 by producing vector-based analysis artifacts.
-- It supports REQ-PERF-012 by keeping online recommendation work under 3 seconds.
-- It supports REQ-PERF-013 by running taste analysis asynchronously.
-- It supports REQ-QA-011 by making weights and thresholds configurable.
-- It supports REQ-QA-012 by logging analysis and recommendation runs.
-- It supports REQ-BIZ-002, REQ-BIZ-005, REQ-BIZ-008, and REQ-BIZ-009 by handling insufficient data, limiting duplicates, hiding scores, and protecting user data.
+This plan only defines what the algorithm layer needs as input, what it produces as output, and how the two algorithm features should work.
 
-## 3. Team Boundary
-
-- The algorithm layer should not call frontend code directly.
-- The frontend should not know ranker weights or internal signal scores.
-- The backend should own final API shape, but it should preserve algorithm output fields needed by the client.
-
-## 4. Architecture
+## 2. High-Level Flow
 
 ```mermaid
 flowchart LR
-    A[Diary Entries] --> D[Signal Preparation]
-    B[Restaurant Catalog] --> D
-    C[User Context] --> D
-    D --> E[Taste Profile Builder]
-    D --> F[Embedding Builder]
-    D --> G[Collaborative Signal Builder]
-    E --> H[(Algorithm Stores)]
-    F --> H
-    G --> H
-    H --> I[Recommendation Service]
-    H --> J[Taste Analysis Payload]
-    I --> K[Ranked Restaurants + Explanations]
+    A[Food Diary Data] --> C[Algorithm Layer]
+    B[Restaurant Data] --> C
+    D[User Context] --> C
+    C --> E[Taste Analysis Report]
+    C --> F[Restaurant Recommendations]
 ```
 
+The backend stores diaries, restaurants, users, bookmarks, and images.
 
+The algorithm layer reads backend-provided data.
 
-The system has an asynchronous profile path and an online recommendation path.
-The asynchronous path prepares expensive artifacts after diary, bookmark, or restaurant changes.
-The online path reads prepared artifacts and ranks candidates quickly.
-Online requests should not rebuild profiles or generate vectors live.
+The algorithm layer returns report data and recommendation data.
 
-## 5. Inputs
+The frontend displays those results.
 
-- Diary inputs: `user_id`, `diary_id`, `restaurant_id`, image references, rating, optional comment, date, time, location, created timestamp, and updated timestamp.
-- Restaurant inputs: `restaurant_id`, name, category, cuisine tags if available, address, latitude, longitude, Kakao metadata, and cached search metadata.
-- User-context inputs: current location, filters, bookmarks, exposure history, existing taste profile, existing user vector, and existing collaborative signals.
-- Cross-user inputs: anonymized rating behavior, visit behavior, bookmark behavior, and restaurant popularity among similar users.
-- Derived inputs: previous analysis result, previous vector version, previous recommendation batch, and last successful algorithm run metadata.
+## 3. Feature 1: Taste Analysis Report
 
-## 6. Outputs
+Purpose:
 
-- Taste-analysis outputs: diary count, average rating, rating distribution, top categories, category preference scores, visit frequency, time-of-day pattern, profile label, chart values, summary text, and insufficient-data status.
-- Embedding outputs: diary vectors, restaurant vectors, user taste vector, embedding model version, vector source timestamp, and vector refresh timestamp.
-- Collaborative outputs: similar-user signals, similar-item signals, collaborative confidence, refresh timestamp, and insufficient-collaborative-data status.
-- Recommendation outputs: ordered restaurant ids, display-safe explanations, reason categories, recommendation batch id, insufficient-recommendation status, and no client-facing raw score.
-- Logging outputs: run id, run type, input counts, config version, artifact version, duration, success status, and failure reason.
+Show the user a simple summary of their food preferences.
 
-## 7. Async Profile Flow
+The report should be understandable, visualizable, and stable.
 
-```mermaid
-sequenceDiagram
-    participant API as Backend API
-    participant Job as Background Job
-    participant Algo as Algorithm Layer
-    participant Store as Data Stores
-    API->>Store: Save validated diary or restaurant change
-    API->>Job: Enqueue profile refresh
-    Job->>Algo: Run refresh for affected users/items
-    Algo->>Store: Read diary, restaurant, bookmark, exposure data
-    Algo->>Store: Write profile, vectors, collaborative signals
-    Algo->>Store: Write run log and version metadata
-```
+It should not require a complex model in v1.
 
+### Inputs
 
+The taste analysis report needs:
 
-Async triggers should include diary create, diary edit, diary delete, bookmark change, restaurant metadata change, and scheduled refresh.
-If a refresh fails, preserve the previous profile or vector and log the failure.
-The backend can retry the job; the algorithm layer should make repeated runs deterministic for the same input snapshot.
+- user id,
+- diary entries,
+- restaurant category for each diary if available,
+- rating,
+- comment if available,
+- date and time,
+- restaurant id or restaurant name,
+- location if available.
 
-## 8. Online Recommendation Flow
+### Outputs
+
+The taste analysis report should produce:
+
+- total number of diary entries,
+- average rating,
+- rating distribution,
+- top food categories,
+- preference score by category,
+- visit frequency by category,
+- time-of-day pattern,
+- taste profile label,
+- short explanation text,
+- insufficient-data status when there are too few entries.
+
+### Rough Flow
 
 ```mermaid
 flowchart TD
-    A[Recommendation Request] --> B[Eligibility Check]
-    B --> C{Enough Data?}
-    C -- No --> D[Insufficient Data Response]
-    C -- Yes --> E[Candidate Retrieval]
-    E --> F[Content Signal]
-    E --> G[Collaborative Signal]
-    E --> H[Context Signal]
-    F --> I[Hybrid Ranker]
-    G --> I
-    H --> I
-    I --> J[Diversity + Exposure Filter]
-    J --> K[Explanation Builder]
-    K --> L[Client-Safe Ranked Results]
+    A[User Diary Entries] --> B{Enough Entries?}
+    B -- No --> C[Return Insufficient Data]
+    B -- Yes --> D[Calculate Rating Stats]
+    D --> E[Calculate Category Preferences]
+    E --> F[Calculate Time Patterns]
+    F --> G[Assign Taste Profile Label]
+    G --> H[Return Report Payload]
 ```
 
+### Notes
 
+This should be deterministic at first.
 
-Online work should validate eligibility, retrieve candidates, combine signals, apply repeated-exposure limits, diversify results, attach explanations, and return ranked restaurants.
-The ranker may compute internal scores, but the response to frontend must not include them.
+Use simple statistics before machine learning.
 
-## 9. Taste Analysis Component
+The frontend should receive chart-ready values, not raw intermediate calculations.
 
-Taste analysis should be deterministic and explainable. 
+If analysis fails, keep the previous successful report if one exists.
 
-- Use statistics before opaque ML: category preference, rating distribution, visit frequency, recency, and time-of-day patterns.
-- The profile label should come from stable rules over dominant preference patterns.
-- The taste screen should receive normalized chart values and short explanatory text.
-- Minimum useful fields are top categories, average rating, total entries, rating distribution, time-of-day pattern, and profile label.
-- If the user has too few entries, return insufficient-data status instead of weak analysis.
+## 4. Feature 2: Restaurant Recommendation
 
-## 10. Embedding Component
+Purpose:
 
-- Embeddings should support semantic matching between diary entries, restaurants, and users.
-- Diary embedding text can combine restaurant name, category, comment text, food tags, and possibly a coarse rating bucket.
-- Restaurant embedding text can combine restaurant name, category, cuisine tags, menu or description, and location-independent metadata.
-- The user taste vector should be derived from diary vectors, with higher-rated entries weighted more heavily.
-- Recent entries may receive more weight, but the recency weight should be configurable.
-- Every vector should store model version, source timestamp, and refresh timestamp.
+Recommend restaurants that fit the user's taste and current context.
 
-## 11. Collaborative Signal Component
+The SRS says recommendations should be hybrid:
 
-Collaborative filtering is required by the SRS hybrid recommendation section.
+- content-based,
+- collaborative,
+- context-based.
 
-- Useful signals include similar category preferences, similar restaurant ratings, similar bookmarks, restaurants liked by similar users, and restaurant co-occurrence in user histories.
-- If shared behavior is sparse, return low collaborative confidence and let content/context signals dominate.
-- Cold-start users should still receive content/context recommendations.
-- Cold-start restaurants should still be eligible through restaurant metadata and location.
-- Collaborative explanations must stay aggregated, such as "popular among users with similar taste", without exposing private user behavior.
+For v1, these can be simple signals combined into one ranking process.
 
-## 12. Hybrid Recommendation Component
+### Inputs
 
-The ranker combines content-based, collaborative, and context-based signals.
+Restaurant recommendation needs:
 
-- Content signal compares user profile or vector against restaurant attributes and vectors.
-- Collaborative signal uses similar-user and similar-item artifacts with a confidence value.
-- Context signal uses current location, distance, filters, time context, and exposure history.
-- After ranking, apply duplicate limits, diversity constraints, and explanation selection.
-- Candidate retrieval should happen before scoring so the system does not scan every restaurant at scale
-- Candidate sources can include nearby restaurants, preferred-category matches, vector-similar restaurants, restaurants liked by similar users, and relevant bookmarked restaurants.
-- Candidates should be deduplicated before ranking and logged by count.
+- user id,
+- user taste profile from the report,
+- user diary history,
+- user bookmarks if available,
+- current user location,
+- restaurant list,
+- restaurant category,
+- restaurant location,
+- restaurant metadata from backend,
+- previous recommendation exposure history if available.
 
-## 13. Explanation Plan
+### Outputs
 
-Each recommendation should include one display-safe reason.
+Restaurant recommendation should produce:
 
-- Reason categories can include category match, similar to highly rated entries, nearby option, popular among similar users, fits current filters, and not recently shown.
-- Explanations should be tied to the dominant signal used for ranking.
-- Explanations should not include raw scores or private cross-user data.
-- Explanations should be stable enough for tests.
+- ranked restaurant ids,
+- explanation for each recommendation,
+- reason category for each recommendation,
+- insufficient-data status when recommendations cannot be generated,
+- no raw score in the client-facing output.
 
+### Rough Flow
+
+```mermaid
+flowchart TD
+    A[Recommendation Request] --> B{Enough User Data?}
+    B -- No --> C[Return Insufficient Data]
+    B -- Yes --> D[Get Candidate Restaurants]
+    D --> E[Calculate Content Signal]
+    D --> F[Calculate Collaborative Signal]
+    D --> G[Calculate Context Signal]
+    E --> H[Combine Signals]
+    F --> H
+    G --> H
+    H --> I[Remove Repeats + Improve Diversity]
+    I --> J[Attach Explanations]
+    J --> K[Return Ranked Restaurants]
+```
+
+### Signal Meaning
+
+Content signal:
+
+Does this restaurant match the user's own diary-based preferences?
+
+Examples:
+
+- preferred category,
+- similar restaurant type,
+- similar to restaurants the user rated highly.
+
+Collaborative signal:
+
+Do similar users seem to like this restaurant or category?
+
+Examples:
+
+- users with similar taste liked this restaurant,
+- users with similar bookmarks visited this kind of place.
+
+If there is not enough cross-user data, this signal can be low-confidence.
+
+Context signal:
+
+Does this recommendation make sense right now?
+
+Examples:
+
+- nearby,
+- matches current filters,
+- not shown too many times recently,
+- fits current time or situation if available.
+
+## 5. Embeddings
+
+Embeddings are internal support for recommendations.
+
+They are not a separate product feature.
+
+Use embeddings only if they help compare:
+
+- user taste profile to restaurants,
+- diary entries to restaurants,
+- similar restaurants to each other.
+
+Possible vectors:
+
+- diary vector,
+- restaurant vector,
+- user taste vector.
+
+For v1, text-based embeddings are enough.
+
+Do not make food image understanding required for v1.
+
+## 6. Data Boundary With Backend
+
+The backend should provide:
+
+- diary data for a user,
+- restaurant data,
+- bookmark data if available,
+- exposure history if available,
+- storage for generated reports,
+- storage for recommendation-related artifacts if needed.
+
+The algorithm layer should provide:
+
+- function or service for generating a taste analysis report,
+- function or service for generating restaurant recommendations,
+- clear output schema,
+- logs for debugging.
+
+The algorithm layer should not handle:
+
+- login,
+- permissions,
+- file upload,
+- image storage,
+- map integration,
+- frontend rendering.
+
+## 7. Minimum V1
+
+Taste analysis v1:
+
+- total entries,
+- average rating,
+- top categories,
+- category preference scores,
+- time-of-day pattern,
+- taste profile label,
+- short explanation.
+
+Recommendation v1:
+
+- candidate restaurants near the user,
+- ranking based on category preference and distance,
+- simple collaborative boost when available,
+- repeated-recommendation filtering,
+- explanation text.
+
+Embeddings v1:
+
+- optional but useful,
+- start with restaurant/category/comment text,
+- store model version if used.
+
+## 8. Success Criteria
+
+Taste analysis is successful when:
+
+- it produces a report from diary entries,
+- it returns insufficient-data status for too few entries,
+- chart values are easy for frontend to display,
+- results are stable and explainable.
+
+Recommendation is successful when:
+
+- it returns ranked restaurants,
+- it includes explanations,
+- it avoids obvious duplicates,
+- it hides raw scores,
+- it responds fast enough for the backend endpoint.
+
+## 9. Suggested Build Order
+
+1. Define input/output schemas with backend teammate.
+2. Build taste analysis statistics.
+3. Build taste profile label logic.
+4. Build recommendation candidate input format.
+5. Build simple content/context ranking.
+6. Add collaborative signal as a small boost.
+7. Add explanations.
+8. Add repeated-exposure filtering.
+9. Add embeddings if needed.
+10. Add tests and sample evaluation data.
+
+## 10. Risks
+
+Collaborative filtering may be weak if there are few users.
+
+Restaurant metadata may be sparse.
+
+Food image understanding may be too hard for v1.
+
+Explanations may be misleading if they are not tied to real signals.
+
+Recommendation quality will depend heavily on diary data quality.
+
+The simplest good v1 is:
+
+- statistics for taste analysis,
+- simple hybrid ranking for recommendations,
+- embeddings only as support,
+- no image model dependency.
