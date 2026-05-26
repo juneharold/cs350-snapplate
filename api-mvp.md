@@ -229,8 +229,16 @@ Personalized recommendations. Populates "For your taste" on the home screen.
       "category": "Bakery",
       "signature_dish": "Fried streusel bun",
       "rating": 4.8,
+      "rating_count": 2341,
       "distance_m": 1200,
       "thumbnail_url": "https://...",
+      "thumbnail_tone": "cream",
+      "thumbnail_label": "streusel bun",
+      "tags": ["local favorite"],
+      "lat": 36.3275,
+      "lng": 127.4275,
+      "kakao_id": "26338954",
+      "neighborhood": "Daejong-ro",
       "reason": "You loved Acorn Cafe — both lean buttery, golden-crust",
       "is_bookmarked": false
     }
@@ -651,12 +659,11 @@ The "Your gastronomic profile" screen.
     "avg_rating_delta_month": 0.2,
     "places_count": 28,
     "new_places_month": 12,
-    "avg_spend_krw": 14000,
     "top_day_of_week": "Tuesday"
   },
   "categories": [
-    { "name": "Noodles", "weight": 0.92, "visits": 18 },
-    { "name": "Cafe",    "weight": 0.78, "visits": 14 }
+    { "name": "Noodles", "weight": 0.92, "visits": 18, "tone": "bone" },
+    { "name": "Cafe",    "weight": 0.78, "visits": 14, "tone": "char" }
   ],
   "time_heatmap": {
     "rows": ["8 AM", "12 PM", "3 PM", "7 PM", "10 PM"],
@@ -668,7 +675,7 @@ The "Your gastronomic profile" screen.
     "sour":   0.92, "spicy":  0.70, "bitter": 0.55
   },
   "top_dishes": [
-    { "name": "Clam noodle soup", "rating": 4.8, "visits": 5, "photo_url": "..." }
+    { "name": "Clam noodle soup", "rating": 4.8, "visits": 5, "tone": "bone" }
   ],
   "insights": [
     "You peak around Fri & Sat dinner, but your highest-rated entries are weekday lunches."
