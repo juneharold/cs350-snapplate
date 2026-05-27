@@ -3,8 +3,8 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from snapplate_algorithm import generate_recommendations, generate_taste_report
-from snapplate_algorithm.schemas import (
+from algorithm import generate_recommendations, generate_taste_report
+from algorithm.schemas import (
     DiaryEntryInput,
     EntryProfileArtifact,
     RecommendationContext,

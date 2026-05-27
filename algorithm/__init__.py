@@ -1,5 +1,5 @@
-from snapplate_algorithm.contract import generate_recommendations, generate_taste_report
-from snapplate_algorithm.schemas import (
+from algorithm.contract import generate_recommendations, generate_taste_report
+from algorithm.schemas import (
     ALGORITHM_VERSION,
     DiaryEntryInput,
     EntryProfileArtifact,

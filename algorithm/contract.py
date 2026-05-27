@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 
-from snapplate_algorithm.schemas import (
+from algorithm.schemas import (
     DiaryEntryInput,
     FlavorLean,
     RecommendationContext,
