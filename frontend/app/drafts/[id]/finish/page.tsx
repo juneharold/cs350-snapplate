@@ -174,10 +174,11 @@ export default function FinishDraftPage({ params }: { params: Promise<{ id: stri
       >
         {/* Captured-a-while-ago banner shown only when reached from a draft */}
         <div
-          className="flex items-center gap-2 mb-4"
+          className="flex items-center gap-2 mb-3"
           style={{
-            background: "var(--color-olive-100)",
-            color: "var(--color-olive-900)",
+            background: "var(--color-bg-soft)",
+            border: "1px solid var(--color-border-soft)",
+            color: "var(--color-ink-2)",
             padding: "10px 12px",
             borderRadius: 12,
             fontSize: 12.5,
@@ -197,7 +198,7 @@ export default function FinishDraftPage({ params }: { params: Promise<{ id: stri
         </div>
 
         {/* Photo strip */}
-        <div className="flex gap-2 overflow-x-auto mb-6">
+        <div className="flex gap-2 overflow-x-auto mb-4">
           {draft.media.map((m) => (
             <div key={m.id} className="relative shrink-0">
               <FoodPlaceholder
@@ -229,7 +230,7 @@ export default function FinishDraftPage({ params }: { params: Promise<{ id: stri
         </div>
 
         {/* Note — REQUIRED */}
-        <section className="mb-6">
+        <section className="mb-4">
           <div className="flex justify-between items-baseline mb-2.5">
             <div
               style={{
@@ -270,7 +271,7 @@ export default function FinishDraftPage({ params }: { params: Promise<{ id: stri
         </section>
 
         {/* Rating — OPTIONAL */}
-        <section className="mb-6">
+        <section className="mb-4">
           <div className="flex justify-between items-baseline mb-2.5">
             <div
               style={{
@@ -311,7 +312,7 @@ export default function FinishDraftPage({ params }: { params: Promise<{ id: stri
         </section>
 
         {/* Restaurant */}
-        <section className="mb-6">
+        <section className="mb-4">
           <div
             className="mb-2.5"
             style={{
@@ -386,7 +387,7 @@ export default function FinishDraftPage({ params }: { params: Promise<{ id: stri
         </section>
 
         {/* When & where */}
-        <section className="mb-4">
+        <section className="mb-3">
           <div
             className="mb-2.5"
             style={{
@@ -471,7 +472,7 @@ export default function FinishDraftPage({ params }: { params: Promise<{ id: stri
       {/* Restaurant picker sheet */}
       {showPicker && (
         <div
-          className="absolute inset-0 z-30 flex flex-col"
+          className="fixed inset-0 z-[60] flex flex-col"
           style={{ background: "rgba(0,0,0,0.45)" }}
           onClick={() => setShowPicker(false)}
         >
@@ -487,7 +488,7 @@ export default function FinishDraftPage({ params }: { params: Promise<{ id: stri
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <div style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 500 }}>
                 Pick a restaurant
               </div>

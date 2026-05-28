@@ -63,18 +63,12 @@ export default function PermissionPage() {
     <>
       <div className="absolute left-7 right-7" style={{ top: 80 }}>
         <div
-          className="flex items-center justify-center mb-6"
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: 18,
-            background: "var(--color-olive-100)",
-            color: "var(--color-olive-700)",
-          }}
+          className="flex items-center mb-3"
+          style={{ color: "var(--color-olive-700)" }}
         >
-          <MapPin size={30} strokeWidth={1.4} />
+          <MapPin size={38} strokeWidth={1.4} />
         </div>
-        <h1 className="text-[28px] leading-[1.15] font-normal mb-3">
+        <h1 className="text-[28px] leading-[1.15] font-normal mb-2">
           Where are you{" "}
           <em style={{ color: "var(--color-olive-700)" }}>eating?</em>
         </h1>
@@ -86,21 +80,17 @@ export default function PermissionPage() {
           log. You can turn this off anytime in Settings.
         </p>
 
-        <div className="mt-7 flex flex-col gap-3.5">
+        <div className="mt-5 flex flex-col gap-3.5">
           {PERKS.map(([t, b]) => (
             <div key={t} className="flex gap-3">
               <span
                 className="flex items-center justify-center shrink-0"
                 style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 999,
-                  background: "var(--color-olive-100)",
                   color: "var(--color-olive-700)",
                   marginTop: 2,
                 }}
               >
-                <Check size={13} strokeWidth={2.4} />
+                <Check size={16} strokeWidth={2.4} />
               </span>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>{t}</div>

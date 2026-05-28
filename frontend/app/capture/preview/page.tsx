@@ -183,7 +183,7 @@ export default function CapturePreviewPage() {
           background: "rgba(0,0,0,0.55)",
           backdropFilter: "blur(14px)",
           WebkitBackdropFilter: "blur(14px)",
-          borderRadius: 14,
+          borderRadius: 10,
           padding: 14,
           color: "var(--color-cream)",
         }}
