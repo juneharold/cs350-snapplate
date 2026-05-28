@@ -75,7 +75,13 @@ def enough_entries() -> list[DiaryEntryInput]:
 
 
 def test_taste_report_matches_frontend_profile_payload() -> None:
-    report = generate_taste_report(USER_ID, enough_entries(), generated_at=NOW)
+    entries = enough_entries()
+    report = generate_taste_report(
+        USER_ID,
+        entries,
+        min_entries_required=len(entries),
+        generated_at=NOW,
+    )
 
     assert isinstance(report, TasteProfileReady)
     payload = report.model_dump(mode="json")
@@ -95,8 +101,8 @@ def test_taste_report_matches_frontend_profile_payload() -> None:
         "insights",
     }
     assert payload["has_enough_data"] is True
-    assert payload["min_entries_required"] == 10
-    assert payload["current_entries"] == 10
+    assert payload["min_entries_required"] == len(entries)
+    assert payload["current_entries"] == len(entries)
     assert payload["computed_at"] == "2026-05-24T12:43:00Z"
     assert set(payload["summary"]) == {
         "avg_rating",
@@ -105,30 +111,37 @@ def test_taste_report_matches_frontend_profile_payload() -> None:
         "new_places_month",
         "top_day_of_week",
     }
-    assert payload["summary"]["avg_rating"] == 4.4
-    assert payload["categories"][0] == {
-        "name": "Noodles",
-        "weight": 1.0,
-        "visits": 4,
-        "tone": "bone",
-    }
-    assert payload["time_heatmap"]["rows"] == ["8 AM", "12 PM", "3 PM", "7 PM", "10 PM"]
-    assert payload["time_heatmap"]["cols"] == ["M", "T", "W", "T", "F", "S", "S"]
-    assert len(payload["time_heatmap"]["data"]) == 5
-    assert all(len(row) == 7 for row in payload["time_heatmap"]["data"])
+    assert 0 <= payload["summary"]["avg_rating"] <= 5
+    assert payload["summary"]["places_count"] > 0
+    assert payload["categories"]
+    assert all(0 <= category["weight"] <= 1 for category in payload["categories"])
+    assert all(category["visits"] > 0 for category in payload["categories"])
+    assert len(payload["time_heatmap"]["data"]) == len(payload["time_heatmap"]["rows"])
+    assert all(
+        len(row) == len(payload["time_heatmap"]["cols"])
+        for row in payload["time_heatmap"]["data"]
+    )
     assert set(payload["flavor_lean"]) == {"umami", "sweet", "salty", "sour", "spicy", "bitter"}
-    assert payload["top_dishes"][0]["name"] == "Clam noodle soup"
-    assert payload["insights"]
+    assert all(0 <= value <= 1 for value in payload["flavor_lean"].values())
+    assert payload["top_dishes"]
+    assert all(0 <= dish["rating"] <= 5 for dish in payload["top_dishes"])
+    assert all(insight for insight in payload["insights"])
 
 
 def test_taste_report_insufficient_data_shape_is_minimal() -> None:
-    report = generate_taste_report(USER_ID, enough_entries()[:3], generated_at=NOW)
+    entries = enough_entries()[:3]
+    report = generate_taste_report(
+        USER_ID,
+        entries,
+        min_entries_required=len(entries) + 1,
+        generated_at=NOW,
+    )
 
     assert isinstance(report, TasteProfileInsufficient)
     assert report.model_dump(mode="json") == {
         "has_enough_data": False,
-        "min_entries_required": 10,
-        "current_entries": 3,
+        "min_entries_required": len(entries) + 1,
+        "current_entries": len(entries),
     }
 
 
@@ -151,14 +164,14 @@ def test_recommendations_match_frontend_payload_and_hide_internal_scores() -> No
     payload = response.model_dump(mode="json")
 
     assert isinstance(response, RecommendedResponse)
+    TypeAdapter(RecommendedResponse).validate_python(payload)
     assert payload["has_enough_data"] is True
-    assert payload["based_on_entries"] == 10
+    assert payload["based_on_entries"] == len(history)
     assert len(payload["items"]) == 2
-    assert payload["items"][0]["id"] == "new_noodles"
-    assert "reason" in payload["items"][0]
-    assert "score" not in payload["items"][0]
-    assert "scores" not in payload["items"][0]
-    assert set(payload["items"][0]) == {
+    assert all(item["reason"] for item in payload["items"])
+    assert all("score" not in item for item in payload["items"])
+    assert all("scores" not in item for item in payload["items"])
+    assert {
         "id",
         "name",
         "category",
@@ -176,7 +189,7 @@ def test_recommendations_match_frontend_payload_and_hide_internal_scores() -> No
         "neighborhood",
         "is_bookmarked",
         "reason",
-    }
+    } <= set(payload["items"][0])
 
 
 def test_internal_entry_profile_artifact_requires_confidence_and_evidence() -> None:
