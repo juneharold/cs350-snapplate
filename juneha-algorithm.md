@@ -494,14 +494,14 @@ The algorithm layer should not handle:
 
 ### Pinned Backend Contract
 
-The shared Python contract lives in `snapplate_algorithm`.
+The shared Python contract lives in `algorithm`.
 
 Public functions:
 
 - `generate_taste_report(user_id, diary_entries) -> TasteProfileResponse`
 - `generate_recommendations(user_id, context) -> RecommendedResponse`
 
-Shared Pydantic schemas live in `snapplate_algorithm.schemas`. The client-facing response
+Shared Pydantic schemas live in `algorithm.schemas`. The client-facing response
 models intentionally match the current frontend payloads for `GET /taste/profile` and
 `GET /restaurants/recommended`; internal artifacts carry `algorithm_version`, confidence,
 evidence, and scoring fields that are stored by the backend but not returned to users.
