@@ -30,7 +30,7 @@ export default function ProfilePage() {
   return (
     <div className="pb-12">
       <header
-        className="flex justify-between items-start px-6"
+        className="flex justify-between items-start px-4"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 36px)" }}
       >
         <div
@@ -48,7 +48,7 @@ export default function ProfilePage() {
         </Link>
       </header>
 
-      <div className="flex gap-4 items-center px-6 mt-4">
+      <div className="flex gap-4 items-center px-4 mt-4">
         <div className="avatar" style={{ width: 80, height: 80, fontSize: 32 }}>
           {(nickname ?? "?").charAt(0).toUpperCase()}
         </div>
@@ -72,9 +72,7 @@ export default function ProfilePage() {
                 style={{
                   height: 24,
                   fontSize: 11.5,
-                  background: "var(--color-olive-100)",
-                  color: "var(--color-olive-900)",
-                  border: "none",
+                  color: "var(--color-olive-700)",
                   gap: 4,
                 }}
               >
@@ -86,7 +84,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div className="px-6 mt-5">
+      <div className="px-4 mt-3">
         <div
           className="card flex items-stretch"
           style={{ padding: "14px 0", background: "var(--color-surface-2)" }}
@@ -108,8 +106,8 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <section className="mt-6">
-        <div className="px-6 flex items-baseline justify-between mb-3">
+      <section className="mt-4">
+        <div className="px-4 flex items-baseline justify-between mb-2">
           <h2
             className="leading-tight"
             style={{ fontFamily: "var(--font-serif)", fontSize: 16, fontWeight: 500 }}
@@ -124,7 +122,7 @@ export default function ProfilePage() {
           </Link>
         </div>
         {recent.length === 0 ? (
-          <div className="px-6">
+          <div className="px-4">
             <Link
               href="/capture"
               className="card flex items-center gap-3"
@@ -132,15 +130,9 @@ export default function ProfilePage() {
             >
               <div
                 className="flex items-center justify-center shrink-0"
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
-                  background: "var(--color-olive-100)",
-                  color: "var(--color-olive-700)",
-                }}
+                style={{ color: "var(--color-olive-700)" }}
               >
-                <Camera size={20} />
+                <Camera size={22} />
               </div>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-ink)" }}>
@@ -155,7 +147,7 @@ export default function ProfilePage() {
         ) : (
           <div
             className="flex gap-2"
-            style={{ overflowX: "auto", padding: "0 22px 4px" }}
+            style={{ overflowX: "auto", padding: "0 16px 4px" }}
           >
             {recent.map((e) => (
               <Link
@@ -195,7 +187,7 @@ export default function ProfilePage() {
         )}
       </section>
 
-      <section className="px-6 mt-6">
+      <section className="px-4 mt-4">
         <Link
           href="/me/saved"
           className="card flex items-center gap-3.5"

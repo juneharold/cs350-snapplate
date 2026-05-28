@@ -20,7 +20,7 @@ export default function DiaryDetailPage({ params }: { params: Promise<{ id: stri
 
   if (isLoading || !entry) {
     return (
-      <div className="px-6 pt-16" style={{ color: "var(--color-muted)" }}>
+      <div className="px-4 pt-16" style={{ color: "var(--color-muted)" }}>
         Loading…
       </div>
     );
@@ -84,7 +84,7 @@ export default function DiaryDetailPage({ params }: { params: Promise<{ id: stri
         )}
       </div>
 
-      <div className="px-6 pt-5">
+      <div className="px-4 pt-5">
         <div
           style={{
             fontSize: 12,
@@ -146,7 +146,7 @@ export default function DiaryDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
-      <div className="px-6 pt-3">
+      <div className="px-4 pt-3">
         <p
           style={{
             fontFamily: "var(--font-serif)",
@@ -160,7 +160,7 @@ export default function DiaryDetailPage({ params }: { params: Promise<{ id: stri
         </p>
       </div>
 
-      <div className="px-6 pt-5">
+      <div className="px-4 pt-5">
         <h2
           className="leading-tight mb-2"
           style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 500 }}
@@ -171,15 +171,9 @@ export default function DiaryDetailPage({ params }: { params: Promise<{ id: stri
           <div className="flex items-center gap-3 min-w-0">
             <div
               className="flex items-center justify-center shrink-0"
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: "var(--color-olive-100)",
-                color: "var(--color-olive-700)",
-              }}
+              style={{ color: "var(--color-olive-700)" }}
             >
-              <MapPin size={18} />
+              <MapPin size={20} />
             </div>
             <div className="min-w-0">
               <div
