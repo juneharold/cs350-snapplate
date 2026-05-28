@@ -72,7 +72,7 @@ function OnboardArt1() {
           borderRadius: "50%",
           background: "var(--color-olive-700)",
           color: "var(--color-cream)",
-          boxShadow: "0 6px 16px rgba(63,74,44,0.32)",
+          boxShadow: "0 6px 16px rgba(15,118,110,0.30)",
           zIndex: 10,
           transform: "rotate(8deg)",
         }}
@@ -282,7 +282,7 @@ export default function OnboardingPage() {
   const slide = SLIDES[displayIdx] ?? SLIDES[0]!;
   const renderMessage = (messageSlide: Slide) => (
     <>
-      <h1 className="leading-tight mb-3 font-normal" style={{ fontSize: 30 }}>
+      <h1 className="leading-tight mb-2 font-normal" style={{ fontSize: 30 }}>
         {messageSlide.title}
       </h1>
       <p className="leading-relaxed" style={{ fontSize: 15, color: "var(--color-muted)" }}>
@@ -321,7 +321,7 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        <div className="flex gap-1.5 justify-center mb-6">
+        <div className="flex gap-1.5 justify-center mb-4">
           {SLIDES.map((_, i) => (
             <span
               key={i}
@@ -339,7 +339,7 @@ export default function OnboardingPage() {
           ))}
         </div>
 
-        <div className="mb-7">
+        <div className="mb-5">
           {renderMessage(slide)}
         </div>
 
