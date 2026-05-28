@@ -40,7 +40,16 @@ export const useAuth = create<AuthState>()(
       setHasSeenOnboarding: (hasSeenOnboarding) => set({ hasSeenOnboarding }),
       setLocationGranted: (locationGranted) => set({ locationGranted }),
       setCurrentLocation: (currentLocation) => set({ currentLocation }),
-      logout: () => set({ ...initialState }),
+      // Clear the account session only. Location grant + last known
+      // location are device-level (tied to the browser, not the account),
+      // so we keep them — otherwise re-login loses an already-granted
+      // permission and the home screen falsely asks for location again.
+      logout: () =>
+        set((s) => ({
+          ...initialState,
+          locationGranted: s.locationGranted,
+          currentLocation: s.currentLocation,
+        })),
     }),
     {
       name: "snapplate.auth",

@@ -83,7 +83,7 @@ export default function CapturePage() {
 
       {/* Big copy block */}
       <div className="absolute left-0 right-0 px-7" style={{ top: 110, color: "var(--color-cream)" }}>
-        <h1 className="leading-tight font-normal mb-3" style={{ fontSize: 30 }}>
+        <h1 className="leading-tight font-normal mb-2" style={{ fontSize: 30 }}>
           What did you{" "}
           <em style={{ color: "#F4E37A", fontStyle: "italic" }}>just eat?</em>
         </h1>

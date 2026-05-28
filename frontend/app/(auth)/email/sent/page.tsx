@@ -65,18 +65,12 @@ export default function EmailSentPage() {
 
       <div className="absolute left-7 right-7" style={{ top: 130 }}>
         <div
-          className="flex items-center justify-center mb-6"
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: 18,
-            background: "var(--color-olive-100)",
-            color: "var(--color-olive-700)",
-          }}
+          className="flex items-center mb-3"
+          style={{ color: "var(--color-olive-700)" }}
         >
-          <Send size={28} strokeWidth={1.4} />
+          <Send size={36} strokeWidth={1.4} />
         </div>
-        <h1 className="text-[28px] leading-[1.15] font-normal mb-3">
+        <h1 className="text-[28px] leading-[1.15] font-normal mb-2">
           Check your <em style={{ color: "var(--color-olive-700)" }}>inbox.</em>
         </h1>
         <p
@@ -89,7 +83,7 @@ export default function EmailSentPage() {
         </p>
 
         <div
-          className="card mt-5 flex items-start gap-3 p-3.5"
+          className="card mt-3 flex items-start gap-3 p-3.5"
         >
           <div
             className="flex items-center justify-center shrink-0"
@@ -129,14 +123,14 @@ export default function EmailSentPage() {
         </div>
 
         <div
-          className="mt-5 leading-relaxed"
+          className="mt-3 leading-relaxed"
           style={{ fontSize: 12.5, color: "var(--color-muted)" }}
         >
           MVP shortcut: we don&apos;t actually send email yet. Hit the button
           below to simulate tapping the link.
         </div>
         {error && (
-          <div className="mt-3" style={{ fontSize: 13, color: "var(--color-danger)" }}>
+          <div className="mt-2" style={{ fontSize: 13, color: "var(--color-danger)" }}>
             {error}
           </div>
         )}

@@ -104,7 +104,7 @@ export function CategoryChips({
   return (
     <div
       className="chip-row flex items-center gap-2"
-      style={{ overflowX: "auto", padding: "0 22px 6px" }}
+      style={{ overflowX: "auto", padding: "0 16px 6px" }}
     >
       <Chip
         active={active === null}

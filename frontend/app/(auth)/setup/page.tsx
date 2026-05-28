@@ -106,7 +106,7 @@ export default function SetupPage() {
           This is how your diary will greet you. You can change it later.
         </p>
 
-        <div className="flex justify-center mt-7 mb-5">
+        <div className="flex justify-center mt-5 mb-3">
           <div className="relative">
             <div
               className="avatar"
@@ -182,20 +182,14 @@ export default function SetupPage() {
         </div>
 
         <div
-          className="mt-5 flex items-center gap-3 p-3"
+          className="mt-3 flex items-center gap-3 p-3"
           style={{ background: "var(--color-bg-soft)", borderRadius: 12 }}
         >
           <span
             className="flex items-center justify-center shrink-0"
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              background: "var(--color-olive-100)",
-              color: "var(--color-olive-700)",
-            }}
+            style={{ color: "var(--color-olive-700)" }}
           >
-            <Send size={14} />
+            <Send size={16} />
           </span>
           <div className="flex-1 min-w-0">
             <div className="truncate" style={{ fontSize: 12.5, fontWeight: 500 }}>

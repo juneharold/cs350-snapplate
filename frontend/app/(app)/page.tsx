@@ -59,6 +59,7 @@ export default function ExploreHome() {
   const location = useAuth((s) => s.currentLocation);
   const locationGranted = useAuth((s) => s.locationGranted);
   const setCurrentLocation = useAuth((s) => s.setCurrentLocation);
+  const setLocationGranted = useAuth((s) => s.setLocationGranted);
   const { data: me } = useMe();
   const nickname = me?.nickname ?? localUser?.nickname ?? "friend";
   const { data: drafts } = useDrafts();
@@ -124,19 +125,38 @@ export default function ExploreHome() {
 
   useEffect(() => {
     if (didRequestLocation.current) return;
-    if (!locationGranted) return;
+    if (locationGranted === false) return; // explicitly denied — respect it
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
-    didRequestLocation.current = true;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCurrentLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      },
-      () => {
-        setCurrentLocation(FALLBACK_LOCATION);
-      },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
-    );
-  }, [location, locationGranted, setCurrentLocation]);
+
+    const request = () => {
+      if (didRequestLocation.current) return;
+      didRequestLocation.current = true;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLocationGranted(true);
+          setCurrentLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        () => {
+          setCurrentLocation(FALLBACK_LOCATION);
+        },
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
+      );
+    };
+
+    if (locationGranted === true) {
+      request();
+      return;
+    }
+
+    // Flag is null (never asked in-app, e.g. after a logout/login cycle).
+    // Honor an existing browser-level grant without forcing a prompt.
+    navigator.permissions
+      ?.query({ name: "geolocation" as PermissionName })
+      .then((status) => {
+        if (status.state === "granted") request();
+      })
+      .catch(() => {});
+  }, [locationGranted, setCurrentLocation, setLocationGranted]);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 3_600_000);
@@ -146,10 +166,16 @@ export default function ExploreHome() {
   const timeLabel = getTimeBucket(now);
   const timeLetters = useMemo(() => buildTypingDelays(timeLabel), [timeLabel]);
 
+  // No reverse-geocoding backend, so surface the neighborhood of the
+  // closest nearby restaurant as the user's area (falls back to a
+  // recommended one) instead of a hardcoded placeholder.
+  const areaLabel =
+    nearbyItems[0]?.neighborhood ?? recommendedItems[0]?.neighborhood ?? null;
+
   return (
     <div className="pb-12">
       <header
-        className="px-6"
+        className="px-4"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 36px)" }}
       >
         <div className="flex items-center justify-between gap-3">
@@ -164,10 +190,8 @@ export default function ExploreHome() {
               }}
             >
               <MapPin size={11} strokeWidth={2} />
-              {location ? (
-                <>
-                  Eoeun-dong ·{" "}
-                  <span key={timeLabel} className="time-label">
+              {areaLabel ? `${areaLabel} · ` : ""}
+              <span key={timeLabel} className="time-label">
                     {timeLetters.map(({ char, delay }, index) => (
                       <span
                         key={`${char}-${index}`}
@@ -177,11 +201,7 @@ export default function ExploreHome() {
                         {char === " " ? "\u00A0" : char}
                       </span>
                     ))}
-                  </span>
-                </>
-              ) : (
-                "Daejeon"
-              )}
+              </span>
             </div>
             <h1
               className="leading-tight font-normal mt-1.5"
@@ -218,7 +238,7 @@ export default function ExploreHome() {
       {draftItems.length > 0 ? <DraftDock drafts={draftItems} /> : <EmptyDock />}
 
       {/* Search */}
-      <section className="px-6 mt-6">
+      <section className="px-4 mt-4">
         <Link
           href="/search"
           className="input input-search flex items-center gap-2"
@@ -230,7 +250,7 @@ export default function ExploreHome() {
       </section>
 
       {/* Category filter — sits right under search and drives Nearby */}
-      <div className="mt-3">
+      <div className="mt-2">
         <CategoryChips
           seedCategories={seedCategories}
           active={activeCategory}
@@ -245,8 +265,8 @@ export default function ExploreHome() {
         )}
 
       {/* Nearby — filtered by the active category chip */}
-      <section className="px-6 mt-5">
-        <div className="flex items-baseline justify-between mb-3">
+      <section className="px-4 mt-3">
+        <div className="flex items-baseline justify-between mb-2">
           <h2
             className="leading-tight"
             style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 500 }}
@@ -267,12 +287,13 @@ export default function ExploreHome() {
             </button>
           )}
         </div>
-        <div className="flex flex-col gap-2.5">
+        {filteredNearby.length > 0 ? (
+          <div className="list-group">
           {filteredNearby.slice(0, 8).map((r) => (
             <Link
               key={r.id}
               href={`/restaurants/${r.id}`}
-              className="card flex gap-3 p-3 items-center"
+              className="flex gap-3 p-3 items-center"
             >
               <FoodPlaceholder
                 tone={r.thumbnail_tone}
@@ -325,21 +346,21 @@ export default function ExploreHome() {
               </div>
             </Link>
           ))}
-          {filteredNearby.length === 0 && (
-            <div
-              className="card p-4 text-center"
-              style={{ color: "var(--color-muted)", fontSize: 13 }}
-            >
-              {activeCategory
-                ? `No nearby spots match “${activeCategory}”.`
-                : location
-                  ? "Nothing nearby in the seed set yet."
-                  : locationGranted
-                    ? "Finding your location…"
-                    : "Grant location to see nearby restaurants."}
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div
+            className="card p-4 text-center"
+            style={{ color: "var(--color-muted)", fontSize: 13 }}
+          >
+            {activeCategory
+              ? `No nearby spots match “${activeCategory}”.`
+              : location
+                ? "Nothing nearby in the seed set yet."
+                : locationGranted
+                  ? "Finding your location…"
+                  : "Grant location to see nearby restaurants."}
+          </div>
+        )}
       </section>
     </div>
   );
@@ -347,7 +368,7 @@ export default function ExploreHome() {
 
 function EmptyDock() {
   return (
-    <section className="mt-5 px-6">
+    <section className="mt-3 px-4">
       <div
         className="card relative"
         style={{
@@ -358,16 +379,10 @@ function EmptyDock() {
       >
         <div className="flex items-center gap-3">
           <div
-            className="flex items-center justify-center"
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: "var(--color-olive-100)",
-              color: "var(--color-olive-700)",
-            }}
+            className="flex items-center justify-center shrink-0"
+            style={{ color: "var(--color-olive-700)" }}
           >
-            <Camera size={22} strokeWidth={1.6} />
+            <Camera size={24} strokeWidth={1.6} />
           </div>
           <div className="flex-1">
             <div

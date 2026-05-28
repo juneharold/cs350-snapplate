@@ -67,10 +67,11 @@ export default function DraftsInboxPage() {
           className="flex gap-2.5 items-start"
           style={{
             padding: 12,
-            background: "var(--color-olive-100)",
+            background: "var(--color-bg-soft)",
+            border: "1px solid var(--color-border-soft)",
             borderRadius: 12,
             fontSize: 12,
-            color: "var(--color-olive-900)",
+            color: "var(--color-ink-2)",
             lineHeight: 1.5,
           }}
         >
@@ -148,7 +149,7 @@ function EmptyState() {
         Snap a meal to start a draft &mdash; we&apos;ll save the time and place
         for you.
       </p>
-      <Link href="/capture" className="btn mt-5 inline-flex">
+      <Link href="/capture" className="btn mt-3 inline-flex">
         Capture a meal
       </Link>
     </div>

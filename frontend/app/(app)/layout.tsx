@@ -16,8 +16,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <AuthGate>
       <Screen>
         <main
-          className="absolute inset-x-0 top-0 overflow-y-auto"
-          style={{ bottom: "calc(74px + env(safe-area-inset-bottom, 0px))" }}
+          className="absolute inset-0 overflow-y-auto"
+          style={{ paddingBottom: "calc(74px + env(safe-area-inset-bottom, 0px))" }}
         >
           {children}
         </main>
