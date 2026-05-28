@@ -5,8 +5,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from algorithm.version import ALGORITHM_VERSION
 
-ALGORITHM_VERSION = "snapplate-v1"
 
 Score = Annotated[float, Field(ge=0.0, le=1.0)]
 Rating = Annotated[float, Field(ge=0.0, le=5.0)]

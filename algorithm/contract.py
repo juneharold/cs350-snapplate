@@ -5,6 +5,14 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 
+from algorithm.config import (
+    DAY_NAMES,
+    HEATMAP_COLS,
+    HEATMAP_ROWS,
+    MIN_ENTRIES_FOR_PERSONALIZATION,
+    RECOMMENDATION_LIMIT,
+    RECOMMENDATION_SCORE_WEIGHTS,
+)
 from algorithm.schemas import (
     DiaryEntryInput,
     FlavorLean,
@@ -21,12 +29,6 @@ from algorithm.schemas import (
     TimeHeatmap,
     TopDish,
 )
-
-
-MIN_ENTRIES_FOR_PERSONALIZATION = 10
-HEATMAP_ROWS = ["8 AM", "12 PM", "3 PM", "7 PM", "10 PM"]
-HEATMAP_COLS = ["M", "T", "W", "T", "F", "S", "S"]
-DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 
 @dataclass(frozen=True)
@@ -80,7 +82,7 @@ def generate_recommendations(
     user_id: str,
     context: RecommendationContext,
     *,
-    limit: int = MIN_ENTRIES_FOR_PERSONALIZATION,
+    limit: int = RECOMMENDATION_LIMIT,
     min_entries_required: int = MIN_ENTRIES_FOR_PERSONALIZATION,
 ) -> RecommendedResponse:
     entries = _entries_for_user(user_id, context.diary_entries)
@@ -294,11 +296,11 @@ def _recommendation_score(
     quality_score = candidate.rating / 5.0
     novelty_score = 0.2 if candidate.id in exposure_history else 1.0
     final_score = (
-        0.45 * content_score
-        + 0.25 * collaborative_score
-        + 0.15 * context_score
-        + 0.10 * quality_score
-        + 0.05 * novelty_score
+        RECOMMENDATION_SCORE_WEIGHTS["content"] * content_score
+        + RECOMMENDATION_SCORE_WEIGHTS["collaborative"] * collaborative_score
+        + RECOMMENDATION_SCORE_WEIGHTS["context"] * context_score
+        + RECOMMENDATION_SCORE_WEIGHTS["quality"] * quality_score
+        + RECOMMENDATION_SCORE_WEIGHTS["novelty"] * novelty_score
     )
     return round(final_score, 6)
 
