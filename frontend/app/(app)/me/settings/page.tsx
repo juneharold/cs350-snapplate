@@ -112,23 +112,27 @@ export default function SettingsPage() {
         <Row Icon={Sparkles} label="What's new" value="v0.1.0" last />
       </Group>
 
-      <SectionLabel>DANGER ZONE</SectionLabel>
-      <Group>
-        <Row
-          label="Log out"
-          danger
+      <div className="flex gap-2 mt-6 px-4">
+        <button
+          type="button"
+          className="btn btn-secondary"
+          style={{ flex: 1 }}
           onClick={() => setConfirming("logout")}
-        />
-        <Row
-          label="Delete account"
-          danger
+        >
+          Log out
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          style={{ flex: 1, color: "var(--color-danger)" }}
           onClick={() => setConfirming("delete")}
-          last
-        />
-      </Group>
+        >
+          Delete account
+        </button>
+      </div>
 
       <div
-        className="text-center mt-6 px-6"
+        className="text-center mt-4 px-4"
         style={{
           fontSize: 11,
           fontFamily: "var(--font-mono)",
@@ -187,13 +191,13 @@ export default function SettingsPage() {
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="px-6"
+      className="px-4"
       style={{
         fontSize: 11,
         fontFamily: "var(--font-mono)",
         color: "var(--color-muted)",
         letterSpacing: "0.08em",
-        margin: "20px 0 8px",
+        margin: "14px 0 6px",
       }}
     >
       {children}
@@ -204,11 +208,11 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function Group({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="mx-6"
+      className="mx-4"
       style={{
         background: "var(--color-surface-2)",
         border: "1px solid var(--color-border-soft)",
-        borderRadius: 14,
+        borderRadius: 10,
         overflow: "hidden",
       }}
     >
@@ -246,7 +250,6 @@ function Row({
       className="flex items-center gap-3.5 w-full text-left"
       style={{
         padding: "13px 16px",
-        borderTop: !last && "1px solid var(--color-border-soft)" || "none",
         color: danger ? "var(--color-danger)" : "var(--color-ink)",
         background: "transparent",
       }}
@@ -294,8 +297,7 @@ function Toggle({ on }: { on: boolean }) {
           width: 18,
           height: 18,
           borderRadius: 999,
-          background: "var(--color-cream)",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+          background: "var(--color-surface-2)",
           transition: "left 0.18s",
         }}
       />
@@ -324,33 +326,35 @@ function ConfirmSheet({
   const blocked = requireText ? text !== requireText : false;
   return (
     <div
-      className="absolute inset-0 z-30 flex flex-col"
-      style={{ background: "rgba(31,31,25,0.5)" }}
+      className="fixed inset-0 z-[60] flex items-center justify-center"
+      style={{
+        background: "rgba(18,18,20,0.45)",
+        backdropFilter: "blur(3px)",
+        WebkitBackdropFilter: "blur(3px)",
+        padding: 24,
+        animation: "snapplate-dialog-fade 0.18s ease both",
+      }}
       onClick={onCancel}
     >
-      <div className="flex-1" />
       <div
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "var(--color-surface)",
-          borderRadius: "24px 24px 0 0",
-          padding: "20px 22px 32px",
+          width: "100%",
+          maxWidth: 320,
+          background: "var(--color-surface-2)",
+          borderRadius: 16,
+          padding: 22,
+          boxShadow: "0 24px 60px -16px rgba(0,0,0,0.4)",
+          animation: "snapplate-dialog-in 0.2s cubic-bezier(0.2,0.9,0.3,1) both",
         }}
       >
-        <div
-          className="mx-auto mb-4"
-          style={{
-            width: 36,
-            height: 4,
-            background: "var(--color-border-strong)",
-            borderRadius: 2,
-          }}
-        />
         <h2
           style={{
             fontFamily: "var(--font-serif)",
-            fontSize: 20,
-            fontWeight: 500,
+            fontSize: 19,
+            fontWeight: 600,
           }}
         >
           {title}
@@ -367,9 +371,10 @@ function ConfirmSheet({
             onChange={(e) => setText(e.target.value)}
             className="input mt-3"
             placeholder={requireText}
+            autoFocus
           />
         )}
-        <div className="flex gap-2 mt-5">
+        <div className="flex gap-2 mt-4">
           <button
             type="button"
             onClick={onCancel}
