@@ -59,6 +59,22 @@ class DiaryEntryInput(ContractModel):
     restaurant: RestaurantInput
     rating: Rating | None = None
     note: str = ""
+    image_labels: list[str] = Field(default_factory=list)
+
+
+class SyntheticUser(ContractModel):
+    id: str
+    label: str
+    primary_categories: list[str]
+
+
+class SyntheticFixtureSet(ContractModel):
+    is_synthetic: Literal[True] = True
+    generated_at: datetime
+    users: list[SyntheticUser]
+    restaurants: list[RestaurantInput]
+    diary_entries: list[DiaryEntryInput]
+    exposure_history: dict[str, list[str]]
 
 
 class TasteType(ContractModel):
