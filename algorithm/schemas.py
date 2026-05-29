@@ -45,8 +45,8 @@ class RestaurantInput(ContractModel):
     thumbnail_tone: FoodTone
     thumbnail_label: str
     tags: list[str] = Field(default_factory=list)
-    lat: float
-    lng: float
+    lat: Annotated[float, Field(ge=-90, le=90)]
+    lng: Annotated[float, Field(ge=-180, le=180)]
     kakao_id: str
     neighborhood: str
     is_bookmarked: bool = False
