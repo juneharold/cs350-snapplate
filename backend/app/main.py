@@ -5,6 +5,8 @@ from app.config.auth_middleware import AuthMiddleware
 from app.config.http_errors import init_error_handlers
 from app.config.lifespan import lifespan
 from app.controllers.auth import api as auth_router
+from app.controllers.drafts import api as drafts_router
+from app.controllers.entries import api as entries_router
 from app.controllers.home import api as home_router
 from app.controllers.home import misc as misc_router
 from app.controllers.me import api as me_router
@@ -24,6 +26,8 @@ def init_routers(app: FastAPI) -> None:
     app.include_router(me_router, prefix=V1, tags=["Profile"])
     app.include_router(restaurants_router, prefix=V1, tags=["Restaurants"])
     app.include_router(media_router, prefix=V1, tags=["Media"])
+    app.include_router(drafts_router, prefix=V1, tags=["Drafts"])
+    app.include_router(entries_router, prefix=V1, tags=["Entries"])
     app.include_router(settings_router, prefix=V1, tags=["Settings"])
     app.include_router(misc_router, prefix=V1, tags=["Misc"])
 
