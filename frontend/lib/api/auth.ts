@@ -66,6 +66,30 @@ export function useUpdateMe() {
   });
 }
 
+export function useUploadAvatar() {
+  const qc = useQueryClient();
+  const setUser = useAuth((s) => s.setUser);
+  return useMutation({
+    mutationFn: (file: File) => {
+      const body = new FormData();
+      body.append("file", file);
+      return apiFetch<{ profile_image_url: string }>("/me/avatar", {
+        method: "POST",
+        body,
+      });
+    },
+    onSuccess: (data) => {
+      qc.setQueryData<MeResponse>(["me"], (prev) =>
+        prev ? { ...prev, profile_image_url: data.profile_image_url } : prev,
+      );
+      const currentUser = useAuth.getState().user;
+      if (currentUser) {
+        setUser({ ...currentUser, profile_image_url: data.profile_image_url });
+      }
+    },
+  });
+}
+
 export function useLogout() {
   const logout = useAuth((s) => s.logout);
   const qc = useQueryClient();
