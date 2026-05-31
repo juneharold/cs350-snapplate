@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Bell, BookOpen, Camera, ChevronLeft, ChevronRight, Compass, Image as ImageIcon, MapPin, Send, Sparkles, Sun, User } from "lucide-react";
+import { useState, useRef } from "react";
+import { Bell, BookOpen, Camera, ChevronLeft, ChevronRight, Compass, Image as ImageIcon, MapPin, Send, Sparkles, Sun, User, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/store/auth";
-import { useLogout, useMe } from "@/lib/api/auth";
+import { useLogout, useMe, useUploadAvatar } from "@/lib/api/auth";
 import { useSettings, useUpdateSettings } from "@/lib/api/settings";
 import type { SettingsResponse } from "@/lib/types";
 
@@ -19,6 +19,8 @@ export default function SettingsPage() {
   const { data: me } = useMe();
   const { data: settings } = useSettings();
   const update = useUpdateSettings();
+  const upload = useUploadAvatar();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const localUser = useAuth((s) => s.user);
   const logout = useLogout();
   const accessToken = useAuth((s) => s.accessToken);
@@ -38,8 +40,28 @@ export default function SettingsPage() {
     return v === "light" ? "Light" : v === "dark" ? "Dark" : "System";
   }
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        await upload.mutateAsync(file);
+      } catch (e) {
+        console.error("Avatar upload failed", e);
+      }
+    }
+  };
+
   return (
     <div className="pb-12">
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/*"
+        style={{ display: "none" }}
+      />
+
       <header
         className="px-4 flex items-center gap-2"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 24px)" }}
@@ -61,7 +83,13 @@ export default function SettingsPage() {
       <Group>
         <Row Icon={User} label="Nickname" value={nickname} />
         <Row Icon={Send} label="Email" value={email} last />
-        <Row Icon={ImageIcon} label="Profile photo" right="chev" last />
+        <Row
+          Icon={upload.isPending ? Loader2 : ImageIcon}
+          label={upload.isPending ? "Uploading..." : "Profile photo"}
+          right="chev"
+          onClick={() => fileInputRef.current?.click()}
+          last
+        />
       </Group>
 
       <SectionLabel>NOTIFICATIONS</SectionLabel>
