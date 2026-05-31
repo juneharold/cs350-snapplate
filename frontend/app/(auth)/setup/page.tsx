@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Camera, Send } from "lucide-react";
-import { useUpdateMe } from "@/lib/api/auth";
+import { Camera, Send, Loader2 } from "lucide-react";
+import { useUpdateMe, useUploadAvatar } from "@/lib/api/auth";
 import { useAuth } from "@/lib/store/auth";
 import { ApiException } from "@/lib/api/client";
 
@@ -21,14 +22,15 @@ type FormValues = z.infer<typeof schema>;
 /**
  * Profile setup — sets the user's nickname via PATCH /me. After save
  * we flip `hasSeenOnboarding` and drop them on the home screen.
- *
- * Avatar upload (POST /me/avatar) is intentionally deferred to a later
- * phase — for now the avatar shows the first letter of the nickname.
  */
 export default function SetupPage() {
   const router = useRouter();
   const update = useUpdateMe();
-  const email = useAuth((s) => s.user?.email ?? "");
+  const upload = useUploadAvatar();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const user = useAuth((s) => s.user);
+  const email = user?.email ?? "";
+  const profileImageUrl = user?.profile_image_url;
   const setHasSeenOnboarding = useAuth((s) => s.setHasSeenOnboarding);
 
   const {
@@ -46,6 +48,17 @@ export default function SetupPage() {
   const nickname = watch("nickname") ?? "";
   const firstLetter = (nickname.trim().charAt(0) || email.charAt(0) || "?").toUpperCase();
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        await upload.mutateAsync(file);
+      } catch (e) {
+        console.error("Avatar upload failed", e);
+      }
+    }
+  };
+
   const onSubmit = handleSubmit(async (values) => {
     try {
       await update.mutateAsync({ nickname: values.nickname.trim() });
@@ -61,15 +74,16 @@ export default function SetupPage() {
   });
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="flex flex-col h-full px-7"
-      style={{
-        paddingTop: 64,
-        paddingBottom: 56,
-        boxSizing: "border-box",
-      }}
-    >
+    <form onSubmit={onSubmit} className="contents">
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/*"
+        style={{ display: "none" }}
+      />
+
       {/* Progress dots — step 2 of 3 to match the prototype */}
       <div className="flex gap-1.5 justify-center" style={{ marginBottom: 40 }}>
         {[0, 1, 2].map((i) => (
@@ -116,12 +130,23 @@ export default function SetupPage() {
           <div className="relative">
             <div
               className="avatar"
-              style={{ width: 96, height: 96, fontSize: 38, lineHeight: 1 }}
+              style={{ width: 96, height: 96, fontSize: 38, lineHeight: 1, overflow: "hidden" }}
             >
-              <span className="avatar-letter">{firstLetter}</span>
+              {profileImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={profileImageUrl}
+                  alt="Avatar"
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              ) : (
+                <span className="avatar-letter">{firstLetter}</span>
+              )}
             </div>
             <button
               type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={upload.isPending}
               aria-label="Upload avatar"
               className="flex items-center justify-center"
               style={{
@@ -136,7 +161,11 @@ export default function SetupPage() {
                 border: "2px solid var(--color-surface)",
               }}
             >
-              <Camera size={14} />
+              {upload.isPending ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Camera size={14} />
+              )}
             </button>
           </div>
         </div>
