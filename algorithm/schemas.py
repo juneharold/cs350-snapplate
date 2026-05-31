@@ -119,6 +119,9 @@ class TopDish(ContractModel):
     tone: FoodTone
 
 
+RatingDistribution = dict[str, PositiveInt]
+
+
 class TasteProfileReady(ContractModel):
     has_enough_data: Literal[True]
     min_entries_required: PositiveInt
@@ -127,6 +130,7 @@ class TasteProfileReady(ContractModel):
     type: TasteType
     summary: TasteSummary
     categories: list[TasteCategory]
+    rating_distribution: RatingDistribution
     time_heatmap: TimeHeatmap
     flavor_lean: FlavorLean
     top_dishes: list[TopDish]
@@ -197,12 +201,35 @@ class EntryProfileArtifact(ContractModel):
         return self
 
 
+class KakaoRestaurantMetadata(ContractModel):
+    id: str
+    place_name: str | None = None
+    name: str | None = None
+    category_name: str | None = None
+    category: str | None = None
+    category_group_name: str | None = None
+    address_name: str | None = None
+    road_address_name: str | None = None
+    x: str | float | None = None
+    y: str | float | None = None
+    place_url: str | None = None
+    phone: str | None = None
+    distance: str | int | None = None
+    signature_dish: str | None = None
+    popular_dishes: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    rating: Rating | None = None
+    rating_count: PositiveInt | None = None
+
+
 class UserProfileArtifact(ContractModel):
     user_id: str
     generated_at: datetime
     source_entry_count: PositiveInt
     long_term_profile: dict[str, WeightedTerms] = Field(default_factory=dict)
     short_term_profile: dict[str, WeightedTerms] = Field(default_factory=dict)
+    confidence: dict[str, Score] = Field(default_factory=dict)
+    evidence: dict[str, list[str]] = Field(default_factory=dict)
     profile_text: str
     long_term_embedding: list[float] = Field(default_factory=list)
     short_term_embedding: list[float] = Field(default_factory=list)
@@ -214,6 +241,8 @@ class RestaurantProfileArtifact(ContractModel):
     restaurant_id: str
     generated_at: datetime
     profile: dict[str, WeightedTerms] = Field(default_factory=dict)
+    confidence: dict[str, Score] = Field(default_factory=dict)
+    evidence: dict[str, list[str]] = Field(default_factory=dict)
     profile_text: str
     embedding: list[float] = Field(default_factory=list)
     algorithm_version: str = ALGORITHM_VERSION

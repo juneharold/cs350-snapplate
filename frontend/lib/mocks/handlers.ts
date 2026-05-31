@@ -1052,6 +1052,13 @@ export const handlers = [
 
     // Summary stats.
     const ratings = entries.map((e) => e.rating).filter((r): r is number => r != null);
+    const ratingDistribution = Object.fromEntries(
+      Array.from({ length: 10 }, (_, i) => [((i + 1) / 2).toFixed(1), 0]),
+    ) as Record<string, number>;
+    for (const rating of ratings) {
+      const key = (Math.round(rating * 2) / 2).toFixed(1);
+      ratingDistribution[key] = (ratingDistribution[key] ?? 0) + 1;
+    }
     const avgRating = ratings.length
       ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
       : 0;
@@ -1084,6 +1091,7 @@ export const handlers = [
         top_day_of_week: topDay ?? "Tuesday",
       },
       categories,
+      rating_distribution: ratingDistribution,
       time_heatmap: {
         rows: [...rows],
         cols,

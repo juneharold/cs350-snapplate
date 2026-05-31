@@ -28,6 +28,12 @@ from algorithm.schemas import (
     TasteType,
     TimeHeatmap,
     TopDish,
+    UserProfileArtifact,
+)
+from algorithm.user_profiling import (
+    WeightedEntryProfile,
+    aggregate_user_profile,
+    build_weighted_entry_profiles,
 )
 
 
@@ -37,6 +43,7 @@ class CategoryStats:
     rating_sum: float = 0.0
     rating_count: int = 0
     tone: str = "bone"
+    weight_sum: float = 0.0
 
     @property
     def avg_rating(self) -> float:
@@ -59,7 +66,14 @@ def generate_taste_report(
         )
 
     computed_at = generated_at or datetime.now(timezone.utc)
-    category_stats = _category_stats(entries)
+    weighted_entries = build_weighted_entry_profiles(user_id, entries)
+    user_profile = aggregate_user_profile(
+        user_id,
+        entries,
+        generated_at=computed_at,
+        weighted_entries=weighted_entries,
+    )
+    category_stats = _weighted_category_stats(weighted_entries)
     categories = _taste_categories(category_stats)
     top_category = categories[0].name if categories else "Food"
 
@@ -68,13 +82,14 @@ def generate_taste_report(
         min_entries_required=min_entries_required,
         current_entries=len(entries),
         computed_at=computed_at,
-        type=_taste_type(top_category),
+        type=_taste_type(top_category, user_profile),
         summary=_taste_summary(entries, computed_at),
         categories=categories,
+        rating_distribution=_rating_distribution(entries),
         time_heatmap=_time_heatmap(entries),
-        flavor_lean=_flavor_lean(category_stats),
-        top_dishes=_top_dishes(entries),
-        insights=[_primary_insight(entries, top_category)],
+        flavor_lean=_flavor_lean(user_profile),
+        top_dishes=_top_dishes(weighted_entries),
+        insights=[_primary_insight(entries, top_category, user_profile)],
     )
 
 
@@ -141,16 +156,37 @@ def _category_stats(entries: Sequence[DiaryEntryInput]) -> dict[str, CategorySta
             rating_sum=current.rating_sum + (rating or 0.0),
             rating_count=current.rating_count + (1 if rating is not None else 0),
             tone=current.tone,
+            weight_sum=current.weight_sum + 1.0,
+        )
+    return stats
+
+
+def _weighted_category_stats(
+    weighted_entries: Sequence[WeightedEntryProfile],
+) -> dict[str, CategoryStats]:
+    stats: dict[str, CategoryStats] = {}
+    for item in weighted_entries:
+        entry = item.entry
+        category = entry.restaurant.category
+        current = stats.get(category, CategoryStats(tone=entry.restaurant.thumbnail_tone))
+        rating = entry.rating
+        rating_factor = (rating / 5.0) if rating is not None else 0.6
+        stats[category] = CategoryStats(
+            visits=current.visits + 1,
+            rating_sum=current.rating_sum + (rating or 0.0),
+            rating_count=current.rating_count + (1 if rating is not None else 0),
+            tone=current.tone,
+            weight_sum=current.weight_sum + item.weight * rating_factor,
         )
     return stats
 
 
 def _taste_categories(category_stats: dict[str, CategoryStats]) -> list[TasteCategory]:
-    max_visits = max((stats.visits for stats in category_stats.values()), default=1)
+    max_weight = max((stats.weight_sum for stats in category_stats.values()), default=1.0)
     categories = [
         TasteCategory(
             name=name,
-            weight=round(stats.visits / max_visits, 2),
+            weight=round(stats.weight_sum / max_weight, 2),
             visits=stats.visits,
             tone=stats.tone,
         )
@@ -159,7 +195,8 @@ def _taste_categories(category_stats: dict[str, CategoryStats]) -> list[TasteCat
     return sorted(categories, key=lambda category: (-category.weight, category.name))
 
 
-def _taste_type(top_category: str) -> TasteType:
+def _taste_type(top_category: str, user_profile: UserProfileArtifact) -> TasteType:
+    top_tastes = list(user_profile.long_term_profile.get("taste", {}))[:2]
     labels = {
         "Noodles": (
             "The Broth-Seeker",
@@ -181,6 +218,8 @@ def _taste_type(top_category: str) -> TasteType:
             f"Your diary leans toward {top_category.lower()}, with room for new favorites.",
         ),
     )
+    if top_tastes:
+        blurb = f"{blurb} Your clearest flavor signals are {', '.join(top_tastes)}."
     return TasteType(label=label, blurb=blurb)
 
 
@@ -216,6 +255,17 @@ def _time_heatmap(entries: Sequence[DiaryEntryInput]) -> TimeHeatmap:
     return TimeHeatmap(rows=HEATMAP_ROWS, cols=HEATMAP_COLS, data=data)
 
 
+def _rating_distribution(entries: Sequence[DiaryEntryInput]) -> dict[str, int]:
+    distribution = {f"{step / 2:.1f}": 0 for step in range(1, 11)}
+    for entry in entries:
+        if entry.rating is None:
+            continue
+        key = f"{round(entry.rating * 2) / 2:.1f}"
+        if key in distribution:
+            distribution[key] += 1
+    return distribution
+
+
 def _hour_bucket(hour: int) -> int:
     if hour < 11:
         return 0
@@ -228,54 +278,86 @@ def _hour_bucket(hour: int) -> int:
     return 4
 
 
-def _flavor_lean(category_stats: dict[str, CategoryStats]) -> FlavorLean:
-    weighted = sum(stats.visits * max(stats.avg_rating, 1.0) for stats in category_stats.values())
-    total_visits = sum(stats.visits for stats in category_stats.values()) or 1
-    base = min(1.0, weighted / (total_visits * 5.0))
+def _flavor_lean(user_profile: UserProfileArtifact) -> FlavorLean:
+    buckets = {
+        "umami": 0.0,
+        "sweet": 0.0,
+        "salty": 0.0,
+        "sour": 0.0,
+        "spicy": 0.0,
+        "bitter": 0.0,
+    }
+    for term, score in user_profile.long_term_profile.get("taste", {}).items():
+        if term in {"savory", "umami", "smoky"}:
+            buckets["umami"] += score
+        elif term in {"sweet", "buttery"}:
+            buckets["sweet"] += score
+        elif term in buckets:
+            buckets[term] += score
+
+    max_score = max(buckets.values()) or 1.0
     return FlavorLean(
-        umami=round(min(1.0, base + 0.18), 2),
-        sweet=round(min(1.0, base + 0.02), 2),
-        salty=round(min(1.0, base + 0.08), 2),
-        sour=round(max(0.0, base - 0.12), 2),
-        spicy=round(max(0.0, base - 0.04), 2),
-        bitter=round(max(0.0, base - 0.18), 2),
+        umami=round(buckets["umami"] / max_score, 2),
+        sweet=round(buckets["sweet"] / max_score, 2),
+        salty=round(buckets["salty"] / max_score, 2),
+        sour=round(buckets["sour"] / max_score, 2),
+        spicy=round(buckets["spicy"] / max_score, 2),
+        bitter=round(buckets["bitter"] / max_score, 2),
     )
 
 
-def _top_dishes(entries: Sequence[DiaryEntryInput]) -> list[TopDish]:
-    grouped: dict[str, tuple[int, float, int, str]] = {}
-    for entry in entries:
+def _top_dishes(weighted_entries: Sequence[WeightedEntryProfile]) -> list[TopDish]:
+    grouped: dict[str, tuple[int, float, int, str, float]] = {}
+    for item in weighted_entries:
+        entry = item.entry
         dish = entry.restaurant.signature_dish
         if not dish:
             continue
-        visits, rating_sum, rating_count, tone = grouped.get(
+        visits, rating_sum, rating_count, tone, weight_sum = grouped.get(
             dish,
-            (0, 0.0, 0, entry.restaurant.thumbnail_tone),
+            (0, 0.0, 0, entry.restaurant.thumbnail_tone, 0.0),
         )
+        rating_factor = (entry.rating / 5.0) if entry.rating is not None else 0.6
         grouped[dish] = (
             visits + 1,
             rating_sum + (entry.rating or 0.0),
             rating_count + (1 if entry.rating is not None else 0),
             tone,
+            weight_sum + item.weight * rating_factor,
         )
     dishes = [
-        TopDish(
-            name=name,
-            visits=visits,
-            rating=_round_one_decimal(rating_sum / rating_count) if rating_count else 0.0,
-            tone=tone,
+        (
+            weight_sum,
+            TopDish(
+                name=name,
+                visits=visits,
+                rating=_round_one_decimal(rating_sum / rating_count) if rating_count else 0.0,
+                tone=tone,
+            ),
         )
-        for name, (visits, rating_sum, rating_count, tone) in grouped.items()
+        for name, (visits, rating_sum, rating_count, tone, weight_sum) in grouped.items()
     ]
-    return sorted(dishes, key=lambda dish: (-(dish.visits * dish.rating), dish.name))[:3]
+    return [
+        dish
+        for _, dish in sorted(
+            dishes,
+            key=lambda item: (-item[0], -item[1].rating, item[1].name),
+        )[:3]
+    ]
 
 
-def _primary_insight(entries: Sequence[DiaryEntryInput], top_category: str) -> str:
+def _primary_insight(
+    entries: Sequence[DiaryEntryInput],
+    top_category: str,
+    user_profile: UserProfileArtifact,
+) -> str:
     ratings = [entry.rating for entry in entries if entry.rating is not None]
     avg_rating = _round_one_decimal(sum(ratings) / len(ratings)) if ratings else 0.0
+    top_taste = next(iter(user_profile.long_term_profile.get("taste", {})), None)
+    flavor_text = f" and a {top_taste} flavor lean" if top_taste else ""
     return (
         f"Your strongest pattern is {top_category.lower()}, "
-        f"with an average logged rating of {avg_rating}."
+        f"with an average logged rating of {avg_rating}{flavor_text}."
     )
 
 

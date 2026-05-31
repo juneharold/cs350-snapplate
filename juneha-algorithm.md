@@ -500,11 +500,16 @@ Public functions:
 
 - `generate_taste_report(user_id, diary_entries) -> TasteProfileResponse`
 - `generate_recommendations(user_id, context) -> RecommendedResponse`
+- `aggregate_user_profile(user_id, diary_entries) -> UserProfileArtifact`
+- `profile_kakao_restaurant(restaurant_metadata) -> RestaurantProfileArtifact`
 
 Shared Pydantic schemas live in `algorithm.schemas`. The client-facing response
 models intentionally match the current frontend payloads for `GET /taste/profile` and
 `GET /restaurants/recommended`; internal artifacts carry `algorithm_version`, confidence,
-evidence, and scoring fields that are stored by the backend but not returned to users.
+evidence, deterministic profile text, deterministic embeddings, and scoring fields that are
+stored by the backend but not returned to users. External ML-generated labels, blurbs, and
+provider embeddings should replace the deterministic text/embedding layer only after the
+structured user and restaurant profiles are persisted and verified.
 
 ## 11. Development and Evaluation Data
 

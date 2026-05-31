@@ -95,6 +95,7 @@ def test_taste_report_matches_frontend_profile_payload() -> None:
         "type",
         "summary",
         "categories",
+        "rating_distribution",
         "time_heatmap",
         "flavor_lean",
         "top_dishes",
@@ -116,6 +117,19 @@ def test_taste_report_matches_frontend_profile_payload() -> None:
     assert payload["categories"]
     assert all(0 <= category["weight"] <= 1 for category in payload["categories"])
     assert all(category["visits"] > 0 for category in payload["categories"])
+    assert set(payload["rating_distribution"]) == {
+        "0.5",
+        "1.0",
+        "1.5",
+        "2.0",
+        "2.5",
+        "3.0",
+        "3.5",
+        "4.0",
+        "4.5",
+        "5.0",
+    }
+    assert sum(payload["rating_distribution"].values()) == len(entries)
     assert len(payload["time_heatmap"]["data"]) == len(payload["time_heatmap"]["rows"])
     assert all(
         len(row) == len(payload["time_heatmap"]["cols"])

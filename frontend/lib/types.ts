@@ -239,6 +239,7 @@ export type TasteProfileResponse =
         top_day_of_week: string;
       };
       categories: TasteCategory[];
+      rating_distribution: Record<string, number>;
       time_heatmap: {
         rows: string[];
         cols: string[];
