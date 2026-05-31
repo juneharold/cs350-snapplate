@@ -12,6 +12,7 @@ from algorithm.config import (
     TEXT_PROFILE_MODEL,
 )
 from algorithm.contract import generate_recommendations, generate_taste_report
+from algorithm.entry_profiling import profile_diary_entry
 from algorithm.schemas import (
     DiaryEntryInput,
     EntryProfileArtifact,
@@ -22,6 +23,8 @@ from algorithm.schemas import (
     RestaurantInput,
     RestaurantProfileArtifact,
     ScoredRecommendationArtifact,
+    SyntheticFixtureSet,
+    SyntheticUser,
     TasteProfileInsufficient,
     TasteProfileReady,
     TasteProfileResponse,
@@ -51,6 +54,8 @@ __all__ = [
     "SHORT_TERM_ENTRY_COUNT",
     "SIMILAR_USER_THRESHOLD",
     "ScoredRecommendationArtifact",
+    "SyntheticFixtureSet",
+    "SyntheticUser",
     "TasteProfileInsufficient",
     "TasteProfileReady",
     "TasteProfileResponse",
@@ -59,4 +64,5 @@ __all__ = [
     "__version__",
     "generate_recommendations",
     "generate_taste_report",
+    "profile_diary_entry",
 ]

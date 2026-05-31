@@ -5,6 +5,10 @@ from importlib.resources import files
 from typing import Any
 
 from algorithm.schemas import DiaryEntryInput, RecommendationContext, RestaurantInput
+from algorithm.fixtures.synthetic import (
+    load_synthetic_fixture_set,
+    synthetic_recommendation_context_for_user,
+)
 
 
 DEMO_USER_ID = "u_demo_algorithm"
@@ -36,3 +40,13 @@ def load_demo_recommendation_context() -> RecommendationContext:
 def _load_demo_payload() -> dict[str, Any]:
     fixture_path = files(__package__).joinpath("demo_context.json")
     return json.loads(fixture_path.read_text(encoding="utf-8"))
+
+
+__all__ = [
+    "DEMO_USER_ID",
+    "load_demo_candidate_restaurants",
+    "load_demo_diary_entries",
+    "load_demo_recommendation_context",
+    "load_synthetic_fixture_set",
+    "synthetic_recommendation_context_for_user",
+]
