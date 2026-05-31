@@ -8,6 +8,7 @@ from app.controllers.auth import api as auth_router
 from app.controllers.home import api as home_router
 from app.controllers.home import misc as misc_router
 from app.controllers.me import api as me_router
+from app.controllers.media import api as media_router
 from app.controllers.restaurants import api as restaurants_router
 from app.controllers.settings import api as settings_router
 
@@ -22,6 +23,7 @@ def init_routers(app: FastAPI) -> None:
     app.include_router(auth_router, prefix=V1, tags=["Auth"])
     app.include_router(me_router, prefix=V1, tags=["Profile"])
     app.include_router(restaurants_router, prefix=V1, tags=["Restaurants"])
+    app.include_router(media_router, prefix=V1, tags=["Media"])
     app.include_router(settings_router, prefix=V1, tags=["Settings"])
     app.include_router(misc_router, prefix=V1, tags=["Misc"])
 
