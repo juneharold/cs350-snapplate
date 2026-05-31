@@ -225,11 +225,21 @@ export default function ExploreHome() {
               borderRadius: "50%",
               marginLeft: 12,
               transform: "translateY(8px)",
+              overflow: "hidden",
             }}
           >
-            <span className="avatar-letter">
-              {(nickname ?? "?").charAt(0).toUpperCase()}
-            </span>
+            {me?.profile_image_url || localUser?.profile_image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={me?.profile_image_url ?? localUser?.profile_image_url ?? ""}
+                alt={nickname}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : (
+              <span className="avatar-letter">
+                {(nickname ?? "?").charAt(0).toUpperCase()}
+              </span>
+            )}
           </Link>
         </div>
       </header>
