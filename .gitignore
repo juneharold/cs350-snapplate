@@ -6,3 +6,11 @@
 .idea/
 
 
+# Decompressed prototype source — kept locally for reference only
+.design-extract/
+
+# Python
+.pytest_cache/
+.venv/
+__pycache__/
+*.py[cod]

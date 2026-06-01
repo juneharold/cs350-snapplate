@@ -1,0 +1,17 @@
+[project]
+name = "snapplate-algorithm"
+version = "0.1.0"
+description = "SnapPlate algorithm/backend contract schemas and entrypoints"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2,<3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8,<9",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
