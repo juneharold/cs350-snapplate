@@ -1,0 +1,39 @@
+# Data layer only. The app runs on the host (uvicorn --reload) and connects to
+# localhost — same split as the oscre reference. `docker compose up` brings up
+# Postgres (with pgvector) + MinIO; nothing else is needed for local dev.
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16        # pgvector baked in so the image never needs swapping;
+    container_name: snapplate-pg          # v1 ships zero vector columns (extension installed only).
+    environment:
+      POSTGRES_USER: ${DB_USER:-snapplate}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-snapplate}
+      POSTGRES_DB: ${DB_NAME:-snapplate}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./pg-volume/pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-snapplate}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: snapplate-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-localdev}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-localdev123}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # web console
+    volumes:
+      - ./minio-volume/data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
