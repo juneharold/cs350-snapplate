@@ -19,7 +19,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "python-multipart>=0.0.9",
     # Algorithm package, imported in-process. Path dependency on the sibling repo dir.
-    "snapplate-algorithm",
+    "snapplate",
 ]
 
 [dependency-groups]
@@ -31,7 +31,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-snapplate-algorithm = { path = "..", editable = true }
+snapplate = { path = "..", editable = true }
 
 [tool.ruff]
 line-length = 100
