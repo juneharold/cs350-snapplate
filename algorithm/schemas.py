@@ -158,6 +158,7 @@ class RecommendedResponse(ContractModel):
 
 class RecommendationContext(ContractModel):
     diary_entries: list[DiaryEntryInput]
+    peer_diary_entries: list[DiaryEntryInput] = Field(default_factory=list)
     candidate_restaurants: list[RestaurantInput]
     lat: float | None = None
     lng: float | None = None

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -10,8 +11,10 @@ from algorithm.config import (
     HEATMAP_COLS,
     HEATMAP_ROWS,
     MIN_ENTRIES_FOR_PERSONALIZATION,
+    MIN_SIMILAR_USERS,
     RECOMMENDATION_LIMIT,
     RECOMMENDATION_SCORE_WEIGHTS,
+    SIMILAR_USER_THRESHOLD,
 )
 from algorithm.schemas import (
     DiaryEntryInput,
@@ -112,20 +115,31 @@ def generate_recommendations(
     category_stats = _category_stats(entries)
     visited = {entry.restaurant.id for entry in entries}
     exposure_history = set(context.exposure_history)
+    similar_user_entries = _similar_user_entries(
+        user_id,
+        entries,
+        context.peer_diary_entries,
+    )
     scored = []
     for candidate in context.candidate_restaurants:
         if candidate.id in visited:
             continue
-        score = _recommendation_score(candidate, category_stats, exposure_history)
+        score = _recommendation_score(
+            candidate,
+            category_stats,
+            exposure_history,
+            similar_user_entries,
+        )
         scored.append((score, candidate))
 
     scored.sort(key=lambda item: (-item[0], item[1].distance_m, item[1].name))
+    selected = _category_diverse_candidates(scored, limit)
     items = [
         RecommendedRestaurant(
             **candidate.model_dump(),
-            reason=_recommendation_reason(candidate, category_stats),
+            reason=_recommendation_reason(candidate, category_stats, similar_user_entries),
         )
-        for _, candidate in scored[:limit]
+        for candidate in selected
     ]
     return RecommendedResponse(
         items=items,
@@ -369,11 +383,12 @@ def _recommendation_score(
     candidate: RestaurantInput,
     category_stats: dict[str, CategoryStats],
     exposure_history: set[str],
+    similar_user_entries: Sequence[DiaryEntryInput],
 ) -> float:
     max_visits = max((stats.visits for stats in category_stats.values()), default=1)
     stats = category_stats.get(candidate.category)
     content_score = (stats.visits / max_visits) if stats else 0.0
-    collaborative_score = 0.0
+    collaborative_score = _collaborative_score(candidate, similar_user_entries)
     context_score = max(0.0, min(1.0, 1.0 - candidate.distance_m / 5000))
     quality_score = candidate.rating / 5.0
     novelty_score = 0.2 if candidate.id in exposure_history else 1.0
@@ -390,7 +405,10 @@ def _recommendation_score(
 def _recommendation_reason(
     candidate: RestaurantInput,
     category_stats: dict[str, CategoryStats],
+    similar_user_entries: Sequence[DiaryEntryInput],
 ) -> str:
+    if _similar_user_ratings(candidate, similar_user_entries):
+        return f"Similar users also liked this {candidate.category.lower()} place."
     stats = category_stats.get(candidate.category)
     if stats:
         return (
@@ -400,3 +418,110 @@ def _recommendation_reason(
     if candidate.rating >= 4.5:
         return "Highly rated near you."
     return "Adds variety outside your usual categories."
+
+
+def _category_diverse_candidates(
+    scored: Sequence[tuple[float, RestaurantInput]],
+    limit: int,
+) -> list[RestaurantInput]:
+    max_per_category = max(1, (limit + 1) // 2)
+    selected: list[RestaurantInput] = []
+    deferred: list[RestaurantInput] = []
+    category_counts: dict[str, int] = {}
+
+    for _, candidate in scored:
+        if len(selected) >= limit:
+            break
+        count = category_counts.get(candidate.category, 0)
+        if count < max_per_category:
+            selected.append(candidate)
+            category_counts[candidate.category] = count + 1
+        else:
+            deferred.append(candidate)
+
+    for candidate in deferred:
+        if len(selected) >= limit:
+            break
+        selected.append(candidate)
+
+    return selected
+
+
+def _similar_user_entries(
+    user_id: str,
+    entries: Sequence[DiaryEntryInput],
+    peer_entries: Sequence[DiaryEntryInput],
+) -> list[DiaryEntryInput]:
+    active_vector = _category_rating_vector_from_entries(entries)
+    if not active_vector or not peer_entries:
+        return []
+
+    entries_by_user: dict[str, list[DiaryEntryInput]] = defaultdict(list)
+    for entry in peer_entries:
+        if entry.user_id != user_id:
+            entries_by_user[entry.user_id].append(entry)
+
+    similar_groups = [
+        user_entries
+        for user_entries in entries_by_user.values()
+        if _cosine_similarity(
+            active_vector,
+            _category_rating_vector_from_entries(user_entries),
+        )
+        >= SIMILAR_USER_THRESHOLD
+    ]
+    if len(similar_groups) < MIN_SIMILAR_USERS:
+        return []
+
+    return [entry for group in similar_groups for entry in group]
+
+
+def _category_rating_vector_from_entries(
+    entries: Sequence[DiaryEntryInput],
+) -> dict[str, float]:
+    return {
+        category: stats.avg_rating
+        for category, stats in _category_stats(entries).items()
+        if stats.rating_count
+    }
+
+
+def _cosine_similarity(left: dict[str, float], right: dict[str, float]) -> float:
+    if not left or not right:
+        return 0.0
+    terms = set(left) | set(right)
+    dot_product = sum(left.get(term, 0.0) * right.get(term, 0.0) for term in terms)
+    left_norm = sum(value * value for value in left.values()) ** 0.5
+    right_norm = sum(value * value for value in right.values()) ** 0.5
+    if not left_norm or not right_norm:
+        return 0.0
+    return dot_product / (left_norm * right_norm)
+
+
+def _collaborative_score(
+    candidate: RestaurantInput,
+    similar_user_entries: Sequence[DiaryEntryInput],
+) -> float:
+    exact_ratings = _similar_user_ratings(candidate, similar_user_entries)
+    if exact_ratings:
+        return round(sum(exact_ratings) / len(exact_ratings), 6)
+
+    category_ratings = [
+        entry.rating / 5.0
+        for entry in similar_user_entries
+        if entry.restaurant.category == candidate.category and entry.rating is not None
+    ]
+    if not category_ratings:
+        return 0.0
+    return round(0.5 * sum(category_ratings) / len(category_ratings), 6)
+
+
+def _similar_user_ratings(
+    candidate: RestaurantInput,
+    similar_user_entries: Sequence[DiaryEntryInput],
+) -> list[float]:
+    return [
+        entry.rating / 5.0
+        for entry in similar_user_entries
+        if entry.restaurant.id == candidate.id and entry.rating is not None
+    ]
