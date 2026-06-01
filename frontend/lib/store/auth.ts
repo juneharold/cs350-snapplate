@@ -15,11 +15,16 @@ type AuthState = {
   locationGranted: boolean | null;
   currentLocation: LatLng | null;
 
+  /** True once the persisted store has rehydrated from localStorage. Guards
+   *  route gates from acting on the (empty) pre-hydration state on first paint. */
+  hasHydrated: boolean;
+
   setSession: (token: string, user: AuthUser) => void;
   setUser: (user: AuthUser) => void;
   setHasSeenOnboarding: (v: boolean) => void;
   setLocationGranted: (granted: boolean) => void;
   setCurrentLocation: (loc: LatLng | null) => void;
+  setHasHydrated: (v: boolean) => void;
   logout: () => void;
 };
 
@@ -35,20 +40,24 @@ export const useAuth = create<AuthState>()(
   persist(
     (set) => ({
       ...initialState,
+      hasHydrated: false,
       setSession: (accessToken, user) => set({ accessToken, user }),
       setUser: (user) => set({ user }),
       setHasSeenOnboarding: (hasSeenOnboarding) => set({ hasSeenOnboarding }),
       setLocationGranted: (locationGranted) => set({ locationGranted }),
       setCurrentLocation: (currentLocation) => set({ currentLocation }),
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       // Clear the account session only. Location grant + last known
       // location are device-level (tied to the browser, not the account),
       // so we keep them — otherwise re-login loses an already-granted
       // permission and the home screen falsely asks for location again.
+      // Keep hasHydrated true so route gates don't bounce after logout.
       logout: () =>
         set((s) => ({
           ...initialState,
           locationGranted: s.locationGranted,
           currentLocation: s.currentLocation,
+          hasHydrated: true,
         })),
     }),
     {
@@ -62,6 +71,11 @@ export const useAuth = create<AuthState>()(
         locationGranted: s.locationGranted,
         currentLocation: s.currentLocation,
       }),
+      // Flip hasHydrated once localStorage has been read back, so route gates
+      // don't bounce a logged-in user on a hard navigation / refresh.
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );
