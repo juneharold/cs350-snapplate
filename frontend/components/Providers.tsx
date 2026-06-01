@@ -29,7 +29,9 @@ function getQueryClient() {
   return browserClient;
 }
 
-const ENABLE_MOCKS = true; // flip to false once the real backend is live
+// Mocks ON by default; set NEXT_PUBLIC_ENABLE_MOCKS=false in .env.local to run
+// against the real backend (via the /v1 rewrite proxy in next.config.mjs).
+const ENABLE_MOCKS = process.env.NEXT_PUBLIC_ENABLE_MOCKS !== "false";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(!ENABLE_MOCKS);
