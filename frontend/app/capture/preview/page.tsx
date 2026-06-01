@@ -44,17 +44,8 @@ export default function CapturePreviewPage() {
     setSubmitting(path);
     try {
       const meta = deriveDraftMeta(pending, { now: new Date(), location });
-      const { uploads } = await upload.mutateAsync(
-        pending.map((p) => ({
-          name: p.name,
-          bytes: p.bytes,
-          width: p.width,
-          height: p.height,
-          captured_at: p.captured_at,
-          lat: p.lat ?? meta.lat,
-          lng: p.lng ?? meta.lng,
-        })),
-      );
+      // Send the raw File bytes as multipart; the backend reads EXIF + makes variants.
+      const { uploads } = await upload.mutateAsync(pending.map((p) => p.file));
       const coverIdx = pending.findIndex((p) => p.key === cover?.key);
       const coverMediaId = uploads[Math.max(0, coverIdx)]?.id;
       const draft = await create.mutateAsync({
