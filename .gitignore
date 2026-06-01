@@ -5,6 +5,7 @@
 .vscode/
 .idea/
 
+
 # Decompressed prototype source — kept locally for reference only
 .design-extract/
 

@@ -22,7 +22,7 @@ export default function RestaurantDetailPage({ params }: { params: Promise<{ id:
 
   if (isLoading || !r) {
     return (
-      <div className="px-6 pt-16" style={{ color: "var(--color-muted)" }}>
+      <div className="px-4 pt-16" style={{ color: "var(--color-muted)" }}>
         Loading…
       </div>
     );
@@ -83,7 +83,7 @@ export default function RestaurantDetailPage({ params }: { params: Promise<{ id:
         </div>
       </div>
 
-      <div className="px-6 pt-5">
+      <div className="px-4 pt-5">
         <div className="flex justify-between items-baseline gap-3">
           <h1 className="leading-tight font-normal flex-1" style={{ fontSize: 28 }}>
             {r.name}
@@ -111,9 +111,10 @@ export default function RestaurantDetailPage({ params }: { params: Promise<{ id:
             className="flex gap-3 mt-4"
             style={{
               padding: 14,
-              background: "var(--color-olive-100)",
-              borderRadius: 14,
-              color: "var(--color-olive-900)",
+              background: "var(--color-bg-soft)",
+              border: "1px solid var(--color-border-soft)",
+              borderRadius: 10,
+              color: "var(--color-ink-2)",
             }}
           >
             <span style={{ color: "var(--color-olive-700)", flexShrink: 0 }}>
@@ -126,7 +127,7 @@ export default function RestaurantDetailPage({ params }: { params: Promise<{ id:
         )}
       </div>
 
-      <section className="px-6 mt-6">
+      <section className="px-4 mt-4">
         <h2
           className="leading-tight mb-2"
           style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 500 }}
@@ -147,7 +148,7 @@ export default function RestaurantDetailPage({ params }: { params: Promise<{ id:
       </section>
 
       {r.popular_dishes.length > 0 && (
-        <section className="px-6 mt-6">
+        <section className="px-4 mt-4">
           <h2
             className="leading-tight mb-2"
             style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 500 }}
@@ -176,7 +177,7 @@ export default function RestaurantDetailPage({ params }: { params: Promise<{ id:
         </section>
       )}
 
-      <div className="flex gap-2 px-6 mt-8">
+      <div className="flex gap-2 px-4 mt-5">
         <Link
           href="/capture"
           className="btn btn-secondary"

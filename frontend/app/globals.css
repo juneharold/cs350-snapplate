@@ -6,40 +6,43 @@
    `bg-bg`, `text-ink`, etc. is registered with @theme.
    ─────────────────────────────────────────────────────────── */
 @theme {
-  /* Cream / surfaces */
-  --color-bg: #F2EEE2;
-  --color-bg-soft: #EBE6D4;
-  --color-surface: #FAF6EA;
+  /* Near-white, faintly cool surfaces — no cream. The terracotta accent
+     and type carry the page against a clean light-gray ground. */
+  --color-bg: #F4F5F6;
+  --color-bg-soft: #ECEEF0;
+  --color-surface: #FFFFFF;
   --color-surface-2: #FFFFFF;
-  --color-border-soft: #E0DAC4;
-  --color-border-strong: #D4CDB2;
+  --color-border-soft: #E6E8EB;
+  --color-border-strong: #D4D7DC;
 
-  /* Olive / sage palette */
-  --color-olive-900: #2B331C;
-  --color-olive-700: #3F4A2C;
-  --color-olive-600: #5D6B43;
-  --color-olive-500: #6E7C53;
-  --color-olive-300: #A8B393;
-  --color-olive-100: #D8DDC4;
+  /* Primary accent — deep teal-green. Token names kept as `olive-*` for
+     compatibility; they now drive the single accent scale.
+     olive-100/olive-900 pair as tinted badges; olive-700 is the accent. */
+  --color-olive-900: #0B4A44;
+  --color-olive-700: #0F766E;
+  --color-olive-600: #12867C;
+  --color-olive-500: #1C9C8E;
+  --color-olive-300: #84C7BD;
+  --color-olive-100: #DBEFEC;
 
-  /* Warm tan accent */
-  --color-tan-700: #8B6B47;
-  --color-tan-500: #B8956A;
-  --color-tan-300: #DDC2A1;
+  /* Warm tan — secondary neutral */
+  --color-tan-700: #8B5E3C;
+  --color-tan-500: #B8855E;
+  --color-tan-300: #DDBE9C;
 
-  /* Text */
-  --color-ink: #1F1F19;
-  --color-ink-2: #3D3B30;
-  --color-muted: #7A7563;
-  --color-muted-2: #ADA791;
+  /* Text — neutral near-black for crisp contrast on the cool ground */
+  --color-ink: #1A1B1D;
+  --color-ink-2: #45474B;
+  --color-muted: #83868C;
+  --color-muted-2: #AEB1B7;
 
   /* Status */
-  --color-rating: #C49B3A;
-  --color-danger: #B05546;
-  --color-success: #5D6B43;
+  --color-rating: #C99A2E;
+  --color-danger: #B0463A;
+  --color-success: #6B7A4E;
 
-  /* Tinted cream used on dark-button labels */
-  --color-cream: #F4F0DE;
+  /* Neutral off-white label used on dark buttons (no cream tint) */
+  --color-cream: #F6F7F8;
 
   /* Fonts (wired up via next/font in app/layout.tsx) */
   --font-serif: var(--font-newsreader), "Source Serif Pro", Georgia, serif;
@@ -53,7 +56,7 @@
 html,
 body {
   height: 100%;
-  background: var(--color-olive-700);
+  background: #1C1C1E;
 }
 
 body {
@@ -63,11 +66,12 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* The serif headings used throughout the design */
+/* The serif headings used throughout the design — slightly heavier and
+   tighter for more editorial contrast against the sans body */
 h1, h2, h3, h4 {
   font-family: var(--font-serif);
-  font-weight: 500;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 /* iOS-style no callout on tap */
@@ -225,7 +229,7 @@ input[type="search"]::-ms-clear {
     font-family: var(--font-sans);
     font-weight: 600;
     font-size: 15px;
-    background: var(--color-olive-700);
+    background: var(--color-ink);
     color: var(--color-cream);
     transition: transform 0.06s ease, opacity 0.15s ease;
   }
@@ -248,8 +252,17 @@ input[type="search"]::-ms-clear {
 
   .card {
     background: var(--color-surface-2);
-    border-radius: 18px;
+    border-radius: 10px;
     border: 1px solid var(--color-border-soft);
+  }
+
+  /* Grouped list — rows share one card instead of each row being its own
+     separate floating card. No dividers between rows. */
+  .list-group {
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border-soft);
+    border-radius: 10px;
+    overflow: hidden;
   }
 
   .chip {
@@ -322,14 +335,14 @@ input[type="search"]::-ms-clear {
 
   .avatar {
     border-radius: 999px;
-    background: linear-gradient(135deg, var(--color-olive-300), var(--color-olive-600));
+    background: var(--color-olive-100);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    color: var(--color-surface);
+    color: var(--color-olive-900);
     font-family: var(--font-serif);
-    font-weight: 500;
+    font-weight: 600;
   }
   .avatar-letter {
     display: inline-block;
@@ -373,6 +386,10 @@ input[type="search"]::-ms-clear {
   --phone-height: 844px;
 
   position: relative;
+  /* Establish a containing block so `position: fixed` overlays (dialogs,
+     sheets) anchor to the phone frame instead of the browser viewport,
+     and stay put regardless of the scroll position inside the screen. */
+  transform: translateZ(0);
   width: 100%;
   max-width: var(--phone-width);
   height: 100dvh;

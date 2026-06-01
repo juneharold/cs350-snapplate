@@ -33,12 +33,15 @@ export function TabBar() {
       aria-label="Primary"
       className="absolute inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t backdrop-blur"
       style={{
-        background: "rgba(250, 246, 234, 0.92)",
-        borderTopColor: "rgba(0,0,0,0.06)",
+        background: "color-mix(in srgb, var(--color-surface) 60%, transparent)",
+        borderTopColor: "rgba(255,255,255,0.55)",
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         paddingTop: 8,
         paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)",
-        backdropFilter: "blur(20px) saturate(180%)",
-        WebkitBackdropFilter: "blur(20px) saturate(180%)",
+        backdropFilter: "blur(28px) saturate(200%)",
+        WebkitBackdropFilter: "blur(28px) saturate(200%)",
+        boxShadow: "0 -8px 24px -10px rgba(0,0,0,0.12)",
       }}
     >
       <TabLink href="/" id="explore" active={active} label="Explore" Icon={Compass} />
@@ -93,7 +96,7 @@ function CaptureLink({ active }: { active: boolean }) {
           marginTop: -22,
           background: "var(--color-olive-700)",
           color: "var(--color-cream)",
-          boxShadow: "0 6px 20px rgba(63, 74, 44, 0.35)",
+          boxShadow: "0 6px 20px rgba(15, 118, 110, 0.32)",
           transform: active ? "scale(0.96)" : undefined,
           transition: "transform 0.1s ease",
         }}

@@ -78,7 +78,7 @@ export default function EmailPage() {
           We&apos;ll send a one-tap sign-in link. No password to remember.
         </p>
 
-        <div className="mt-7">
+        <div className="mt-5">
           <div
             style={{
               fontSize: 11,

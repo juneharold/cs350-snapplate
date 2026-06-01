@@ -20,7 +20,7 @@ export default function TastePage() {
 
   if (isLoading || !data) {
     return (
-      <div className="px-6 pt-16" style={{ color: "var(--color-muted)" }}>
+      <div className="px-4 pt-16" style={{ color: "var(--color-muted)" }}>
         Loading…
       </div>
     );
@@ -36,7 +36,7 @@ function TasteEmpty({ data }: { data: Extract<TasteProfileResponse, { has_enough
   return (
     <div className="pb-16">
       <header
-        className="px-6"
+        className="px-4"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 36px)" }}
       >
         <div
@@ -57,9 +57,9 @@ function TasteEmpty({ data }: { data: Extract<TasteProfileResponse, { has_enough
         </h1>
       </header>
 
-      <div className="px-6 mt-8">
+      <div className="px-4 mt-5">
         <div className="card" style={{ padding: 18 }}>
-          <div className="flex items-baseline justify-between mb-3">
+          <div className="flex items-baseline justify-between mb-2">
             <div
               style={{
                 fontSize: 11,
@@ -92,7 +92,7 @@ function TasteEmpty({ data }: { data: Extract<TasteProfileResponse, { has_enough
             />
           </div>
           <p
-            className="leading-relaxed mt-3"
+            className="leading-relaxed mt-2"
             style={{ fontSize: 12.5, color: "var(--color-muted)" }}
           >
             Log{" "}
@@ -105,7 +105,7 @@ function TasteEmpty({ data }: { data: Extract<TasteProfileResponse, { has_enough
         </div>
 
         <div
-          className="mt-7 mb-3"
+          className="mt-5 mb-2"
           style={{
             fontSize: 12,
             fontFamily: "var(--font-mono)",
@@ -151,7 +151,7 @@ function TasteEmpty({ data }: { data: Extract<TasteProfileResponse, { has_enough
           ))}
         </div>
 
-        <Link href="/capture" className="btn btn-block mt-6">
+        <Link href="/capture" className="btn btn-block mt-4">
           <Camera size={18} />
           Log another meal
         </Link>
@@ -164,7 +164,7 @@ function TasteFull({ data }: { data: Extract<TasteProfileResponse, { has_enough_
   return (
     <div className="pb-16">
       <header
-        className="px-6"
+        className="px-4"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 36px)" }}
       >
         <div
@@ -188,7 +188,7 @@ function TasteFull({ data }: { data: Extract<TasteProfileResponse, { has_enough_
         </h1>
       </header>
 
-      <section className="px-6 mt-4">
+      <section className="px-4 mt-4">
         <div
           className="card"
           style={{
@@ -231,7 +231,7 @@ function TasteFull({ data }: { data: Extract<TasteProfileResponse, { has_enough_
             {data.type.label}
           </div>
           <p
-            className="mt-3 leading-relaxed"
+            className="mt-2 leading-relaxed"
             style={{ fontSize: 13, opacity: 0.88 }}
           >
             {data.type.blurb}
@@ -239,7 +239,7 @@ function TasteFull({ data }: { data: Extract<TasteProfileResponse, { has_enough_
         </div>
       </section>
 
-      <section className="px-6 mt-4 grid grid-cols-2 gap-2">
+      <section className="px-4 mt-4 grid grid-cols-2 gap-2">
         <SummaryStat
           value={data.summary.avg_rating.toFixed(1)}
           label="avg rating"
@@ -262,8 +262,8 @@ function TasteFull({ data }: { data: Extract<TasteProfileResponse, { has_enough_
         />
       </section>
 
-      <section className="px-6 mt-6">
-        <div className="flex justify-between items-baseline mb-3">
+      <section className="px-4 mt-4">
+        <div className="flex justify-between items-baseline mb-2">
           <h2
             style={{
               fontFamily: "var(--font-serif)",
@@ -283,16 +283,16 @@ function TasteFull({ data }: { data: Extract<TasteProfileResponse, { has_enough_
             BY VISITS
           </span>
         </div>
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-1.5">
           {data.categories.slice(0, 7).map((c) => (
             <CategoryBar key={c.name} name={c.name} weight={c.weight} visits={c.visits} tone={c.tone} />
           ))}
         </div>
       </section>
 
-      <section className="px-6 mt-6">
+      <section className="px-4 mt-4">
         <h2
-          className="mb-3"
+          className="mb-2"
           style={{
             fontFamily: "var(--font-serif)",
             fontSize: 16,
@@ -304,7 +304,7 @@ function TasteFull({ data }: { data: Extract<TasteProfileResponse, { has_enough_
         <Heatmap rows={data.time_heatmap.rows} cols={data.time_heatmap.cols} data={data.time_heatmap.data} />
         {data.insights[0] && (
           <div
-            className="mt-3"
+            className="mt-2"
             style={{
               fontSize: 12,
               color: "var(--color-ink-2)",
@@ -316,9 +316,9 @@ function TasteFull({ data }: { data: Extract<TasteProfileResponse, { has_enough_
         )}
       </section>
 
-      <section className="px-6 mt-6">
+      <section className="px-4 mt-4">
         <h2
-          className="mb-3"
+          className="mb-2"
           style={{
             fontFamily: "var(--font-serif)",
             fontSize: 16,
@@ -339,9 +339,9 @@ function TasteFull({ data }: { data: Extract<TasteProfileResponse, { has_enough_
       </section>
 
       {data.top_dishes.length > 0 && (
-        <section className="px-6 mt-6">
+        <section className="px-4 mt-4">
           <h2
-            className="mb-3"
+            className="mb-2"
             style={{
               fontFamily: "var(--font-serif)",
               fontSize: 16,
@@ -388,7 +388,7 @@ function TasteFull({ data }: { data: Extract<TasteProfileResponse, { has_enough_
       )}
 
       <div
-        className="text-center px-6 mt-8"
+        className="text-center px-4 mt-5"
         style={{
           fontSize: 11,
           fontFamily: "var(--font-mono)",

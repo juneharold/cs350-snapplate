@@ -15,8 +15,8 @@ export function RecommendedStrip({ data }: { data: RecommendedResponse }) {
   const items = data.items;
   if (items.length === 0) return null;
   return (
-    <section className="mt-6">
-      <div className="px-6 flex items-baseline justify-between mb-2">
+    <section className="mt-4">
+      <div className="px-4 flex items-baseline justify-between mb-2">
         <h2
           className="leading-tight"
           style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 500 }}
@@ -28,15 +28,15 @@ export function RecommendedStrip({ data }: { data: RecommendedResponse }) {
         </h2>
       </div>
       <div
-        className="px-6"
-        style={{ fontSize: 12, color: "var(--color-muted)", marginBottom: 14 }}
+        className="px-4"
+        style={{ fontSize: 12, color: "var(--color-muted)", marginBottom: 10 }}
       >
         Based on {data.based_on_entries}{" "}
         {data.based_on_entries === 1 ? "entry" : "entries"}
       </div>
       <div
         className="flex gap-3.5"
-        style={{ overflowX: "auto", padding: "0 22px 4px" }}
+        style={{ overflowX: "auto", padding: "0 16px 4px" }}
       >
         {items.map((r) => (
           <Link

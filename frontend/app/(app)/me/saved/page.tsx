@@ -38,7 +38,7 @@ export default function SavedPage() {
         </div>
       </header>
 
-      <div className="px-6 mt-1">
+      <div className="px-4 mt-1">
         <div
           style={{
             fontSize: 11,
@@ -68,7 +68,7 @@ export default function SavedPage() {
             : `${data?.total ?? items.length} place${(data?.total ?? items.length) === 1 ? "" : "s"}`}
         </div>
 
-        <div className="relative mt-4 mb-5">
+        <div className="relative mt-4 mb-3">
           <span
             className="absolute"
             style={{
@@ -112,11 +112,12 @@ export default function SavedPage() {
           </div>
         )}
 
-        <div className="flex flex-col gap-2.5">
+        {items.length > 0 && (
+          <div className="list-group">
           {items.map((b) => (
             <div
               key={b.id}
-              className="card flex gap-3 p-3 items-center"
+              className="flex gap-3 p-3 items-center"
             >
               <Link
                 href={`/restaurants/${b.restaurant_id}`}
@@ -196,7 +197,8 @@ export default function SavedPage() {
               </button>
             </div>
           ))}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

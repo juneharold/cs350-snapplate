@@ -172,10 +172,10 @@ export default function SearchPage() {
         </div>
       </header>
 
-      <div className="px-6 mt-3">
+      <div className="px-4 mt-2">
         {debounced ? (
           <div
-            className="mb-3"
+            className="mb-2"
             style={{
               fontSize: 12,
               color: "var(--color-muted)",
@@ -217,12 +217,13 @@ export default function SearchPage() {
           </div>
         )}
 
-        <div className="flex flex-col gap-2.5 mt-1">
+        {items.length > 0 && (
+          <div className="list-group mt-1">
           {items.map((r) => (
             <Link
               key={r.id}
               href={`/restaurants/${r.id}`}
-              className="card flex gap-3 p-3 items-center"
+              className="flex gap-3 p-3 items-center"
             >
               <FoodPlaceholder
                 tone={r.thumbnail_tone}
@@ -275,7 +276,8 @@ export default function SearchPage() {
               </div>
             </Link>
           ))}
-        </div>
+          </div>
+        )}
       </div>
 
       {showFilters && (
@@ -341,9 +343,11 @@ function FilterSheet({
 
   return (
     <div
-      className="absolute inset-0 z-30 flex items-center justify-center"
+      className="fixed inset-0 z-[60] flex items-center justify-center"
       style={{
-        background: "rgba(31,31,25,0.55)",
+        background: "rgba(18,18,20,0.45)",
+        backdropFilter: "blur(3px)",
+        WebkitBackdropFilter: "blur(3px)",
         padding: "20px",
         animation: "snapplate-dialog-fade 0.18s ease-out",
       }}
@@ -367,7 +371,7 @@ function FilterSheet({
           animation: "snapplate-dialog-in 0.2s cubic-bezier(0.2, 0.9, 0.3, 1)",
         }}
       >
-        <div className="flex justify-between items-baseline mb-5">
+        <div className="flex justify-between items-baseline mb-3">
           <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 500 }}>
             Filters
           </h2>
@@ -384,7 +388,7 @@ function FilterSheet({
           </button>
         </div>
 
-        <section className="mb-5">
+        <section className="mb-3">
           <div
             className="mb-2.5"
             style={{
@@ -414,7 +418,7 @@ function FilterSheet({
           </div>
         </section>
 
-        <section className="mb-5">
+        <section className="mb-3">
           <div className="flex justify-between items-baseline mb-2.5">
             <div
               style={{
@@ -467,7 +471,7 @@ function FilterSheet({
           </div>
         </section>
 
-        <section className="mb-6">
+        <section className="mb-4">
           <div
             className="mb-2.5"
             style={{

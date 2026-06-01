@@ -19,7 +19,7 @@ export default function DiaryPage() {
 
   if (isLoading) {
     return (
-      <div className="px-6 pt-16">
+      <div className="px-4 pt-16">
         <h1 className="text-[28px] leading-tight font-normal">Diary</h1>
         <p className="mt-2" style={{ color: "var(--color-muted)", fontSize: 13 }}>
           Loading…
@@ -36,7 +36,7 @@ export default function DiaryPage() {
   return (
     <div className="pb-12">
       <header
-        className="px-6"
+        className="px-4"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 36px)" }}
       >
         <div
@@ -65,9 +65,9 @@ export default function DiaryPage() {
         )}
       </header>
 
-      <div className="px-6 mt-6">
+      <div className="px-4 mt-4">
         {groups.map(({ label, items }) => (
-          <section key={label} className="mb-5">
+          <section key={label} className="mb-3">
             <div
               className="mb-2.5"
               style={{
@@ -79,7 +79,7 @@ export default function DiaryPage() {
             >
               {label.toUpperCase()}
             </div>
-            <div className="flex flex-col gap-2.5">
+            <div className="list-group">
               {items.map((e) => (
                 <EntryCard key={e.id} e={e} />
               ))}
@@ -121,7 +121,7 @@ function EntryCard({ e }: { e: EntrySummary }) {
     minute: "2-digit",
   });
   return (
-    <Link href={`/diary/${e.id}`} className="card flex gap-3 p-3 items-start">
+    <Link href={`/diary/${e.id}`} className="flex gap-3 p-3 items-start">
       <div className="relative shrink-0">
         <FoodPlaceholder
           tone={e.cover_media_tone}
@@ -149,11 +149,11 @@ function EntryCard({ e }: { e: EntrySummary }) {
           </div>
         )}
       </div>
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 flex flex-col gap-1">
         <div className="flex items-baseline justify-between gap-2">
           <div
             className="truncate"
-            style={{ fontFamily: "var(--font-serif)", fontSize: 16, fontWeight: 500 }}
+            style={{ fontFamily: "var(--font-serif)", fontSize: 16, fontWeight: 500, lineHeight: 1.1 }}
           >
             {e.restaurant.name}
           </div>
@@ -169,12 +169,12 @@ function EntryCard({ e }: { e: EntrySummary }) {
           </div>
         </div>
         <div
-          className="truncate mt-0.5"
-          style={{ fontSize: 12, color: "var(--color-muted)" }}
+          className="truncate"
+          style={{ fontSize: 12, color: "var(--color-muted)", lineHeight: 1.2 }}
         >
           {e.restaurant.signature_dish ?? e.restaurant.neighborhood}
         </div>
-        <div className="mt-1.5">
+        <div>
           {e.rating != null ? (
             <StarRow value={e.rating} size={13} />
           ) : (
@@ -190,10 +190,9 @@ function EntryCard({ e }: { e: EntrySummary }) {
           )}
         </div>
         <p
-          className="mt-1.5"
           style={{
             fontSize: 12.5,
-            lineHeight: 1.45,
+            lineHeight: 1.4,
             color: "var(--color-ink-2)",
             display: "-webkit-box",
             WebkitLineClamp: 2,
@@ -210,7 +209,7 @@ function EntryCard({ e }: { e: EntrySummary }) {
 
 function DiaryEmpty() {
   return (
-    <div className="px-6 pt-16">
+    <div className="px-4 pt-16">
       <div
         style={{
           fontSize: 11,
@@ -228,12 +227,12 @@ function DiaryEmpty() {
         </em>
       </h1>
       <p
-        className="mt-3 leading-relaxed"
+        className="mt-2 leading-relaxed"
         style={{ fontSize: 14, color: "var(--color-muted)" }}
       >
         Snap a meal, finish the draft, and it&apos;ll land here forever.
       </p>
-      <Link href="/capture" className="btn mt-6 inline-flex">
+      <Link href="/capture" className="btn mt-4 inline-flex">
         Capture a meal
       </Link>
     </div>
