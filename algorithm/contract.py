@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -10,8 +11,10 @@ from algorithm.config import (
     HEATMAP_COLS,
     HEATMAP_ROWS,
     MIN_ENTRIES_FOR_PERSONALIZATION,
+    MIN_SIMILAR_USERS,
     RECOMMENDATION_LIMIT,
     RECOMMENDATION_SCORE_WEIGHTS,
+    SIMILAR_USER_THRESHOLD,
 )
 from algorithm.schemas import (
     DiaryEntryInput,
@@ -28,6 +31,12 @@ from algorithm.schemas import (
     TasteType,
     TimeHeatmap,
     TopDish,
+    UserProfileArtifact,
+)
+from algorithm.user_profiling import (
+    WeightedEntryProfile,
+    aggregate_user_profile,
+    build_weighted_entry_profiles,
 )
 
 
@@ -37,6 +46,7 @@ class CategoryStats:
     rating_sum: float = 0.0
     rating_count: int = 0
     tone: str = "bone"
+    weight_sum: float = 0.0
 
     @property
     def avg_rating(self) -> float:
@@ -59,7 +69,14 @@ def generate_taste_report(
         )
 
     computed_at = generated_at or datetime.now(timezone.utc)
-    category_stats = _category_stats(entries)
+    weighted_entries = build_weighted_entry_profiles(user_id, entries)
+    user_profile = aggregate_user_profile(
+        user_id,
+        entries,
+        generated_at=computed_at,
+        weighted_entries=weighted_entries,
+    )
+    category_stats = _weighted_category_stats(weighted_entries)
     categories = _taste_categories(category_stats)
     top_category = categories[0].name if categories else "Food"
 
@@ -68,13 +85,14 @@ def generate_taste_report(
         min_entries_required=min_entries_required,
         current_entries=len(entries),
         computed_at=computed_at,
-        type=_taste_type(top_category),
+        type=_taste_type(top_category, user_profile),
         summary=_taste_summary(entries, computed_at),
         categories=categories,
+        rating_distribution=_rating_distribution(entries),
         time_heatmap=_time_heatmap(entries),
-        flavor_lean=_flavor_lean(category_stats),
-        top_dishes=_top_dishes(entries),
-        insights=[_primary_insight(entries, top_category)],
+        flavor_lean=_flavor_lean(user_profile),
+        top_dishes=_top_dishes(weighted_entries),
+        insights=[_primary_insight(entries, top_category, user_profile)],
     )
 
 
@@ -97,20 +115,31 @@ def generate_recommendations(
     category_stats = _category_stats(entries)
     visited = {entry.restaurant.id for entry in entries}
     exposure_history = set(context.exposure_history)
+    similar_user_entries = _similar_user_entries(
+        user_id,
+        entries,
+        context.peer_diary_entries,
+    )
     scored = []
     for candidate in context.candidate_restaurants:
         if candidate.id in visited:
             continue
-        score = _recommendation_score(candidate, category_stats, exposure_history)
+        score = _recommendation_score(
+            candidate,
+            category_stats,
+            exposure_history,
+            similar_user_entries,
+        )
         scored.append((score, candidate))
 
     scored.sort(key=lambda item: (-item[0], item[1].distance_m, item[1].name))
+    selected = _category_diverse_candidates(scored, limit)
     items = [
         RecommendedRestaurant(
             **candidate.model_dump(),
-            reason=_recommendation_reason(candidate, category_stats),
+            reason=_recommendation_reason(candidate, category_stats, similar_user_entries),
         )
-        for _, candidate in scored[:limit]
+        for candidate in selected
     ]
     return RecommendedResponse(
         items=items,
@@ -141,16 +170,37 @@ def _category_stats(entries: Sequence[DiaryEntryInput]) -> dict[str, CategorySta
             rating_sum=current.rating_sum + (rating or 0.0),
             rating_count=current.rating_count + (1 if rating is not None else 0),
             tone=current.tone,
+            weight_sum=current.weight_sum + 1.0,
+        )
+    return stats
+
+
+def _weighted_category_stats(
+    weighted_entries: Sequence[WeightedEntryProfile],
+) -> dict[str, CategoryStats]:
+    stats: dict[str, CategoryStats] = {}
+    for item in weighted_entries:
+        entry = item.entry
+        category = entry.restaurant.category
+        current = stats.get(category, CategoryStats(tone=entry.restaurant.thumbnail_tone))
+        rating = entry.rating
+        rating_factor = (rating / 5.0) if rating is not None else 0.6
+        stats[category] = CategoryStats(
+            visits=current.visits + 1,
+            rating_sum=current.rating_sum + (rating or 0.0),
+            rating_count=current.rating_count + (1 if rating is not None else 0),
+            tone=current.tone,
+            weight_sum=current.weight_sum + item.weight * rating_factor,
         )
     return stats
 
 
 def _taste_categories(category_stats: dict[str, CategoryStats]) -> list[TasteCategory]:
-    max_visits = max((stats.visits for stats in category_stats.values()), default=1)
+    max_weight = max((stats.weight_sum for stats in category_stats.values()), default=1.0)
     categories = [
         TasteCategory(
             name=name,
-            weight=round(stats.visits / max_visits, 2),
+            weight=round(stats.weight_sum / max_weight, 2),
             visits=stats.visits,
             tone=stats.tone,
         )
@@ -159,7 +209,8 @@ def _taste_categories(category_stats: dict[str, CategoryStats]) -> list[TasteCat
     return sorted(categories, key=lambda category: (-category.weight, category.name))
 
 
-def _taste_type(top_category: str) -> TasteType:
+def _taste_type(top_category: str, user_profile: UserProfileArtifact) -> TasteType:
+    top_tastes = list(user_profile.long_term_profile.get("taste", {}))[:2]
     labels = {
         "Noodles": (
             "The Broth-Seeker",
@@ -181,6 +232,8 @@ def _taste_type(top_category: str) -> TasteType:
             f"Your diary leans toward {top_category.lower()}, with room for new favorites.",
         ),
     )
+    if top_tastes:
+        blurb = f"{blurb} Your clearest flavor signals are {', '.join(top_tastes)}."
     return TasteType(label=label, blurb=blurb)
 
 
@@ -216,6 +269,17 @@ def _time_heatmap(entries: Sequence[DiaryEntryInput]) -> TimeHeatmap:
     return TimeHeatmap(rows=HEATMAP_ROWS, cols=HEATMAP_COLS, data=data)
 
 
+def _rating_distribution(entries: Sequence[DiaryEntryInput]) -> dict[str, int]:
+    distribution = {f"{step / 2:.1f}": 0 for step in range(1, 11)}
+    for entry in entries:
+        if entry.rating is None:
+            continue
+        key = f"{round(entry.rating * 2) / 2:.1f}"
+        if key in distribution:
+            distribution[key] += 1
+    return distribution
+
+
 def _hour_bucket(hour: int) -> int:
     if hour < 11:
         return 0
@@ -228,54 +292,86 @@ def _hour_bucket(hour: int) -> int:
     return 4
 
 
-def _flavor_lean(category_stats: dict[str, CategoryStats]) -> FlavorLean:
-    weighted = sum(stats.visits * max(stats.avg_rating, 1.0) for stats in category_stats.values())
-    total_visits = sum(stats.visits for stats in category_stats.values()) or 1
-    base = min(1.0, weighted / (total_visits * 5.0))
+def _flavor_lean(user_profile: UserProfileArtifact) -> FlavorLean:
+    buckets = {
+        "umami": 0.0,
+        "sweet": 0.0,
+        "salty": 0.0,
+        "sour": 0.0,
+        "spicy": 0.0,
+        "bitter": 0.0,
+    }
+    for term, score in user_profile.long_term_profile.get("taste", {}).items():
+        if term in {"savory", "umami", "smoky"}:
+            buckets["umami"] += score
+        elif term in {"sweet", "buttery"}:
+            buckets["sweet"] += score
+        elif term in buckets:
+            buckets[term] += score
+
+    max_score = max(buckets.values()) or 1.0
     return FlavorLean(
-        umami=round(min(1.0, base + 0.18), 2),
-        sweet=round(min(1.0, base + 0.02), 2),
-        salty=round(min(1.0, base + 0.08), 2),
-        sour=round(max(0.0, base - 0.12), 2),
-        spicy=round(max(0.0, base - 0.04), 2),
-        bitter=round(max(0.0, base - 0.18), 2),
+        umami=round(buckets["umami"] / max_score, 2),
+        sweet=round(buckets["sweet"] / max_score, 2),
+        salty=round(buckets["salty"] / max_score, 2),
+        sour=round(buckets["sour"] / max_score, 2),
+        spicy=round(buckets["spicy"] / max_score, 2),
+        bitter=round(buckets["bitter"] / max_score, 2),
     )
 
 
-def _top_dishes(entries: Sequence[DiaryEntryInput]) -> list[TopDish]:
-    grouped: dict[str, tuple[int, float, int, str]] = {}
-    for entry in entries:
+def _top_dishes(weighted_entries: Sequence[WeightedEntryProfile]) -> list[TopDish]:
+    grouped: dict[str, tuple[int, float, int, str, float]] = {}
+    for item in weighted_entries:
+        entry = item.entry
         dish = entry.restaurant.signature_dish
         if not dish:
             continue
-        visits, rating_sum, rating_count, tone = grouped.get(
+        visits, rating_sum, rating_count, tone, weight_sum = grouped.get(
             dish,
-            (0, 0.0, 0, entry.restaurant.thumbnail_tone),
+            (0, 0.0, 0, entry.restaurant.thumbnail_tone, 0.0),
         )
+        rating_factor = (entry.rating / 5.0) if entry.rating is not None else 0.6
         grouped[dish] = (
             visits + 1,
             rating_sum + (entry.rating or 0.0),
             rating_count + (1 if entry.rating is not None else 0),
             tone,
+            weight_sum + item.weight * rating_factor,
         )
     dishes = [
-        TopDish(
-            name=name,
-            visits=visits,
-            rating=_round_one_decimal(rating_sum / rating_count) if rating_count else 0.0,
-            tone=tone,
+        (
+            weight_sum,
+            TopDish(
+                name=name,
+                visits=visits,
+                rating=_round_one_decimal(rating_sum / rating_count) if rating_count else 0.0,
+                tone=tone,
+            ),
         )
-        for name, (visits, rating_sum, rating_count, tone) in grouped.items()
+        for name, (visits, rating_sum, rating_count, tone, weight_sum) in grouped.items()
     ]
-    return sorted(dishes, key=lambda dish: (-(dish.visits * dish.rating), dish.name))[:3]
+    return [
+        dish
+        for _, dish in sorted(
+            dishes,
+            key=lambda item: (-item[0], -item[1].rating, item[1].name),
+        )[:3]
+    ]
 
 
-def _primary_insight(entries: Sequence[DiaryEntryInput], top_category: str) -> str:
+def _primary_insight(
+    entries: Sequence[DiaryEntryInput],
+    top_category: str,
+    user_profile: UserProfileArtifact,
+) -> str:
     ratings = [entry.rating for entry in entries if entry.rating is not None]
     avg_rating = _round_one_decimal(sum(ratings) / len(ratings)) if ratings else 0.0
+    top_taste = next(iter(user_profile.long_term_profile.get("taste", {})), None)
+    flavor_text = f" and a {top_taste} flavor lean" if top_taste else ""
     return (
         f"Your strongest pattern is {top_category.lower()}, "
-        f"with an average logged rating of {avg_rating}."
+        f"with an average logged rating of {avg_rating}{flavor_text}."
     )
 
 
@@ -287,11 +383,12 @@ def _recommendation_score(
     candidate: RestaurantInput,
     category_stats: dict[str, CategoryStats],
     exposure_history: set[str],
+    similar_user_entries: Sequence[DiaryEntryInput],
 ) -> float:
     max_visits = max((stats.visits for stats in category_stats.values()), default=1)
     stats = category_stats.get(candidate.category)
     content_score = (stats.visits / max_visits) if stats else 0.0
-    collaborative_score = 0.0
+    collaborative_score = _collaborative_score(candidate, similar_user_entries)
     context_score = max(0.0, min(1.0, 1.0 - candidate.distance_m / 5000))
     quality_score = candidate.rating / 5.0
     novelty_score = 0.2 if candidate.id in exposure_history else 1.0
@@ -308,7 +405,10 @@ def _recommendation_score(
 def _recommendation_reason(
     candidate: RestaurantInput,
     category_stats: dict[str, CategoryStats],
+    similar_user_entries: Sequence[DiaryEntryInput],
 ) -> str:
+    if _similar_user_ratings(candidate, similar_user_entries):
+        return f"Similar users also liked this {candidate.category.lower()} place."
     stats = category_stats.get(candidate.category)
     if stats:
         return (
@@ -318,3 +418,110 @@ def _recommendation_reason(
     if candidate.rating >= 4.5:
         return "Highly rated near you."
     return "Adds variety outside your usual categories."
+
+
+def _category_diverse_candidates(
+    scored: Sequence[tuple[float, RestaurantInput]],
+    limit: int,
+) -> list[RestaurantInput]:
+    max_per_category = max(1, (limit + 1) // 2)
+    selected: list[RestaurantInput] = []
+    deferred: list[RestaurantInput] = []
+    category_counts: dict[str, int] = {}
+
+    for _, candidate in scored:
+        if len(selected) >= limit:
+            break
+        count = category_counts.get(candidate.category, 0)
+        if count < max_per_category:
+            selected.append(candidate)
+            category_counts[candidate.category] = count + 1
+        else:
+            deferred.append(candidate)
+
+    for candidate in deferred:
+        if len(selected) >= limit:
+            break
+        selected.append(candidate)
+
+    return selected
+
+
+def _similar_user_entries(
+    user_id: str,
+    entries: Sequence[DiaryEntryInput],
+    peer_entries: Sequence[DiaryEntryInput],
+) -> list[DiaryEntryInput]:
+    active_vector = _category_rating_vector_from_entries(entries)
+    if not active_vector or not peer_entries:
+        return []
+
+    entries_by_user: dict[str, list[DiaryEntryInput]] = defaultdict(list)
+    for entry in peer_entries:
+        if entry.user_id != user_id:
+            entries_by_user[entry.user_id].append(entry)
+
+    similar_groups = [
+        user_entries
+        for user_entries in entries_by_user.values()
+        if _cosine_similarity(
+            active_vector,
+            _category_rating_vector_from_entries(user_entries),
+        )
+        >= SIMILAR_USER_THRESHOLD
+    ]
+    if len(similar_groups) < MIN_SIMILAR_USERS:
+        return []
+
+    return [entry for group in similar_groups for entry in group]
+
+
+def _category_rating_vector_from_entries(
+    entries: Sequence[DiaryEntryInput],
+) -> dict[str, float]:
+    return {
+        category: stats.avg_rating
+        for category, stats in _category_stats(entries).items()
+        if stats.rating_count
+    }
+
+
+def _cosine_similarity(left: dict[str, float], right: dict[str, float]) -> float:
+    if not left or not right:
+        return 0.0
+    terms = set(left) | set(right)
+    dot_product = sum(left.get(term, 0.0) * right.get(term, 0.0) for term in terms)
+    left_norm = sum(value * value for value in left.values()) ** 0.5
+    right_norm = sum(value * value for value in right.values()) ** 0.5
+    if not left_norm or not right_norm:
+        return 0.0
+    return dot_product / (left_norm * right_norm)
+
+
+def _collaborative_score(
+    candidate: RestaurantInput,
+    similar_user_entries: Sequence[DiaryEntryInput],
+) -> float:
+    exact_ratings = _similar_user_ratings(candidate, similar_user_entries)
+    if exact_ratings:
+        return round(sum(exact_ratings) / len(exact_ratings), 6)
+
+    category_ratings = [
+        entry.rating / 5.0
+        for entry in similar_user_entries
+        if entry.restaurant.category == candidate.category and entry.rating is not None
+    ]
+    if not category_ratings:
+        return 0.0
+    return round(0.5 * sum(category_ratings) / len(category_ratings), 6)
+
+
+def _similar_user_ratings(
+    candidate: RestaurantInput,
+    similar_user_entries: Sequence[DiaryEntryInput],
+) -> list[float]:
+    return [
+        entry.rating / 5.0
+        for entry in similar_user_entries
+        if entry.restaurant.id == candidate.id and entry.rating is not None
+    ]

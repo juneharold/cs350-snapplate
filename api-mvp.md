@@ -665,6 +665,10 @@ The "Your gastronomic profile" screen.
     { "name": "Noodles", "weight": 0.92, "visits": 18, "tone": "bone" },
     { "name": "Cafe",    "weight": 0.78, "visits": 14, "tone": "char" }
   ],
+  "rating_distribution": {
+    "0.5": 0, "1.0": 0, "1.5": 1, "2.0": 0, "2.5": 2,
+    "3.0": 5, "3.5": 11, "4.0": 25, "4.5": 29, "5.0": 14
+  },
   "time_heatmap": {
     "rows": ["8 AM", "12 PM", "3 PM", "7 PM", "10 PM"],
     "cols": ["M", "T", "W", "T", "F", "S", "S"],

@@ -13,9 +13,11 @@ from algorithm.config import (
 )
 from algorithm.contract import generate_recommendations, generate_taste_report
 from algorithm.entry_profiling import profile_diary_entry
+from algorithm.restaurant_profiling import profile_kakao_restaurant
 from algorithm.schemas import (
     DiaryEntryInput,
     EntryProfileArtifact,
+    KakaoRestaurantMetadata,
     RecommendationArtifact,
     RecommendationContext,
     RecommendedResponse,
@@ -30,6 +32,7 @@ from algorithm.schemas import (
     TasteProfileResponse,
     UserProfileArtifact,
 )
+from algorithm.user_profiling import aggregate_user_profile, build_weighted_entry_profiles
 from algorithm.version import ALGORITHM_VERSION, __version__
 
 
@@ -39,6 +42,7 @@ __all__ = [
     "EMBEDDING_MODEL",
     "EntryProfileArtifact",
     "IMAGE_PROFILE_MODEL",
+    "KakaoRestaurantMetadata",
     "MIN_ENTRIES_FOR_PERSONALIZATION",
     "MIN_SIMILAR_USERS",
     "ML_PROVIDER",
@@ -62,7 +66,10 @@ __all__ = [
     "TEXT_PROFILE_MODEL",
     "UserProfileArtifact",
     "__version__",
+    "aggregate_user_profile",
+    "build_weighted_entry_profiles",
     "generate_recommendations",
     "generate_taste_report",
     "profile_diary_entry",
+    "profile_kakao_restaurant",
 ]
