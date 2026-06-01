@@ -5,6 +5,7 @@ from app.config.auth_middleware import AuthMiddleware
 from app.config.http_errors import init_error_handlers
 from app.config.lifespan import lifespan
 from app.controllers.auth import api as auth_router
+from app.controllers.bookmarks import api as bookmarks_router
 from app.controllers.drafts import api as drafts_router
 from app.controllers.entries import api as entries_router
 from app.controllers.home import api as home_router
@@ -13,6 +14,7 @@ from app.controllers.me import api as me_router
 from app.controllers.media import api as media_router
 from app.controllers.restaurants import api as restaurants_router
 from app.controllers.settings import api as settings_router
+from app.controllers.taste import api as taste_router
 
 # Frontend base path is /v1 (handlers.ts:46)
 V1 = "/v1"
@@ -25,9 +27,11 @@ def init_routers(app: FastAPI) -> None:
     app.include_router(auth_router, prefix=V1, tags=["Auth"])
     app.include_router(me_router, prefix=V1, tags=["Profile"])
     app.include_router(restaurants_router, prefix=V1, tags=["Restaurants"])
+    app.include_router(bookmarks_router, prefix=V1, tags=["Bookmarks"])
     app.include_router(media_router, prefix=V1, tags=["Media"])
     app.include_router(drafts_router, prefix=V1, tags=["Drafts"])
     app.include_router(entries_router, prefix=V1, tags=["Entries"])
+    app.include_router(taste_router, prefix=V1, tags=["Taste"])
     app.include_router(settings_router, prefix=V1, tags=["Settings"])
     app.include_router(misc_router, prefix=V1, tags=["Misc"])
 
