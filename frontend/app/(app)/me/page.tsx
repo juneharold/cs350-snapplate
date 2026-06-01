@@ -155,13 +155,24 @@ export default function ProfilePage() {
                 href={`/diary/${e.id}`}
                 style={{ width: 102, flexShrink: 0 }}
               >
-                <FoodPlaceholder
-                  tone={e.cover_media_tone}
-                  label={e.restaurant.signature_dish ?? e.cover_media_label}
-                  width={102}
-                  height={102}
-                  radius={12}
-                />
+                {e.cover_media_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={e.cover_media_url}
+                    alt={e.restaurant.name}
+                    width={102}
+                    height={102}
+                    style={{ width: 102, height: 102, borderRadius: 12, objectFit: "cover" }}
+                  />
+                ) : (
+                  <FoodPlaceholder
+                    tone={e.cover_media_tone}
+                    label={e.restaurant.signature_dish ?? e.cover_media_label}
+                    width={102}
+                    height={102}
+                    radius={12}
+                  />
+                )}
                 <div
                   className="truncate mt-1.5"
                   style={{
