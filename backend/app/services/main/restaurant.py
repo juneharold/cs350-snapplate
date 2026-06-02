@@ -48,6 +48,10 @@ class RestaurantService:
 
         bookmarked = await self._bookmarked(user_id)
         items = [self._summary(r, lat, lng, bookmarked) for r in rows]
+        # The cache (list_active) is not geo-bounded, so drop anything outside the
+        # requested radius before sorting/slicing — otherwise /nearby can return
+        # places well outside radius_m (REQ-4.2-007).
+        items = [i for i in items if i.distance_m <= radius_m]
         items = self._sort(items, sort)
         return items[:limit]
 
