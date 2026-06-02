@@ -53,6 +53,15 @@ class DraftService:
     ) -> DraftDetailInfo:
         if not media_ids:
             raise AppError(400, "media_required", "At least one photo is required.", "media_ids")
+        # Every linked media must belong to the caller. Otherwise a guessed id
+        # lets someone attach another user's photo and read its signed URL via
+        # _detail (REQ-SEC-004 / REQ-SEC-009).
+        owned = await self.media.owned_ids(media_ids, user_id)
+        missing = [mid for mid in media_ids if mid not in owned]
+        if missing:
+            raise AppError(404, "media_not_found", "Media not found.", "media_ids")
+        if cover_media_id is not None and cover_media_id not in owned:
+            raise AppError(404, "media_not_found", "Media not found.", "cover_media_id")
         cover = cover_media_id or media_ids[0]
         captured = as_utc(captured_at) if captured_at else utcnow()
         if captured > utcnow():
@@ -122,6 +131,9 @@ class DraftService:
         if captured_at is not None:
             changes.captured_at = as_utc(captured_at)
         if cover_media_id is not None:
+            # The new cover must be the caller's own media (REQ-SEC-004).
+            if not await self.media.owned_ids([cover_media_id], user_id):
+                raise AppError(404, "media_not_found", "Media not found.", "cover_media_id")
             changes.cover_media_id = cover_media_id
         draft = await self.repo.update(draft, changes)
         return await self._detail(draft)
