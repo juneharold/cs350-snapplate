@@ -5,31 +5,22 @@ import { apiFetch } from "@/lib/api/client";
 import type { MediaUploadResponse } from "@/lib/types";
 
 /**
- * Upload one or more photos.
+ * Upload one or more photos as multipart/form-data to the real backend.
  *
- * The real backend will accept `multipart/form-data`. For the MVP mock,
- * the client already reads each File to a data URL + extracts whatever
- * EXIF it can, then POSTs a JSON payload describing the files. When the
- * real backend lands we'll swap this to a `FormData` body without
- * changing the response shape.
+ * The backend's POST /media/upload expects `files[]` (the raw bytes) plus an
+ * optional `extract_exif` flag, and returns { uploads: MediaRecord[] }. We send
+ * the original File objects directly; the server does EXIF read/strip + variants.
  */
-export type UploadFileInput = {
-  name: string;
-  bytes: number;
-  width?: number;
-  height?: number;
-  captured_at?: string | null;
-  lat?: number | null;
-  lng?: number | null;
-  label?: string;
-};
-
 export function useUploadMedia() {
   return useMutation({
-    mutationFn: (files: UploadFileInput[]) =>
-      apiFetch<MediaUploadResponse>("/media/upload", {
+    mutationFn: (files: File[]) => {
+      const form = new FormData();
+      for (const f of files) form.append("files", f, f.name || "photo.jpg");
+      form.append("extract_exif", "true");
+      return apiFetch<MediaUploadResponse>("/media/upload", {
         method: "POST",
-        body: { files },
-      }),
+        body: form,
+      });
+    },
   });
 }

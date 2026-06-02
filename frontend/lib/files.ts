@@ -19,6 +19,7 @@ export function readFileAsPendingPhoto(file: File): Promise<PendingPhoto> {
       img.onload = () => {
         resolve({
           key: `${file.name}-${file.size}-${file.lastModified}`,
+          file,
           dataUrl,
           name: file.name || "photo.jpg",
           bytes: file.size,
@@ -34,6 +35,7 @@ export function readFileAsPendingPhoto(file: File): Promise<PendingPhoto> {
       img.onerror = () =>
         resolve({
           key: `${file.name}-${file.size}-${file.lastModified}`,
+          file,
           dataUrl,
           name: file.name || "photo.jpg",
           bytes: file.size,

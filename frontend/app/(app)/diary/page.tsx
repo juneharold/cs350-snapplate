@@ -123,13 +123,24 @@ function EntryCard({ e }: { e: EntrySummary }) {
   return (
     <Link href={`/diary/${e.id}`} className="flex gap-3 p-3 items-start">
       <div className="relative shrink-0">
-        <FoodPlaceholder
-          tone={e.cover_media_tone}
-          label={e.restaurant.signature_dish ?? e.cover_media_label}
-          width={92}
-          height={92}
-          radius={12}
-        />
+        {e.cover_media_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={e.cover_media_url}
+            alt={e.restaurant.name}
+            width={92}
+            height={92}
+            style={{ width: 92, height: 92, borderRadius: 12, objectFit: "cover" }}
+          />
+        ) : (
+          <FoodPlaceholder
+            tone={e.cover_media_tone}
+            label={e.restaurant.signature_dish ?? e.cover_media_label}
+            width={92}
+            height={92}
+            radius={12}
+          />
+        )}
         {e.media_count > 1 && (
           <div
             className="absolute flex items-center gap-1"
