@@ -71,3 +71,35 @@ def test_finalize_requires_note(client, headers):
     assert r.json()["error"]["code"] == "note_required"
     # draft still there (atomicity)
     assert client.get(f"/v1/drafts/{did}", headers=headers).status_code == 200
+
+
+def test_draft_cannot_link_another_users_media(client):
+    """A draft may only link media the caller owns (REQ-SEC-004 / REQ-SEC-009).
+
+    Otherwise a guessed media id would let one user attach (and get a signed
+    URL for) another user's photo.
+    """
+    owner = auth_headers(client, "t-media-owner@snapplate.app")
+    attacker = auth_headers(client, "t-media-attacker@snapplate.app")
+
+    victim_mid = client.post(
+        "/v1/media/upload", files={"files": ("p.jpg", _jpeg(), "image/jpeg")}, headers=owner
+    ).json()["response"]["uploads"][0]["id"]
+
+    # Attacker tries to point their own draft at the victim's media.
+    r = client.post("/v1/drafts", json={"media_ids": [victim_mid], **KAIST}, headers=attacker)
+    assert r.status_code == 404
+    assert r.json()["error"]["code"] == "media_not_found"
+
+
+def test_deleted_account_token_is_rejected(client):
+    """A valid JWT for a soft-deleted account must not access protected
+    endpoints (REQ-4.1-008). The token is still signature-valid and unexpired."""
+    h = auth_headers(client, "t-deleted@snapplate.app")
+    # works before deletion
+    assert client.get("/v1/me", headers=h).status_code == 200
+    # soft-delete the account (sets deleted_at)
+    d = client.request("DELETE", "/v1/account", json={"confirm_email": "t-deleted@snapplate.app"}, headers=h)
+    assert d.status_code in (200, 204)
+    # same (still unexpired) token must now be rejected
+    assert client.get("/v1/me", headers=h).status_code == 401

@@ -27,6 +27,22 @@ def test_nearby_returns_restaurants(client):
         assert f in first
 
 
+def test_nearby_respects_radius(client):
+    """Every returned restaurant must be within the requested radius_m. The
+    cache is not geo-bounded, so a missing filter would leak far-away places
+    (REQ-4.2-007)."""
+    h = auth_headers(client, "t-radius@snapplate.app")
+    radius = 800
+    r = client.get(
+        "/v1/restaurants/nearby",
+        params={**KAIST, "radius_m": radius, "limit": 20},
+        headers=h,
+    )
+    assert r.status_code == 200
+    items = r.json()["response"]["items"]
+    assert all(i["distance_m"] <= radius for i in items)
+
+
 def test_detail(client, warm_restaurant):
     h = auth_headers(client, "t-detail@snapplate.app")
     r = client.get(f"/v1/restaurants/{warm_restaurant}", headers=h)
