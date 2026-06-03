@@ -32,10 +32,10 @@ def test_profile_kakao_restaurant_normalizes_supported_metadata() -> None:
     assert profile.generated_at == NOW
     assert profile.profile["cuisine"]["korean"] == 0.85
     assert profile.profile["food_type"]["bbq"] == 0.8
-    assert profile.profile["venue"]["korean_bbq"] == 0.8
-    assert profile.profile["context"]["reserve_ahead"] == 0.62
+    assert profile.profile["venue"]["bbq_place"] == 0.8
+    assert "context" not in profile.profile
     assert profile.profile["taste"]["smoky"] == 0.62
-    assert profile.profile["location_feature"]["eoeun_dong"] == 0.55
+    assert profile.profile["location_feature"]["near_campus"] == 0.55
     assert profile.confidence["taste"] == 0.62
     assert "category_name: Food > Korean BBQ" in profile.evidence["cuisine"]
     assert "tag: smoky grill" in profile.evidence["taste"]
@@ -57,7 +57,7 @@ def test_profile_kakao_restaurant_keeps_sparse_metadata_low_confidence() -> None
     assert profile.profile.get("taste", {}) == {}
     assert profile.profile.get("food_type", {}) == {}
     assert profile.profile.get("cuisine", {}) == {}
-    assert profile.profile["location_feature"] == {"daejeon": 0.55}
-    assert profile.confidence == {"location_feature": 0.55}
+    assert profile.profile == {}
+    assert profile.confidence == {}
     assert "taste" not in profile.evidence
     assert profile.embedding

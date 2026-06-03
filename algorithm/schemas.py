@@ -3,8 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from algorithm.taxonomy import INTERNAL_PROFILE_TAXONOMY, PUBLIC_RESTAURANT_CATEGORIES
 from algorithm.version import ALGORITHM_VERSION
 
 
@@ -51,6 +52,13 @@ class RestaurantInput(ContractModel):
     neighborhood: str
     is_bookmarked: bool = False
 
+    @field_validator("category")
+    @classmethod
+    def require_public_category(cls, value: str) -> str:
+        if value not in PUBLIC_RESTAURANT_CATEGORIES:
+            raise ValueError(f"unsupported public restaurant category: {value}")
+        return value
+
 
 class DiaryEntryInput(ContractModel):
     id: str
@@ -95,6 +103,13 @@ class TasteCategory(ContractModel):
     weight: Score
     visits: PositiveInt
     tone: FoodTone
+
+    @field_validator("name")
+    @classmethod
+    def require_public_category(cls, value: str) -> str:
+        if value not in PUBLIC_RESTAURANT_CATEGORIES:
+            raise ValueError(f"unsupported public restaurant category: {value}")
+        return value
 
 
 class TimeHeatmap(ContractModel):
@@ -183,18 +198,11 @@ class EntryProfileArtifact(ContractModel):
 
     @model_validator(mode="after")
     def require_confidence_and_evidence(self) -> "EntryProfileArtifact":
-        for field_name in (
-            "cuisine",
-            "food_type",
-            "taste",
-            "context",
-            "venue",
-            "emotion",
-            "location_feature",
-            "temporal_feature",
-        ):
-            if not getattr(self, field_name):
+        for field_name in INTERNAL_PROFILE_TAXONOMY:
+            terms = getattr(self, field_name)
+            if not terms:
                 continue
+            _validate_profile_terms(field_name, terms)
             if field_name not in self.confidence:
                 raise ValueError(f"{field_name} requires confidence")
             if not self.evidence.get(field_name):
@@ -237,6 +245,12 @@ class UserProfileArtifact(ContractModel):
     category_rating_vector: dict[str, float] = Field(default_factory=dict)
     algorithm_version: str = ALGORITHM_VERSION
 
+    @model_validator(mode="after")
+    def require_supported_profile_terms(self) -> "UserProfileArtifact":
+        _validate_profile_map("long_term_profile", self.long_term_profile)
+        _validate_profile_map("short_term_profile", self.short_term_profile)
+        return self
+
 
 class RestaurantProfileArtifact(ContractModel):
     restaurant_id: str
@@ -247,6 +261,11 @@ class RestaurantProfileArtifact(ContractModel):
     profile_text: str
     embedding: list[float] = Field(default_factory=list)
     algorithm_version: str = ALGORITHM_VERSION
+
+    @model_validator(mode="after")
+    def require_supported_profile_terms(self) -> "RestaurantProfileArtifact":
+        _validate_profile_map("profile", self.profile)
+        return self
 
 
 class RecommendationScoreBreakdown(ContractModel):
@@ -271,3 +290,25 @@ class RecommendationArtifact(ContractModel):
     has_enough_data: bool
     ranked_items: list[ScoredRecommendationArtifact] = Field(default_factory=list)
     algorithm_version: str = ALGORITHM_VERSION
+
+
+def _validate_profile_map(
+    map_name: str,
+    profile: dict[str, WeightedTerms],
+) -> None:
+    for field_name, terms in profile.items():
+        if field_name not in INTERNAL_PROFILE_TAXONOMY:
+            raise ValueError(f"{map_name} contains unsupported profile field: {field_name}")
+        _validate_profile_terms(f"{map_name}.{field_name}", terms, field_name)
+
+
+def _validate_profile_terms(
+    label: str,
+    terms: WeightedTerms,
+    taxonomy_field_name: str | None = None,
+) -> None:
+    field_name = taxonomy_field_name or label
+    allowed = set(INTERNAL_PROFILE_TAXONOMY[field_name])
+    unsupported = sorted(set(terms) - allowed)
+    if unsupported:
+        raise ValueError(f"{label} contains unsupported terms: {unsupported}")

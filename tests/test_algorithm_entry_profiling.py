@@ -71,9 +71,9 @@ def test_profile_diary_entry_extracts_metadata_time_location_and_rating() -> Non
     assert "korean" in profile.cuisine
     assert "bbq" in profile.food_type
     assert profile.temporal_feature.keys() == {"lunch", "weekend"}
-    assert profile.location_feature.keys() == {"eoeun_dong", "nearby"}
-    assert "korean_bbq" in profile.venue
-    assert "satisfied" in profile.emotion
+    assert profile.location_feature.keys() == {"near_campus", "nearby"}
+    assert "bbq_place" in profile.venue
+    assert "delighted" in profile.emotion
     assert profile.taste == {}
     assert profile.context == {}
     assert_all_profile_fields_have_confidence_and_evidence(profile)
@@ -90,7 +90,7 @@ def test_profile_diary_entry_leaves_unknown_optional_fields_empty() -> None:
     profile = profile_diary_entry(
         entry(
             restaurant(
-                category="Restaurant",
+                category="Western",
                 signature_dish=None,
                 distance_m=5000,
                 neighborhood="",
@@ -99,16 +99,16 @@ def test_profile_diary_entry_leaves_unknown_optional_fields_empty() -> None:
         )
     )
 
-    assert profile.cuisine == {}
+    assert profile.cuisine == {"western": 0.85}
     assert profile.food_type == {}
     assert profile.taste == {}
     assert profile.context == {}
-    assert profile.venue == {}
+    assert profile.venue == {"sit_down": 0.8}
     assert profile.emotion == {}
     assert profile.location_feature == {}
     assert profile.temporal_feature == {"lunch": 1.0, "weekend": 1.0}
-    assert set(profile.confidence) == {"temporal_feature"}
-    assert set(profile.evidence) == {"temporal_feature"}
+    assert set(profile.confidence) == {"cuisine", "venue", "temporal_feature"}
+    assert set(profile.evidence) == {"cuisine", "venue", "temporal_feature"}
 
 
 def test_profile_diary_entry_extracts_supported_text_signals() -> None:
@@ -125,7 +125,7 @@ def test_profile_diary_entry_extracts_supported_text_signals() -> None:
 
     assert {"spicy", "savory"} <= set(profile.taste)
     assert "quick_meal" in profile.context
-    assert {"positive", "satisfied"} <= set(profile.emotion)
+    assert "satisfied" in profile.emotion
     assert_all_profile_fields_have_confidence_and_evidence(profile)
     assert "note: spicy" in profile.evidence["taste"]
     assert "note: savory" in profile.evidence["taste"]
@@ -136,7 +136,7 @@ def test_profile_diary_entry_extracts_supported_text_signals() -> None:
 def test_profile_diary_entry_extracts_supported_image_labels() -> None:
     profile = profile_diary_entry(
         entry(
-            restaurant(category="Restaurant", signature_dish=None),
+            restaurant(category="Snacks", signature_dish=None),
             rating=None,
             image_labels=["korean stew", "rice bowl"],
         )

@@ -32,15 +32,22 @@ The frontend and backend are owned by teammates. This plan defines the algorithm
 - Use ML for text understanding, image understanding, profile generation, and embeddings.
 - Use Kakao Map as the official restaurant metadata source.
 - Keep the minimum-entry threshold as a configurable constant.
-- Keep taxonomy fields adjustable during development.
+- Freeze taxonomy v0 for the first ML integration; future taxonomy changes should be intentional and test-backed.
 - Use synthetic dummy users and diaries to test collaborative filtering if real user data is too small.
-- External ML APIs are allowed. OpenAI is an acceptable provider candidate.
+- External ML APIs are allowed. OpenAI is the selected provider for the first ML-backed implementation.
 - Do not expose recommendation scores to users (REQ-BIZ-008).
 
 Resolved client decision:
 
 - Team 6 confirmed that external APIs, including OpenAI, may be used for ML capabilities.
-- Exact provider and model IDs should still be configuration values, not hardcoded into algorithm logic.
+- Exact provider and model IDs are configuration values, not hardcoded into algorithm logic.
+- The first quality-focused model set is:
+  - `ML_PROVIDER = "openai"`
+  - `TEXT_PROFILE_MODEL = "gpt-5.4-mini"`
+  - `IMAGE_PROFILE_MODEL = "gpt-5.4-mini"`
+  - `SUMMARY_MODEL = "gpt-5.4-mini"`
+  - `EMBEDDING_MODEL = "text-embedding-3-large"`
+  - `EMBEDDING_DIMENSIONS = 1024`
 
 Required capabilities for the selected provider:
 
@@ -61,13 +68,80 @@ The following values should be defined once in configuration instead of being ha
 | `SIMILAR_USER_THRESHOLD` | `0.70` | Minimum cosine similarity for collaborative filtering |
 | `MIN_SIMILAR_USERS` | `3` | Minimum similar users before collaborative score is active |
 | `RECOMMENDATION_LIMIT` | `10` | Default number of recommendations returned |
-| `RECOMMENDATION_COOLDOWN_REQUESTS` | TBD | Number of recent recommendation requests used to avoid repeated exposure |
-| `ML_PROVIDER` | TBD | External ML provider, for example OpenAI |
-| `TEXT_PROFILE_MODEL` | TBD | Model used for diary text profile extraction |
-| `IMAGE_PROFILE_MODEL` | TBD | Model used for food image profile extraction |
-| `EMBEDDING_MODEL` | TBD | Model used for user and restaurant embeddings |
+| `RECOMMENDATION_COOLDOWN_REQUESTS` | `20` | Number of recent recommendation requests used to avoid repeated exposure |
+| `ML_PROVIDER` | `openai` | External ML provider |
+| `TEXT_PROFILE_MODEL` | `gpt-5.4-mini` | Model used for diary text profile extraction |
+| `IMAGE_PROFILE_MODEL` | `gpt-5.4-mini` | Model used for food image profile extraction |
+| `SUMMARY_MODEL` | `gpt-5.4-mini` | Model used for profile labels, blurbs, and explanation text |
+| `EMBEDDING_MODEL` | `text-embedding-3-large` | Model used for user and restaurant embeddings |
+| `EMBEDDING_DIMENSIONS` | `1024` | Stored embedding vector dimensions |
 
 Internal profiles may be generated before the minimum entry count. User-facing taste analysis and personalized recommendations should return `has_enough_data: false` until the threshold is met (REQ-4.8-015, REQ-4.9-011, REQ-BIZ-002).
+
+### Taxonomy V0
+
+Public frontend-facing restaurant categories are frozen as:
+
+```text
+Korean
+Korean BBQ
+Noodles
+Diner / Set meal
+Comfort Korean
+Cafe
+Bakery
+Snacks
+Chinese
+Japanese
+Western
+Bar
+Dessert
+```
+
+Public `flavor_lean` fields are frozen as:
+
+```text
+umami
+sweet
+salty
+sour
+spicy
+bitter
+```
+
+Internal profile terms are frozen as:
+
+```text
+cuisine:
+korean, japanese, chinese, western, italian, asian_fusion, cafe_bakery
+
+food_type:
+noodle, rice_bowl, soup, stew, bbq, fried, set_meal, bread, pastry,
+coffee, dessert, snack, drink
+
+taste:
+savory, umami, spicy, sweet, salty, sour, bitter, smoky, buttery,
+crisp, rich, light, fresh, creamy, chewy
+
+context:
+quick_meal, solo_meal, group_meal, casual, date, study_work,
+takeout, late_night, comfort_meal, special_occasion
+
+venue:
+casual, cafe, bakery, bar, diner, bbq_place, dessert_shop,
+fast_casual, sit_down
+
+emotion:
+satisfied, delighted, neutral, disappointed, reliable, craving
+
+location_feature:
+nearby, near_campus, neighborhood_repeat, destination, commute_area
+
+temporal_feature:
+breakfast, lunch, afternoon, dinner, late_night, weekday, weekend
+```
+
+If extraction cannot map evidence to one of these terms, omit the term. Do not emit `unknown`, `other`, or free-form slugs.
 
 ## 4. High-Level Flow
 

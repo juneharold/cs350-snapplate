@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -8,7 +7,9 @@ from algorithm.embedding import deterministic_text_embedding
 from algorithm.entry_profiling import (
     CATEGORY_CUISINES,
     CATEGORY_FOOD_TYPES,
+    CATEGORY_VENUES,
     DISH_FOOD_TYPES,
+    TEXT_CONTEXTS,
     TEXT_TASTES,
 )
 from algorithm.schemas import KakaoRestaurantMetadata, RestaurantProfileArtifact
@@ -105,22 +106,17 @@ def _extract_tag_signal(
 ) -> None:
     for tag in restaurant.tags:
         normalized = tag.lower()
-        matched_taste = False
+        matched = False
         for keyword, term, _ in TEXT_TASTES:
             if keyword in normalized:
                 _add(values, confidence, evidence, "taste", term, 0.62, 0.62, f"tag: {tag}")
-                matched_taste = True
-        if not matched_taste:
-            _add(
-                values,
-                confidence,
-                evidence,
-                "context",
-                _slug(tag),
-                0.62,
-                0.62,
-                f"tag: {tag}",
-            )
+                matched = True
+        for keyword, term, _ in TEXT_CONTEXTS:
+            if keyword in normalized:
+                _add(values, confidence, evidence, "context", term, 0.62, 0.62, f"tag: {tag}")
+                matched = True
+        if not matched:
+            continue
 
 
 def _extract_location_signal(
@@ -157,21 +153,17 @@ def _category_source(restaurant: KakaoRestaurantMetadata) -> tuple[str, str]:
 
 
 def _venue_term(category: str) -> str:
-    segment = category.split(">")[-1].strip()
-    term = _slug(segment)
-    if term in {"", "food", "restaurant", "restaurants"}:
-        return ""
-    return term
+    normalized = category.lower()
+    for keyword, venue in CATEGORY_VENUES:
+        if keyword in normalized:
+            return venue
+    return ""
 
 
 def _location_term(address: str) -> str:
-    tokens = _slug(address).split("_")
-    for index, token in enumerate(tokens):
-        if token == "dong":
-            return "_".join(tokens[: index + 1])
-    for token in tokens:
-        if not token.isdigit():
-            return token
+    normalized = address.lower()
+    if any(token in normalized for token in ("eoeun", "kaist", "campus")):
+        return "near_campus"
     return ""
 
 
@@ -207,7 +199,3 @@ def _profile_text(
 
 def _term_text(terms: dict[str, float]) -> str:
     return ", ".join(f"{term} {score:.2f}" for term, score in list(terms.items())[:4])
-
-
-def _slug(value: str) -> str:
-    return re.sub(r"_+", "_", re.sub(r"[^a-z0-9]+", "_", value.lower())).strip("_")

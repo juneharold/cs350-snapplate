@@ -7,13 +7,21 @@ from pathlib import Path
 import algorithm
 import pytest
 from algorithm import (
+    EMBEDDING_DIMENSIONS,
     MIN_ENTRIES_FOR_PERSONALIZATION,
+    SUMMARY_MODEL,
     RECOMMENDATION_LIMIT,
     __version__,
     generate_recommendations,
     generate_taste_report,
 )
-from algorithm.config import RECOMMENDATION_SCORE_WEIGHTS
+from algorithm.config import (
+    EMBEDDING_MODEL,
+    IMAGE_PROFILE_MODEL,
+    ML_PROVIDER,
+    RECOMMENDATION_SCORE_WEIGHTS,
+    TEXT_PROFILE_MODEL,
+)
 from algorithm.fixtures import DEMO_USER_ID, load_demo_recommendation_context
 from algorithm.schemas import RecommendationContext, TasteProfileReady
 
@@ -26,6 +34,12 @@ def test_public_imports_expose_stable_scaffold_metadata() -> None:
     assert algorithm.ALGORITHM_VERSION
     assert algorithm.MIN_ENTRIES_FOR_PERSONALIZATION == MIN_ENTRIES_FOR_PERSONALIZATION
     assert algorithm.RECOMMENDATION_LIMIT == RECOMMENDATION_LIMIT
+    assert algorithm.ML_PROVIDER == ML_PROVIDER == "openai"
+    assert algorithm.TEXT_PROFILE_MODEL == TEXT_PROFILE_MODEL == "gpt-5.4-mini"
+    assert algorithm.IMAGE_PROFILE_MODEL == IMAGE_PROFILE_MODEL == "gpt-5.4-mini"
+    assert algorithm.SUMMARY_MODEL == SUMMARY_MODEL == "gpt-5.4-mini"
+    assert algorithm.EMBEDDING_MODEL == EMBEDDING_MODEL == "text-embedding-3-large"
+    assert algorithm.EMBEDDING_DIMENSIONS == EMBEDDING_DIMENSIONS == 1024
     assert MIN_ENTRIES_FOR_PERSONALIZATION > 0
     assert RECOMMENDATION_LIMIT > 0
     assert set(RECOMMENDATION_SCORE_WEIGHTS) == {

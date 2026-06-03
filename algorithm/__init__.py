@@ -1,4 +1,5 @@
 from algorithm.config import (
+    EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
     IMAGE_PROFILE_MODEL,
     MIN_ENTRIES_FOR_PERSONALIZATION,
@@ -9,6 +10,7 @@ from algorithm.config import (
     RECOMMENDATION_SCORE_WEIGHTS,
     SHORT_TERM_ENTRY_COUNT,
     SIMILAR_USER_THRESHOLD,
+    SUMMARY_MODEL,
     TEXT_PROFILE_MODEL,
 )
 from algorithm.contract import generate_recommendations, generate_taste_report
@@ -39,6 +41,7 @@ from algorithm.version import ALGORITHM_VERSION, __version__
 __all__ = [
     "ALGORITHM_VERSION",
     "DiaryEntryInput",
+    "EMBEDDING_DIMENSIONS",
     "EMBEDDING_MODEL",
     "EntryProfileArtifact",
     "IMAGE_PROFILE_MODEL",
@@ -57,6 +60,7 @@ __all__ = [
     "RestaurantProfileArtifact",
     "SHORT_TERM_ENTRY_COUNT",
     "SIMILAR_USER_THRESHOLD",
+    "SUMMARY_MODEL",
     "ScoredRecommendationArtifact",
     "SyntheticFixtureSet",
     "SyntheticUser",

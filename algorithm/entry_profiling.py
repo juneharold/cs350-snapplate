@@ -1,36 +1,51 @@
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 
 from algorithm.schemas import DiaryEntryInput, EntryProfileArtifact
+from algorithm.taxonomy import PROFILE_FIELD_NAMES
 
 
-FIELD_NAMES = (
-    "cuisine",
-    "food_type",
-    "taste",
-    "context",
-    "venue",
-    "emotion",
-    "location_feature",
-    "temporal_feature",
-)
+FIELD_NAMES = PROFILE_FIELD_NAMES
 
 CATEGORY_CUISINES = (
     ("korean", "korean"),
     ("chinese", "chinese"),
     ("japanese", "japanese"),
     ("soba", "japanese"),
+    ("western", "western"),
+    ("italian", "italian"),
+    ("cafe", "cafe_bakery"),
+    ("bakery", "cafe_bakery"),
 )
 
 CATEGORY_FOOD_TYPES = (
     ("bbq", "bbq"),
     ("noodles", "noodle"),
-    ("bakery", "bakery"),
-    ("cafe", "cafe"),
+    ("bakery", "pastry"),
+    ("cafe", "coffee"),
     ("set meal", "set_meal"),
     ("diner", "set_meal"),
+    ("snacks", "snack"),
+    ("dessert", "dessert"),
+    ("bar", "drink"),
+)
+
+CATEGORY_VENUES = (
+    ("korean bbq", "bbq_place"),
+    ("bbq", "bbq_place"),
+    ("diner", "diner"),
+    ("set meal", "diner"),
+    ("cafe", "cafe"),
+    ("bakery", "bakery"),
+    ("bar", "bar"),
+    ("dessert", "dessert_shop"),
+    ("snacks", "fast_casual"),
+    ("noodles", "casual"),
+    ("korean", "sit_down"),
+    ("chinese", "sit_down"),
+    ("japanese", "sit_down"),
+    ("western", "sit_down"),
 )
 
 DISH_FOOD_TYPES = (
@@ -45,32 +60,62 @@ DISH_FOOD_TYPES = (
     ("latte", "coffee"),
     ("coffee", "coffee"),
     ("rib", "bbq"),
+    ("fried", "fried"),
+    ("dessert", "dessert"),
+    ("cake", "dessert"),
+    ("snack", "snack"),
+    ("tea", "drink"),
+    ("juice", "drink"),
 )
 
 TEXT_TASTES = (
     ("spicy", "spicy", 0.76),
     ("savory", "savory", 0.74),
-    ("umami", "savory", 0.74),
+    ("umami", "umami", 0.74),
     ("sweet", "sweet", 0.72),
+    ("salty", "salty", 0.72),
+    ("sour", "sour", 0.72),
+    ("bitter", "bitter", 0.72),
     ("buttery", "buttery", 0.72),
     ("smoky", "smoky", 0.72),
     ("crisp", "crisp", 0.7),
+    ("rich", "rich", 0.7),
+    ("light", "light", 0.7),
+    ("fresh", "fresh", 0.7),
+    ("creamy", "creamy", 0.7),
+    ("chewy", "chewy", 0.7),
 )
 
 TEXT_CONTEXTS = (
     ("quick", "quick_meal", 0.72),
+    ("solo", "solo_meal", 0.72),
+    ("group", "group_meal", 0.72),
+    ("casual", "casual", 0.7),
+    ("date", "date", 0.7),
+    ("study", "study_work", 0.7),
+    ("work", "study_work", 0.7),
+    ("takeout", "takeout", 0.7),
+    ("take-out", "takeout", 0.7),
+    ("late night", "late_night", 0.7),
+    ("comfort", "comfort_meal", 0.7),
+    ("special", "special_occasion", 0.7),
 )
 
 TEXT_EMOTIONS = (
     ("satisfying", "satisfied", 0.78),
     ("satisfied", "satisfied", 0.78),
-    ("reliable", "positive", 0.68),
+    ("delighted", "delighted", 0.78),
+    ("reliable", "reliable", 0.68),
+    ("craving", "craving", 0.68),
+    ("disappointed", "disappointed", 0.72),
 )
 
 IMAGE_CUISINES = (
     ("korean", "korean"),
     ("chinese", "chinese"),
     ("japanese", "japanese"),
+    ("western", "western"),
+    ("italian", "italian"),
 )
 
 IMAGE_FOOD_TYPES = (
@@ -85,6 +130,11 @@ IMAGE_FOOD_TYPES = (
     ("bread", "bread"),
     ("latte", "coffee"),
     ("coffee", "coffee"),
+    ("dessert", "dessert"),
+    ("cake", "dessert"),
+    ("snack", "snack"),
+    ("tea", "drink"),
+    ("juice", "drink"),
 )
 
 
@@ -149,13 +199,13 @@ def _extract_location_features(
     evidence: dict[str, list[str]],
 ) -> None:
     restaurant = entry.restaurant
-    if restaurant.neighborhood:
+    if _is_near_campus(restaurant.neighborhood):
         _add(
             values,
             confidence,
             evidence,
             "location_feature",
-            _slug(restaurant.neighborhood),
+            "near_campus",
             0.9,
             0.9,
             f"restaurant.neighborhood: {restaurant.neighborhood}",
@@ -222,17 +272,19 @@ def _extract_restaurant_metadata(
                 f"restaurant.signature_dish: {restaurant.signature_dish}",
             )
 
-    if restaurant.category and category != "restaurant":
-        _add(
-            values,
-            confidence,
-            evidence,
-            "venue",
-            _slug(restaurant.category),
-            0.8,
-            0.8,
-            f"restaurant.category: {restaurant.category}",
-        )
+    for keyword, venue in CATEGORY_VENUES:
+        if keyword in category:
+            _add(
+                values,
+                confidence,
+                evidence,
+                "venue",
+                venue,
+                0.8,
+                0.8,
+                f"restaurant.category: {restaurant.category}",
+            )
+            break
 
 
 def _extract_rating_signal(
@@ -249,7 +301,7 @@ def _extract_rating_signal(
             confidence,
             evidence,
             "emotion",
-            "satisfied",
+            "delighted",
             0.8,
             0.8,
             f"rating: {entry.rating}",
@@ -260,7 +312,7 @@ def _extract_rating_signal(
             confidence,
             evidence,
             "emotion",
-            "positive",
+            "satisfied",
             0.65,
             0.65,
             f"rating: {entry.rating}",
@@ -350,5 +402,6 @@ def _add(
         evidence[field_name].append(source)
 
 
-def _slug(value: str) -> str:
-    return re.sub(r"_+", "_", re.sub(r"[^a-z0-9]+", "_", value.lower())).strip("_")
+def _is_near_campus(value: str) -> bool:
+    normalized = value.lower()
+    return any(token in normalized for token in ("eoeun", "kaist", "campus"))
