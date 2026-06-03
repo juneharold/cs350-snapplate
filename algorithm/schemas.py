@@ -205,6 +205,18 @@ class RecommendationContext(ContractModel):
     lat: float | None = None
     lng: float | None = None
     exposure_history: list[str] = Field(default_factory=list)
+    requested_at: datetime | None = None
+    category_filters: list[str] = Field(default_factory=list)
+    neighborhood_filters: list[str] = Field(default_factory=list)
+    max_distance_m: PositiveInt | None = None
+
+    @field_validator("category_filters")
+    @classmethod
+    def require_public_category_filters(cls, value: list[str]) -> list[str]:
+        unsupported = sorted(set(value) - set(PUBLIC_RESTAURANT_CATEGORIES))
+        if unsupported:
+            raise ValueError(f"unsupported public restaurant categories: {unsupported}")
+        return value
 
 
 class EntryProfileArtifact(ContractModel):
@@ -307,6 +319,7 @@ class RecommendationScoreBreakdown(ContractModel):
 class ScoredRecommendationArtifact(ContractModel):
     restaurant_id: str
     reason: str
+    reason_category: Literal["content", "collaborative", "context", "quality", "novelty"]
     scores: RecommendationScoreBreakdown
 
 

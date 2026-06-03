@@ -12,6 +12,7 @@ from algorithm import (
     SUMMARY_MODEL,
     RECOMMENDATION_LIMIT,
     __version__,
+    generate_recommendation_artifact,
     generate_recommendations,
     generate_taste_report,
 )
@@ -24,7 +25,11 @@ from algorithm.config import (
 )
 from algorithm.fixtures import DEMO_USER_ID, load_demo_recommendation_context
 from algorithm.providers import DeterministicMLProvider
-from algorithm.schemas import RecommendationContext, TasteProfileReady
+from algorithm.schemas import (
+    RecommendationContext,
+    RecommendationScoreBreakdown,
+    TasteProfileReady,
+)
 
 
 def test_public_imports_expose_stable_scaffold_metadata() -> None:
@@ -35,6 +40,8 @@ def test_public_imports_expose_stable_scaffold_metadata() -> None:
     assert algorithm.ALGORITHM_VERSION
     assert algorithm.MIN_ENTRIES_FOR_PERSONALIZATION == MIN_ENTRIES_FOR_PERSONALIZATION
     assert algorithm.RECOMMENDATION_LIMIT == RECOMMENDATION_LIMIT
+    assert algorithm.generate_recommendation_artifact == generate_recommendation_artifact
+    assert algorithm.RecommendationScoreBreakdown == RecommendationScoreBreakdown
     assert algorithm.ML_PROVIDER == ML_PROVIDER == "openai"
     assert algorithm.TEXT_PROFILE_MODEL == TEXT_PROFILE_MODEL == "gpt-5.4-mini"
     assert algorithm.IMAGE_PROFILE_MODEL == IMAGE_PROFILE_MODEL == "gpt-5.4-mini"

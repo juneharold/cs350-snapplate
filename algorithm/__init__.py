@@ -13,7 +13,11 @@ from algorithm.config import (
     SUMMARY_MODEL,
     TEXT_PROFILE_MODEL,
 )
-from algorithm.contract import generate_recommendations, generate_taste_report
+from algorithm.contract import (
+    generate_recommendation_artifact,
+    generate_recommendations,
+    generate_taste_report,
+)
 from algorithm.entry_profiling import profile_diary_entry
 from algorithm.providers import (
     DeterministicMLProvider,
@@ -30,6 +34,7 @@ from algorithm.schemas import (
     ProfileSummaryResult,
     RecommendationArtifact,
     RecommendationContext,
+    RecommendationScoreBreakdown,
     RecommendedResponse,
     RecommendedRestaurant,
     RestaurantInput,
@@ -64,6 +69,7 @@ __all__ = [
     "ProfileSummaryResult",
     "RecommendationArtifact",
     "RecommendationContext",
+    "RecommendationScoreBreakdown",
     "RECOMMENDATION_COOLDOWN_REQUESTS",
     "RECOMMENDATION_LIMIT",
     "RECOMMENDATION_SCORE_WEIGHTS",
@@ -85,6 +91,7 @@ __all__ = [
     "__version__",
     "aggregate_user_profile",
     "build_weighted_entry_profiles",
+    "generate_recommendation_artifact",
     "generate_recommendations",
     "generate_taste_report",
     "get_configured_ml_provider",

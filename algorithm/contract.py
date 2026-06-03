@@ -13,6 +13,7 @@ from algorithm.config import (
     HEATMAP_ROWS,
     MIN_ENTRIES_FOR_PERSONALIZATION,
     MIN_SIMILAR_USERS,
+    RECOMMENDATION_COOLDOWN_REQUESTS,
     RECOMMENDATION_EMBEDDING_WEIGHTS,
     RECOMMENDATION_LIMIT,
     RECOMMENDATION_SCORE_WEIGHTS,
@@ -22,11 +23,14 @@ from algorithm.providers import MLProvider, get_configured_ml_provider
 from algorithm.schemas import (
     DiaryEntryInput,
     FlavorLean,
+    RecommendationArtifact,
     RecommendationContext,
+    RecommendationScoreBreakdown,
     RecommendedResponse,
     RecommendedRestaurant,
     RestaurantInput,
     RestaurantProfileArtifact,
+    ScoredRecommendationArtifact,
     TasteCategory,
     TasteProfileInsufficient,
     TasteProfileReady,
@@ -55,6 +59,14 @@ class CategoryStats:
     @property
     def avg_rating(self) -> float:
         return self.rating_sum / self.rating_count if self.rating_count else 0.0
+
+
+@dataclass(frozen=True)
+class ScoredCandidate:
+    candidate: RestaurantInput
+    scores: RecommendationScoreBreakdown
+    reason: str
+    reason_category: str
 
 
 def generate_taste_report(
@@ -114,18 +126,49 @@ def generate_recommendations(
     limit: int = RECOMMENDATION_LIMIT,
     min_entries_required: int = MIN_ENTRIES_FOR_PERSONALIZATION,
 ) -> RecommendedResponse:
+    artifact = generate_recommendation_artifact(
+        user_id,
+        context,
+        limit=limit,
+        min_entries_required=min_entries_required,
+    )
+    candidates_by_id = {candidate.id: candidate for candidate in context.candidate_restaurants}
+    items = [
+        RecommendedRestaurant(
+            **candidates_by_id[item.restaurant_id].model_dump(),
+            reason=item.reason,
+        )
+        for item in artifact.ranked_items
+    ]
+    return RecommendedResponse(
+        items=items,
+        based_on_entries=artifact.based_on_entries,
+        has_enough_data=artifact.has_enough_data,
+    )
+
+
+def generate_recommendation_artifact(
+    user_id: str,
+    context: RecommendationContext,
+    *,
+    limit: int = RECOMMENDATION_LIMIT,
+    min_entries_required: int = MIN_ENTRIES_FOR_PERSONALIZATION,
+    generated_at: datetime | None = None,
+) -> RecommendationArtifact:
     entries = _entries_for_user(user_id, context.diary_entries)
     based_on_entries = len(entries)
+    computed_at = generated_at or datetime.now(timezone.utc)
     if based_on_entries < min_entries_required:
-        return RecommendedResponse(
-            items=[],
+        return RecommendationArtifact(
+            user_id=user_id,
+            generated_at=computed_at,
             based_on_entries=based_on_entries,
             has_enough_data=False,
         )
 
     category_stats = _category_stats(entries)
     visited = {entry.restaurant.id for entry in entries}
-    exposure_history = set(context.exposure_history)
+    active_exposure_history = set(context.exposure_history[:RECOMMENDATION_COOLDOWN_REQUESTS])
     similar_user_entries = _similar_user_entries(
         user_id,
         entries,
@@ -138,35 +181,148 @@ def generate_recommendations(
         if candidate.id in visited:
             continue
         restaurant_profile = restaurant_profiles.get(candidate.id)
-        score = _recommendation_score(
+        scores = _recommendation_scores(
             candidate,
+            entries,
             category_stats,
-            exposure_history,
+            active_exposure_history,
             similar_user_entries,
             context.user_profile,
             restaurant_profile,
+            context,
         )
-        scored.append((score, candidate))
+        reason_category = _recommendation_reason_category(
+            candidate,
+            scores,
+            category_stats,
+            similar_user_entries,
+            restaurant_profile,
+        )
+        scored.append(
+            ScoredCandidate(
+                candidate=candidate,
+                scores=scores,
+                reason=_recommendation_reason(candidate, reason_category, category_stats),
+                reason_category=reason_category,
+            )
+        )
 
-    scored.sort(key=lambda item: (-item[0], item[1].distance_m, item[1].name))
-    selected = _category_diverse_candidates(scored, limit)
-    items = [
-        RecommendedRestaurant(
-            **candidate.model_dump(),
-            reason=_recommendation_reason(
-                candidate,
-                category_stats,
-                similar_user_entries,
-                restaurant_profiles.get(candidate.id),
-            ),
-        )
-        for candidate in selected
-    ]
-    return RecommendedResponse(
-        items=items,
+    selected = _diverse_ranked_candidates(scored, limit)
+    return RecommendationArtifact(
+        user_id=user_id,
+        generated_at=computed_at,
         based_on_entries=based_on_entries,
         has_enough_data=True,
+        ranked_items=[
+            ScoredRecommendationArtifact(
+                restaurant_id=item.candidate.id,
+                reason=item.reason,
+                reason_category=item.reason_category,
+                scores=item.scores,
+            )
+            for item in selected
+        ],
     )
+
+
+def _recommendation_scores(
+    candidate: RestaurantInput,
+    entries: Sequence[DiaryEntryInput],
+    category_stats: dict[str, CategoryStats],
+    active_exposure_history: set[str],
+    similar_user_entries: Sequence[DiaryEntryInput],
+    user_profile: UserProfileArtifact | None,
+    restaurant_profile: RestaurantProfileArtifact | None,
+    context: RecommendationContext,
+) -> RecommendationScoreBreakdown:
+    max_visits = max((stats.visits for stats in category_stats.values()), default=1)
+    content_score = _content_score(
+        candidate,
+        category_stats,
+        max_visits,
+        user_profile,
+        restaurant_profile,
+    )
+    collaborative_score = _collaborative_score(candidate, similar_user_entries)
+    context_score = _context_score(candidate, entries, context)
+    quality_score = _quality_score(candidate)
+    novelty_score = _novelty_score(candidate, active_exposure_history)
+    final_score = (
+        RECOMMENDATION_SCORE_WEIGHTS["content"] * content_score
+        + RECOMMENDATION_SCORE_WEIGHTS["collaborative"] * collaborative_score
+        + RECOMMENDATION_SCORE_WEIGHTS["context"] * context_score
+        + RECOMMENDATION_SCORE_WEIGHTS["quality"] * quality_score
+        + RECOMMENDATION_SCORE_WEIGHTS["novelty"] * novelty_score
+    )
+    return RecommendationScoreBreakdown(
+        content_score=round(content_score, 6),
+        collaborative_score=round(collaborative_score, 6),
+        context_score=round(context_score, 6),
+        quality_score=round(quality_score, 6),
+        novelty_score=round(novelty_score, 6),
+        final_score=round(final_score, 6),
+    )
+
+
+def _context_score(
+    candidate: RestaurantInput,
+    entries: Sequence[DiaryEntryInput],
+    context: RecommendationContext,
+) -> float:
+    signals = [_distance_score(candidate, context.max_distance_m)]
+    if context.category_filters:
+        signals.append(1.0 if candidate.category in context.category_filters else 0.0)
+    if context.neighborhood_filters:
+        signals.append(1.0 if candidate.neighborhood in context.neighborhood_filters else 0.0)
+    if context.requested_at is not None:
+        signals.append(_meal_period_category_score(candidate, entries, context.requested_at))
+    return sum(signals) / len(signals)
+
+
+def _distance_score(candidate: RestaurantInput, max_distance_m: int | None) -> float:
+    if max_distance_m:
+        if candidate.distance_m <= max_distance_m:
+            return max(0.0, 1.0 - 0.5 * candidate.distance_m / max_distance_m)
+        return max(0.0, 0.5 * (1.0 - (candidate.distance_m - max_distance_m) / max_distance_m))
+    return max(0.0, min(1.0, 1.0 - candidate.distance_m / 5000))
+
+
+def _meal_period_category_score(
+    candidate: RestaurantInput,
+    entries: Sequence[DiaryEntryInput],
+    requested_at: datetime,
+) -> float:
+    requested_bucket = _hour_bucket(requested_at.hour)
+    bucket_counts: dict[str, int] = {}
+    for entry in entries:
+        if _hour_bucket(entry.captured_at.hour) != requested_bucket:
+            continue
+        category = entry.restaurant.category
+        bucket_counts[category] = bucket_counts.get(category, 0) + 1
+    if not bucket_counts:
+        return 0.5
+    return bucket_counts.get(candidate.category, 0) / max(bucket_counts.values())
+
+
+def _quality_score(candidate: RestaurantInput) -> float:
+    rating_score = candidate.rating / 5.0
+    rating_count_score = min(1.0, candidate.rating_count / 100)
+    metadata_score = sum(
+        (
+            1 if candidate.signature_dish else 0,
+            1 if candidate.tags else 0,
+            1 if candidate.thumbnail_url else 0,
+        )
+    ) / 3
+    return (
+        0.55 * rating_score
+        + 0.25 * rating_count_score
+        + 0.20 * metadata_score
+    )
+
+
+def _novelty_score(candidate: RestaurantInput, active_exposure_history: set[str]) -> float:
+    return 0.05 if candidate.id in active_exposure_history else 1.0
 
 
 def _entries_for_user(
@@ -357,82 +513,97 @@ def _round_one_decimal(value: float) -> float:
     return float(Decimal(str(value)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
 
 
-def _recommendation_score(
-    candidate: RestaurantInput,
-    category_stats: dict[str, CategoryStats],
-    exposure_history: set[str],
-    similar_user_entries: Sequence[DiaryEntryInput],
-    user_profile: UserProfileArtifact | None,
-    restaurant_profile: RestaurantProfileArtifact | None,
-) -> float:
-    max_visits = max((stats.visits for stats in category_stats.values()), default=1)
-    content_score = _content_score(
-        candidate,
-        category_stats,
-        max_visits,
-        user_profile,
-        restaurant_profile,
-    )
-    collaborative_score = _collaborative_score(candidate, similar_user_entries)
-    context_score = max(0.0, min(1.0, 1.0 - candidate.distance_m / 5000))
-    quality_score = candidate.rating / 5.0
-    novelty_score = 0.2 if candidate.id in exposure_history else 1.0
-    final_score = (
-        RECOMMENDATION_SCORE_WEIGHTS["content"] * content_score
-        + RECOMMENDATION_SCORE_WEIGHTS["collaborative"] * collaborative_score
-        + RECOMMENDATION_SCORE_WEIGHTS["context"] * context_score
-        + RECOMMENDATION_SCORE_WEIGHTS["quality"] * quality_score
-        + RECOMMENDATION_SCORE_WEIGHTS["novelty"] * novelty_score
-    )
-    return round(final_score, 6)
-
-
 def _recommendation_reason(
     candidate: RestaurantInput,
+    reason_category: str,
     category_stats: dict[str, CategoryStats],
-    similar_user_entries: Sequence[DiaryEntryInput],
-    restaurant_profile: RestaurantProfileArtifact | None = None,
 ) -> str:
-    if _similar_user_ratings(candidate, similar_user_entries):
+    if reason_category == "collaborative":
         return f"Similar users also liked this {candidate.category.lower()} place."
-    if restaurant_profile is not None:
+    if reason_category == "content":
+        stats = category_stats.get(candidate.category)
+        if stats:
+            return (
+                f"You logged {stats.visits} {candidate.category.lower()} "
+                f"meal{'s' if stats.visits != 1 else ''} with strong ratings."
+            )
         return "Matches your taste profile."
-    stats = category_stats.get(candidate.category)
-    if stats:
-        return (
-            f"You logged {stats.visits} {candidate.category.lower()} "
-            f"meal{'s' if stats.visits != 1 else ''} with strong ratings."
-        )
-    if candidate.rating >= 4.5:
-        return "Highly rated near you."
+    if reason_category == "context":
+        return f"Nearby {candidate.category.lower()} option that fits your current context."
+    if reason_category == "quality":
+        return f"Highly rated {candidate.category.lower()} place with strong restaurant details."
     return "Adds variety outside your usual categories."
 
 
-def _category_diverse_candidates(
-    scored: Sequence[tuple[float, RestaurantInput]],
+def _recommendation_reason_category(
+    candidate: RestaurantInput,
+    scores: RecommendationScoreBreakdown,
+    category_stats: dict[str, CategoryStats],
+    similar_user_entries: Sequence[DiaryEntryInput],
+    restaurant_profile: RestaurantProfileArtifact | None,
+) -> str:
+    if _similar_user_ratings(candidate, similar_user_entries):
+        return "collaborative"
+    if restaurant_profile is not None:
+        return "content"
+
+    reason_scores = {
+        "content": scores.content_score if candidate.category in category_stats else 0.0,
+        "context": scores.context_score,
+        "quality": scores.quality_score,
+    }
+    if scores.novelty_score >= 1.0:
+        reason_scores["novelty"] = 0.65
+    return sorted(reason_scores, key=lambda key: (-reason_scores[key], key))[0]
+
+
+def _diverse_ranked_candidates(
+    scored: Sequence[ScoredCandidate],
     limit: int,
-) -> list[RestaurantInput]:
-    max_per_category = max(1, (limit + 1) // 2)
-    selected: list[RestaurantInput] = []
-    deferred: list[RestaurantInput] = []
+) -> list[ScoredCandidate]:
+    selected: list[ScoredCandidate] = []
+    remaining = sorted(
+        scored,
+        key=lambda item: (
+            -item.scores.final_score,
+            item.candidate.distance_m,
+            item.candidate.name,
+        ),
+    )
     category_counts: dict[str, int] = {}
+    neighborhood_counts: dict[str, int] = {}
 
-    for _, candidate in scored:
-        if len(selected) >= limit:
-            break
-        count = category_counts.get(candidate.category, 0)
-        if count < max_per_category:
-            selected.append(candidate)
-            category_counts[candidate.category] = count + 1
-        else:
-            deferred.append(candidate)
-
-    for candidate in deferred:
-        if len(selected) >= limit:
-            break
-        selected.append(candidate)
+    while remaining and len(selected) < limit:
+        ranked = sorted(
+            remaining,
+            key=lambda item: (
+                -_diversity_adjusted_score(item, category_counts, neighborhood_counts),
+                -item.scores.final_score,
+                item.candidate.distance_m,
+                item.candidate.name,
+            ),
+        )
+        chosen = ranked[0]
+        selected.append(chosen)
+        remaining.remove(chosen)
+        category = chosen.candidate.category
+        neighborhood = chosen.candidate.neighborhood
+        category_counts[category] = category_counts.get(category, 0) + 1
+        neighborhood_counts[neighborhood] = neighborhood_counts.get(neighborhood, 0) + 1
 
     return selected
+
+
+def _diversity_adjusted_score(
+    item: ScoredCandidate,
+    category_counts: dict[str, int],
+    neighborhood_counts: dict[str, int],
+) -> float:
+    return (
+        item.scores.final_score
+        - 0.28 * category_counts.get(item.candidate.category, 0)
+        - 0.05 * neighborhood_counts.get(item.candidate.neighborhood, 0)
+    )
 
 
 def _similar_user_entries(

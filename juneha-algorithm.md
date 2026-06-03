@@ -421,17 +421,18 @@ Recommend restaurants that match the user's taste profile, current context, and 
 - user diary history,
 - bookmarks if available,
 - current location if available,
-- active filters if available,
+- request timestamp and active category, neighborhood, or distance filters if available,
 - restaurant profiles,
 - restaurant embeddings,
 - restaurant quality metadata,
-- previous recommendation exposure history.
+- previous recommendation exposure history as newest-first restaurant ids.
 
 ### Outputs
 
 - ranked restaurant ids (REQ-4.9-007),
 - recommendation reason for each restaurant (REQ-4.9-010),
-- reason category for each restaurant,
+- internal reason category for each restaurant,
+- internal score breakdown artifact for traceability,
 - `based_on_entries`,
 - `has_enough_data`,
 - insufficient-data response when personalization cannot run (REQ-4.9-011),
@@ -443,7 +444,7 @@ Recommend restaurants that match the user's taste profile, current context, and 
 flowchart TD
     A[Recommendation Request] --> B{Enough User Data?}
     B -- No --> C[Return Insufficient Personalized Data]
-    B -- Yes --> D[Generate Candidate Restaurants]
+    B -- Yes --> D[Score Supplied Candidate Restaurants]
     D --> E[Content Signal]
     D --> F[Collaborative Signal]
     D --> G[Context Signal]
@@ -461,13 +462,17 @@ flowchart TD
 
 ### Candidate Generation
 
-Use a union of candidate sources:
+For the pre-integration algorithm package, `generate_recommendations` ranks caller-supplied
+candidate restaurants from `RecommendationContext`. Broad candidate retrieval remains outside
+the algorithm package until backend/search integration.
+
+Future candidate sources may include:
 
 - content candidates from user embedding vs restaurant embedding similarity,
 - collaborative candidates from similar users,
 - context candidates from nearby restaurants, time, distance, and active filters.
 
-This avoids scoring every restaurant on every request.
+This avoids baking backend retrieval policy into the pure algorithm contract.
 
 ### Scoring
 
@@ -502,19 +507,17 @@ Collaborative score:
 
 Context score:
 
-- Distance from current user location.
-- Active filters.
-- Meal time or day-of-week relevance.
-- Location feature match.
+- Distance from the candidate metadata.
+- Optional category, neighborhood, and max-distance filters.
+- Optional request timestamp compared with the user's meal-period category history.
 
 Quality score:
 
-- Restaurant rating, review count, metadata completeness, and available photo/menu quality if provided by backend.
+- Restaurant rating, rating count, signature dish/menu presence, tags, and thumbnail availability.
 
 Novelty score:
 
-- Penalize restaurants recently recommended to the same user.
-- Penalize too many near-duplicate restaurants in the same category or area.
+- Penalize exact restaurants in the newest `RECOMMENDATION_COOLDOWN_REQUESTS` exposure ids.
 - Increase exposure for relevant restaurants the user has not seen before.
 
 ### Re-Ranking
@@ -522,12 +525,11 @@ Novelty score:
 After scoring:
 
 - sort by score internally,
-- remove repeated restaurant exposure according to cooldown configuration,
-- enforce category diversity in the final list (REQ-4.9-008),
+- penalize repeated category and neighborhood concentration in score-aware final re-ranking,
 - attach reason text based on the strongest real signals,
 - store exposure history for future requests.
 
-Scores are for internal ranking only and must not be returned to the client.
+Scores and `reason_category` are for internal artifacts only and must not be returned to the client.
 
 ### Insufficient Data and Failure Behavior
 
@@ -584,6 +586,7 @@ Public functions:
 
 - `generate_taste_report(user_id, diary_entries) -> TasteProfileResponse`
 - `generate_recommendations(user_id, context) -> RecommendedResponse`
+- `generate_recommendation_artifact(user_id, context) -> RecommendationArtifact`
 - `profile_diary_entry(entry, ml_provider=None) -> EntryProfileArtifact`
 - `aggregate_user_profile(user_id, diary_entries, entry_profiles=None) -> UserProfileArtifact`
 - `profile_kakao_restaurant(restaurant_metadata) -> RestaurantProfileArtifact`
@@ -618,7 +621,8 @@ Evaluation checks:
 - recommendations include content, collaborative, context, quality, and novelty signals,
 - repeated restaurants are penalized,
 - final responses hide raw scores,
-- explanations match actual strongest signals.
+- explanations match actual strongest signals,
+- offline metrics include precision@K, NDCG@K, category diversity, repeat exposure rate, and latency.
 
 ## 12. Build Order
 
@@ -629,18 +633,16 @@ Evaluation checks:
 5. Implement Kakao Map restaurant profiling and restaurant embeddings. Current state: Kakao metadata normalization and provider embeddings are implemented.
 6. Implement taste analysis report generation from structured profile and statistics. Current state: implemented in `generate_taste_report` with insufficient-data gating, deterministic chart-ready statistics, weighted category preferences, flavor lean, top dishes, and provider-generated profile label, blurb, and insights.
 7. Generate synthetic users, restaurants, and diary data for collaborative filtering tests. Current state: deterministic synthetic fixture data exists with multiple users, diary histories, restaurant candidates, and exposure history.
-8. Implement candidate generation and hybrid scoring. Current state: `generate_recommendations` ranks caller-supplied candidate restaurants. Hybrid scoring has baseline content, collaborative, context, quality, and novelty components. Artifact mode uses user and restaurant embeddings and fails loudly when required artifacts or embeddings are missing. Non-artifact mode keeps the category-frequency content path for local fixtures and legacy tests. Remaining decision: whether candidate generation from a broad restaurant pool belongs in the algorithm package or remains a backend/input responsibility.
-9. Implement diversity, novelty, repeated-exposure handling, and explanation generation. Current state: baseline category diversity, exact restaurant exposure penalty, and reason text are implemented. Remaining algorithm work: cooldown-window semantics, near-duplicate category/neighborhood exposure penalties, `reason_category`, and reason text selected from the strongest actual scoring signal.
+8. Implement candidate generation and hybrid scoring. Current state: `generate_recommendations` ranks caller-supplied candidate restaurants. Hybrid scoring has content, collaborative, context, quality, and novelty components. Artifact mode uses user and restaurant embeddings and fails loudly when required artifacts or embeddings are missing. Non-artifact mode keeps the category-frequency content path for local fixtures and legacy tests. Broad candidate retrieval remains a backend/search responsibility for pre-integration work.
+9. Implement diversity, novelty, repeated-exposure handling, and explanation generation. Current state: score-aware category/neighborhood diversity, exact restaurant cooldown-window novelty, internal `reason_category`, and reason text selected from scoring signals are implemented.
 10. Integrate async jobs, persistence, and API payloads with backend. Current state: intentionally deferred from algorithm-only work. The algorithm contract exposes the functions and schemas backend integration needs.
-11. Add tests and evaluation scripts for extraction, aggregation, scoring, and response shape. Current state: tests cover taxonomy, contracts, fixtures, provider behavior, entry profiling, user aggregation, restaurant profiling, score hiding, collaborative boost, repeated-exposure penalty, category diversity, embedding artifact mode, and fail-loud artifact validation. Remaining test work: internal scoring artifacts/traces, context beyond distance, quality beyond rating, cooldown and near-duplicate novelty, explanation selection from strongest signal, and performance checks.
+11. Add tests and evaluation scripts for extraction, aggregation, scoring, and response shape. Current state: tests cover taxonomy, contracts, fixtures, provider behavior, entry profiling, user aggregation, restaurant profiling, score hiding, collaborative boost, exposure cooldown, category and neighborhood diversity, embedding artifact mode, fail-loud artifact validation, scoring artifacts/traces, richer context and quality scoring, explanation categories, evaluation metrics, and the SRS recommendation latency target.
 
 Current algorithm-only next order:
 
-1. Populate internal recommendation scoring artifacts and trace data without exposing scores in `RecommendedResponse`.
-2. Derive recommendation explanations and `reason_category` from the strongest real scoring signal.
-3. Harden context, quality, novelty, and diversity scoring beyond the current baseline rules.
-4. Decide candidate-generation ownership before adding a candidate selector.
-5. Extend evaluation tests around the hardened scoring behavior and performance target.
+1. Use the evaluation harness to compare future scoring changes against the current baseline.
+2. Add real-data or semi-real-data evaluation cases when diary data is available.
+3. Integrate backend persistence, async refresh, and frontend payload wiring.
 
 ## 13. Success Criteria
 
