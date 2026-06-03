@@ -9,6 +9,7 @@ from app.models.bookmark import BookmarkModel
 from app.models.entry import EntryModel
 from app.repositories.user import UserRepository
 from app.schemas.user import MeInfo, UserStatsInfo
+from app.services.s3.storage import StorageService
 
 _NICKNAME_MAX = 30
 
@@ -17,13 +18,17 @@ class UserService:
     def __init__(self, ctx: Context):
         self.ctx = ctx
         self.users = UserRepository(ctx.db_session)
+        self.storage = StorageService(ctx.s3)
 
     async def get_me(self, user_id: str) -> MeInfo:
         user = await self.users.find(user_id)
         if user is None:
             raise AppError(404, "not_found", "User not found.")
         stats = await self._stats(user_id)
-        return MeInfo.from_model(user, stats)
+        profile_image_url = None
+        if user.profile_image_url:
+            profile_image_url = await self.storage.signed_url(user.profile_image_url)
+        return MeInfo.from_model(user, stats, profile_image_url=profile_image_url)
 
     async def update_me(self, user_id: str, nickname: str | None) -> MeInfo:
         user = await self.users.find(user_id)
@@ -40,7 +45,10 @@ class UserService:
         # First profile edit marks onboarding complete.
         changes.is_onboarded = True
         user = await self.users.update(user, changes)
-        return MeInfo.from_model(user, await self._stats(user_id))
+        profile_image_url = None
+        if user.profile_image_url:
+            profile_image_url = await self.storage.signed_url(user.profile_image_url)
+        return MeInfo.from_model(user, await self._stats(user_id), profile_image_url=profile_image_url)
 
     async def _stats(self, user_id: str) -> UserStatsInfo:
         db = self.ctx.db_session
@@ -64,7 +72,7 @@ class UserService:
         bookmarks_count = (
             await db.execute(
                 select(func.count()).select_from(BookmarkModel).where(
-                    BookmarkModel.user_id == user_id
+                    BookmarkModel.user_id == user_id  # type: ignore[arg-type]
                 )
             )
         ).scalar() or 0

@@ -17,6 +17,7 @@ from app.repositories.magic_link import MagicLinkRepository
 from app.repositories.user import UserRepository
 from app.schemas.auth import AuthUserInfo
 from app.services.email.sender import EmailService
+from app.services.s3.storage import StorageService
 from app.utils.time import as_utc, utcnow
 
 
@@ -29,6 +30,7 @@ class AuthService:
         self.users = UserRepository(ctx.db_session)
         self.links = MagicLinkRepository(ctx.db_session)
         self.email = EmailService()
+        self.storage = StorageService(ctx.s3)
 
     async def request_magic_link(self, email: str) -> tuple[str, str | None]:
         """Issue a single-use token, store its hash, send the link.
@@ -83,7 +85,10 @@ class AuthService:
                 raise AppError(401, "invalid_token", "This account is no longer available.")
 
         token, expires_in = issue_token(user.id)
-        return token, expires_in, AuthUserInfo.from_model(user, is_new=is_new)
+        profile_image_url = None
+        if user.profile_image_url:
+            profile_image_url = await self.storage.signed_url(user.profile_image_url)
+        return token, expires_in, AuthUserInfo.from_model(user, is_new=is_new, profile_image_url=profile_image_url)
 
     async def logout(self, user_id: str) -> None:
         """v1: client-discards the JWT (stateless). No server-side denylist — the
