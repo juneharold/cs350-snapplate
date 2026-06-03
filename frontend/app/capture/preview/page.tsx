@@ -28,10 +28,19 @@ export default function CapturePreviewPage() {
   const create = useCreateDraft();
   const [submitting, setSubmitting] = useState<"draft" | "notes" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (pending.length === 0) router.replace("/capture");
-  }, [pending.length, router]);
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && pending.length === 0) {
+      router.replace("/capture");
+    }
+    // Only check once on mount / initial hydration to handle page reloads
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, router]);
 
   const cover = useMemo(
     () => pending.find((p) => p.key === coverKey) ?? pending[0],
@@ -65,6 +74,7 @@ export default function CapturePreviewPage() {
     }
   }
 
+  if (!mounted) return null;
   if (!cover) return null;
 
   const detected = cover.lat != null && cover.lng != null
