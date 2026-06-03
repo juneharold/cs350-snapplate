@@ -179,7 +179,7 @@ export default function RestaurantDetailPage({ params }: { params: Promise<{ id:
 
       <div className="flex gap-2 px-4 mt-5">
         <Link
-          href="/capture"
+          href={`/capture?restaurant_id=${r.id}`}
           className="btn btn-secondary"
           style={{ flex: 1 }}
         >

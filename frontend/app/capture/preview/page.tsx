@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Clock, Pencil } from "lucide-react";
 import { Screen } from "@/components/layout/Screen";
@@ -16,8 +16,10 @@ import { useCreateDraft } from "@/lib/api/drafts";
  *  2. Or, write notes now →        same upload/create, then jump to
  *                                  /drafts/[id]/finish for the entry form
  */
-export default function CapturePreviewPage() {
+function CapturePreviewContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const restaurantId = searchParams.get("restaurant_id");
   const pending = useCapture((s) => s.pending);
   const coverKey = useCapture((s) => s.coverKey);
   const setCover = useCapture((s) => s.setCover);
@@ -65,6 +67,8 @@ export default function CapturePreviewPage() {
         captured_at: meta.captured_at,
         lat: meta.lat,
         lng: meta.lng,
+        restaurant_id: restaurantId,
+        restaurant_suggested: false,
       });
       clear();
       if (path === "draft") router.replace(`/drafts/saved?id=${draft.id}`);
@@ -295,5 +299,13 @@ export default function CapturePreviewPage() {
         </button>
       </div>
     </Screen>
+  );
+}
+
+export default function CapturePreviewPage() {
+  return (
+    <Suspense fallback={null}>
+      <CapturePreviewContent />
+    </Suspense>
   );
 }
