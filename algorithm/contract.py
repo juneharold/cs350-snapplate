@@ -72,7 +72,11 @@ def generate_taste_report(
 
     computed_at = generated_at or datetime.now(timezone.utc)
     provider = ml_provider or get_configured_ml_provider()
-    weighted_entries = build_weighted_entry_profiles(user_id, entries)
+    weighted_entries = build_weighted_entry_profiles(
+        user_id,
+        entries,
+        ml_provider=provider,
+    )
     user_profile = aggregate_user_profile(
         user_id,
         entries,

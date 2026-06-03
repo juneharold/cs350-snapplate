@@ -68,6 +68,7 @@ class DiaryEntryInput(ContractModel):
     rating: Rating | None = None
     note: str = ""
     image_labels: list[str] = Field(default_factory=list)
+    image_references: list[str] = Field(default_factory=list)
 
 
 class SyntheticUser(ContractModel):

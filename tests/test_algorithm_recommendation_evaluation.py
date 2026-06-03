@@ -67,7 +67,10 @@ def test_evaluation_profiles_keep_evidence_for_observed_signals() -> None:
         note="Spicy, savory, smoky, and satisfying.",
         image_labels=["korean grilled meat"],
     )
-    entry_profile = profile_diary_entry(profiled_entry)
+    entry_profile = profile_diary_entry(
+        profiled_entry,
+        ml_provider=DeterministicMLProvider(),
+    )
     user_profile = aggregate_user_profile(
         USER_ID,
         [profiled_entry],

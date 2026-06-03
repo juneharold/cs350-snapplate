@@ -186,7 +186,8 @@ Related reference:
 - `entry_id`
 - `user_id`
 - diary text or note, if present
-- food images, if present
+- food image references, if present
+- deterministic image labels, if present, for local fixtures and tests
 - rating
 - captured timestamp
 - restaurant id or restaurant name
@@ -204,12 +205,18 @@ Text model:
 Image model:
 
 - Extracts `food_type` and `cuisine`.
-- Uses food images and optional restaurant category as context.
+- Uses provider-ready image references, currently OpenAI `file-...` ids.
 
 Metadata parser:
 
 - Extracts `location_feature`, `venue`, and `temporal_feature`.
 - Uses timestamp, coordinates, address, category, and distance-related metadata.
+
+Provider behavior:
+
+- Entry profiling calls the configured ML provider by default when diary note text or image references are present.
+- Local deterministic tests should pass `DeterministicMLProvider` explicitly.
+- If the configured provider is unavailable, the algorithm fails loudly instead of silently falling back to keyword extraction.
 
 Missing optional inputs are allowed, but the algorithm must not silently invent values. If a field cannot be extracted, leave it empty or assign low confidence with explicit evidence.
 
@@ -574,16 +581,17 @@ Public functions:
 
 - `generate_taste_report(user_id, diary_entries) -> TasteProfileResponse`
 - `generate_recommendations(user_id, context) -> RecommendedResponse`
-- `aggregate_user_profile(user_id, diary_entries) -> UserProfileArtifact`
+- `profile_diary_entry(entry, ml_provider=None) -> EntryProfileArtifact`
+- `aggregate_user_profile(user_id, diary_entries, entry_profiles=None) -> UserProfileArtifact`
 - `profile_kakao_restaurant(restaurant_metadata) -> RestaurantProfileArtifact`
 
 Shared Pydantic schemas live in `algorithm.schemas`. The client-facing response
 models intentionally match the current frontend payloads for `GET /taste/profile` and
 `GET /restaurants/recommended`; internal artifacts carry `algorithm_version`, confidence,
-evidence, deterministic profile text, deterministic embeddings, and scoring fields that are
-stored by the backend but not returned to users. External ML-generated labels, blurbs, and
-provider embeddings should replace the deterministic text/embedding layer only after the
-structured user and restaurant profiles are persisted and verified.
+evidence, profile text, provider embeddings, and scoring fields that are stored by the
+backend but not returned to users. User aggregation can consume stored entry artifacts so
+profile refreshes do not need to re-run entry extraction. External ML-generated labels and
+blurbs should remain grounded in the structured user and restaurant profiles.
 
 ## 11. Development and Evaluation Data
 
@@ -611,11 +619,11 @@ Evaluation checks:
 
 ## 12. Build Order
 
-1. Select exact external API provider and model IDs for text, image, and embedding tasks.
-2. Define shared schema, taxonomy starter fields, and global constants with backend.
-3. Implement entry-level profile extraction for text, image, metadata, confidence, and evidence.
-4. Implement user profile aggregation, long-term/short-term profiles, and embeddings.
-5. Implement Kakao Map restaurant profiling and restaurant embeddings.
+1. Select exact external API provider and model IDs for text, image, and embedding tasks. Done for current OpenAI configuration.
+2. Define shared schema, taxonomy starter fields, and global constants with backend. Done for the current algorithm contract.
+3. Implement entry-level profile extraction for text, image, metadata, confidence, and evidence. Current state: metadata, deterministic labels, and provider-backed text/image references are implemented.
+4. Implement user profile aggregation, long-term/short-term profiles, and embeddings. Current state: aggregation supports precomputed entry artifacts and provider embeddings.
+5. Implement Kakao Map restaurant profiling and restaurant embeddings. Current state: Kakao metadata normalization and provider embeddings are implemented.
 6. Implement taste analysis report generation from structured profile and statistics.
 7. Generate synthetic users, restaurants, and diary data for collaborative filtering tests.
 8. Implement candidate generation and hybrid scoring.

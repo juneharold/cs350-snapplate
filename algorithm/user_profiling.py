@@ -21,9 +21,17 @@ class WeightedEntryProfile:
 def build_weighted_entry_profiles(
     user_id: str,
     diary_entries: Sequence[DiaryEntryInput],
+    *,
+    entry_profiles: Sequence[EntryProfileArtifact] | None = None,
+    ml_provider: MLProvider | None = None,
 ) -> list[WeightedEntryProfile]:
     entries = _entries_for_user(user_id, diary_entries)
-    profiles = [profile_diary_entry(entry) for entry in entries]
+    profiles = _entry_profiles_for_entries(
+        user_id,
+        entries,
+        entry_profiles,
+        ml_provider,
+    )
     newest = max((entry.captured_at for entry in entries), default=None)
     return [
         WeightedEntryProfile(
@@ -41,11 +49,19 @@ def aggregate_user_profile(
     *,
     generated_at: datetime | None = None,
     short_term_entry_count: int = SHORT_TERM_ENTRY_COUNT,
+    entry_profiles: Sequence[EntryProfileArtifact] | None = None,
     weighted_entries: Sequence[WeightedEntryProfile] | None = None,
     ml_provider: MLProvider | None = None,
 ) -> UserProfileArtifact:
+    if entry_profiles is not None and weighted_entries is not None:
+        raise ValueError("pass either entry_profiles or weighted_entries, not both")
     if weighted_entries is None:
-        weighted = build_weighted_entry_profiles(user_id, diary_entries)
+        weighted = build_weighted_entry_profiles(
+            user_id,
+            diary_entries,
+            entry_profiles=entry_profiles,
+            ml_provider=ml_provider,
+        )
     else:
         weighted = list(weighted_entries)
     entries = [item.entry for item in weighted]
@@ -86,6 +102,24 @@ def _entries_for_user(
     if mismatched:
         raise ValueError(f"diary_entries include entries for a different user: {mismatched}")
     return entries
+
+
+def _entry_profiles_for_entries(
+    user_id: str,
+    entries: Sequence[DiaryEntryInput],
+    entry_profiles: Sequence[EntryProfileArtifact] | None,
+    ml_provider: MLProvider | None,
+) -> list[EntryProfileArtifact]:
+    if entry_profiles is None:
+        return [profile_diary_entry(entry, ml_provider=ml_provider) for entry in entries]
+
+    profiles = list(entry_profiles)
+    if len(profiles) != len(entries):
+        raise ValueError("entry_profiles must match diary_entries")
+    for entry, profile in zip(entries, profiles, strict=True):
+        if profile.entry_id != entry.id or profile.user_id != user_id:
+            raise ValueError("entry_profiles must match diary_entries")
+    return profiles
 
 
 def _entry_weight(

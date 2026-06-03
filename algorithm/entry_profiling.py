@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from algorithm.providers import MLProvider, get_configured_ml_provider
 from algorithm.schemas import DiaryEntryInput, EntryProfileArtifact
 from algorithm.taxonomy import PROFILE_FIELD_NAMES
 
@@ -138,7 +139,11 @@ IMAGE_FOOD_TYPES = (
 )
 
 
-def profile_diary_entry(entry: DiaryEntryInput) -> EntryProfileArtifact:
+def profile_diary_entry(
+    entry: DiaryEntryInput,
+    *,
+    ml_provider: MLProvider | None = None,
+) -> EntryProfileArtifact:
     values: dict[str, dict[str, float]] = {field_name: {} for field_name in FIELD_NAMES}
     confidence: dict[str, float] = {}
     evidence: dict[str, list[str]] = defaultdict(list)
@@ -147,7 +152,8 @@ def profile_diary_entry(entry: DiaryEntryInput) -> EntryProfileArtifact:
     _extract_location_features(entry, values, confidence, evidence)
     _extract_restaurant_metadata(entry, values, confidence, evidence)
     _extract_rating_signal(entry, values, confidence, evidence)
-    _extract_text_signal(entry, values, confidence, evidence)
+    _extract_text_signal(entry, values, confidence, evidence, ml_provider)
+    _extract_image_references(entry, values, confidence, evidence, ml_provider)
     _extract_image_labels(entry, values, confidence, evidence)
 
     return EntryProfileArtifact(
@@ -335,20 +341,31 @@ def _extract_text_signal(
     values: dict[str, dict[str, float]],
     confidence: dict[str, float],
     evidence: dict[str, list[str]],
+    ml_provider: MLProvider | None,
 ) -> None:
-    note = entry.note.lower()
+    note = entry.note.strip()
     if not note:
         return
 
-    for keyword, term, score in TEXT_TASTES:
-        if keyword in note:
-            _add(values, confidence, evidence, "taste", term, score, score, f"note: {keyword}")
-    for keyword, term, score in TEXT_CONTEXTS:
-        if keyword in note:
-            _add(values, confidence, evidence, "context", term, score, score, f"note: {keyword}")
-    for keyword, term, score in TEXT_EMOTIONS:
-        if keyword in note:
-            _add(values, confidence, evidence, "emotion", term, score, score, f"note: {keyword}")
+    provider = ml_provider or get_configured_ml_provider()
+    result = provider.extract_text_profile(_text_profile_input(entry))
+    _merge_profile_result(values, confidence, evidence, result)
+
+
+def _extract_image_references(
+    entry: DiaryEntryInput,
+    values: dict[str, dict[str, float]],
+    confidence: dict[str, float],
+    evidence: dict[str, list[str]],
+    ml_provider: MLProvider | None,
+) -> None:
+    if not entry.image_references:
+        return
+
+    provider = ml_provider or get_configured_ml_provider()
+    for image_reference in entry.image_references:
+        result = provider.extract_image_profile(image_reference)
+        _merge_profile_result(values, confidence, evidence, result)
 
 
 def _extract_image_labels(
@@ -400,6 +417,45 @@ def _add(
     confidence[field_name] = max(confidence.get(field_name, 0.0), field_confidence)
     if source not in evidence[field_name]:
         evidence[field_name].append(source)
+
+
+def _merge_profile_result(
+    values: dict[str, dict[str, float]],
+    confidence: dict[str, float],
+    evidence: dict[str, list[str]],
+    result: object,
+) -> None:
+    profile = getattr(result, "profile")
+    field_confidence = getattr(result, "confidence")
+    field_evidence = getattr(result, "evidence")
+    for field_name, terms in profile.items():
+        for term, score in terms.items():
+            sources = field_evidence.get(field_name, [])
+            for source in sources:
+                _add(
+                    values,
+                    confidence,
+                    evidence,
+                    field_name,
+                    term,
+                    score,
+                    field_confidence[field_name],
+                    source,
+                )
+
+
+def _text_profile_input(entry: DiaryEntryInput) -> str:
+    restaurant = entry.restaurant
+    context = [
+        f"diary.note: {entry.note.strip()}",
+        f"rating: {entry.rating}" if entry.rating is not None else "",
+        f"restaurant.name: {restaurant.name}",
+        f"restaurant.category: {restaurant.category}",
+        f"restaurant.signature_dish: {restaurant.signature_dish}"
+        if restaurant.signature_dish
+        else "",
+    ]
+    return "\n".join(item for item in context if item)
 
 
 def _is_near_campus(value: str) -> bool:
