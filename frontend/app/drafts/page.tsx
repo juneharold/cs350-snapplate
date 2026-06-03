@@ -23,86 +23,88 @@ export default function DraftsInboxPage() {
 
   return (
     <Screen>
-      <div
-        className="px-5 flex items-center gap-2.5"
-        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 36px)", paddingBottom: 12 }}
-      >
-        <Link
-          href="/"
-          aria-label="Back"
-          className="flex items-center justify-center"
-          style={{ width: 40, height: 40, color: "var(--color-ink)" }}
-        >
-          <ChevronLeft size={22} />
-        </Link>
-        <div className="flex-1">
-          <div
-            style={{
-              fontSize: 11,
-              fontFamily: "var(--font-mono)",
-              color: "var(--color-muted)",
-              letterSpacing: "0.06em",
-            }}
-          >
-            DRAFTS
-          </div>
-          <h1
-            className="leading-tight"
-            style={{
-              fontFamily: "var(--font-serif)",
-              fontSize: 22,
-              fontWeight: 500,
-              marginTop: 2,
-            }}
-          >
-            {items.length === 0
-              ? "Nothing waiting"
-              : `${items.length} ${items.length === 1 ? "meal" : "meals"} to finish`}
-          </h1>
-        </div>
-      </div>
-
-      <div className="px-5 pt-1 pb-3">
+      <div className="flex flex-col h-full">
         <div
-          className="flex gap-2.5 items-start"
-          style={{
-            padding: 12,
-            background: "var(--color-bg-soft)",
-            border: "1px solid var(--color-border-soft)",
-            borderRadius: 12,
-            fontSize: 12,
-            color: "var(--color-ink-2)",
-            lineHeight: 1.5,
-          }}
+          className="px-5 flex items-center gap-2.5 shrink-0"
+          style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 36px)", paddingBottom: 12 }}
         >
-          <span style={{ color: "var(--color-olive-700)", flexShrink: 0, marginTop: 1 }}>
-            <Clock size={16} />
-          </span>
-          <div>
-            <b>Drafts wait here</b> until you finish them. Tap a card to add a
-            note &mdash; that promotes it to a diary entry.
+          <Link
+            href="/"
+            aria-label="Back"
+            className="flex items-center justify-center"
+            style={{ width: 40, height: 40, color: "var(--color-ink)" }}
+          >
+            <ChevronLeft size={22} />
+          </Link>
+          <div className="flex-1">
+            <div
+              style={{
+                fontSize: 11,
+                fontFamily: "var(--font-mono)",
+                color: "var(--color-muted)",
+                letterSpacing: "0.06em",
+              }}
+            >
+              DRAFTS
+            </div>
+            <h1
+              className="leading-tight"
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: 22,
+                fontWeight: 500,
+                marginTop: 2,
+              }}
+            >
+              {items.length === 0
+                ? "Nothing waiting"
+                : `${items.length} ${items.length === 1 ? "meal" : "meals"} to finish`}
+            </h1>
           </div>
         </div>
-      </div>
 
-      <div className="px-5 pb-8" style={{ overflowY: "auto" }}>
-        {items.length === 0 && <EmptyState />}
-        {today.length > 0 && (
-          <>
-            <SectionLabel>TODAY</SectionLabel>
-            {today.map((d) => (
-              <DraftCard key={d.id} d={d} onFinish={() => router.push(`/drafts/${d.id}/finish`)} />
-            ))}
-          </>
-        )}
-        {earlier.length > 0 && (
-          <>
-            <SectionLabel>EARLIER</SectionLabel>
-            {earlier.map((d) => (
-              <DraftCard key={d.id} d={d} onFinish={() => router.push(`/drafts/${d.id}/finish`)} />
-            ))}
-          </>
-        )}
+        <div className="px-5 pt-1 pb-3 shrink-0">
+          <div
+            className="flex gap-2.5 items-start"
+            style={{
+              padding: 12,
+              background: "var(--color-bg-soft)",
+              border: "1px solid var(--color-border-soft)",
+              borderRadius: 12,
+              fontSize: 12,
+              color: "var(--color-ink-2)",
+              lineHeight: 1.5,
+            }}
+          >
+            <span style={{ color: "var(--color-olive-700)", flexShrink: 0, marginTop: 1 }}>
+              <Clock size={16} />
+            </span>
+            <div>
+              <b>Drafts wait here</b> until you finish them. Tap a card to add a
+              note &mdash; that promotes it to a diary entry.
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 pb-8 flex-1 overflow-y-auto min-h-0">
+          {items.length === 0 && <EmptyState />}
+          {today.length > 0 && (
+            <>
+              <SectionLabel>TODAY</SectionLabel>
+              {today.map((d) => (
+                <DraftCard key={d.id} d={d} onFinish={() => router.push(`/drafts/${d.id}/finish`)} />
+              ))}
+            </>
+          )}
+          {earlier.length > 0 && (
+            <>
+              <SectionLabel>EARLIER</SectionLabel>
+              {earlier.map((d) => (
+                <DraftCard key={d.id} d={d} onFinish={() => router.push(`/drafts/${d.id}/finish`)} />
+              ))}
+            </>
+          )}
+        </div>
       </div>
     </Screen>
   );
@@ -181,6 +183,7 @@ function DraftCard({
     >
       <div className="relative shrink-0">
         <FoodPlaceholder
+          src={d.cover_media_url}
           tone={d.cover_media_tone}
           label={d.restaurant?.name ?? d.cover_media_label}
           width={78}
