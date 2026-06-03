@@ -93,6 +93,7 @@ function SavedConfirm() {
             }}
           >
             <FoodPlaceholder
+              src={cover?.url}
               tone={cover?.tone}
               label=""
               width={48}

@@ -202,6 +202,7 @@ export default function FinishDraftPage({ params }: { params: Promise<{ id: stri
           {draft.media.map((m) => (
             <div key={m.id} className="relative shrink-0">
               <FoodPlaceholder
+                src={m.url}
                 tone={m.tone}
                 label={m.label}
                 width={104}
