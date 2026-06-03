@@ -16,7 +16,7 @@ from algorithm.config import (
     RECOMMENDATION_SCORE_WEIGHTS,
     SIMILAR_USER_THRESHOLD,
 )
-from algorithm.providers import MLProvider
+from algorithm.providers import MLProvider, get_configured_ml_provider
 from algorithm.schemas import (
     DiaryEntryInput,
     FlavorLean,
@@ -71,31 +71,32 @@ def generate_taste_report(
         )
 
     computed_at = generated_at or datetime.now(timezone.utc)
+    provider = ml_provider or get_configured_ml_provider()
     weighted_entries = build_weighted_entry_profiles(user_id, entries)
     user_profile = aggregate_user_profile(
         user_id,
         entries,
         generated_at=computed_at,
         weighted_entries=weighted_entries,
-        ml_provider=ml_provider,
+        ml_provider=provider,
     )
+    profile_summary = provider.generate_profile_summary(user_profile.profile_text)
     category_stats = _weighted_category_stats(weighted_entries)
     categories = _taste_categories(category_stats)
-    top_category = categories[0].name if categories else "Food"
 
     return TasteProfileReady(
         has_enough_data=True,
         min_entries_required=min_entries_required,
         current_entries=len(entries),
         computed_at=computed_at,
-        type=_taste_type(top_category, user_profile),
+        type=TasteType(label=profile_summary.label, blurb=profile_summary.blurb),
         summary=_taste_summary(entries, computed_at),
         categories=categories,
         rating_distribution=_rating_distribution(entries),
         time_heatmap=_time_heatmap(entries),
         flavor_lean=_flavor_lean(user_profile),
         top_dishes=_top_dishes(weighted_entries),
-        insights=[_primary_insight(entries, top_category, user_profile)],
+        insights=profile_summary.insights,
     )
 
 
@@ -210,34 +211,6 @@ def _taste_categories(category_stats: dict[str, CategoryStats]) -> list[TasteCat
         for name, stats in category_stats.items()
     ]
     return sorted(categories, key=lambda category: (-category.weight, category.name))
-
-
-def _taste_type(top_category: str, user_profile: UserProfileArtifact) -> TasteType:
-    top_tastes = list(user_profile.long_term_profile.get("taste", {}))[:2]
-    labels = {
-        "Noodles": (
-            "The Broth-Seeker",
-            "You're drawn to warm, simmered dishes where texture matters as much as flavor.",
-        ),
-        "Bakery": (
-            "The Golden-Crust Hunter",
-            "You come back to buttery, crisp, gently sweet places more than most.",
-        ),
-        "Cafe": (
-            "The Cafe Regular",
-            "You prefer comfortable places with steady drinks, snacks, and repeatable rituals.",
-        ),
-    }
-    label, blurb = labels.get(
-        top_category,
-        (
-            "The Curious Plate",
-            f"Your diary leans toward {top_category.lower()}, with room for new favorites.",
-        ),
-    )
-    if top_tastes:
-        blurb = f"{blurb} Your clearest flavor signals are {', '.join(top_tastes)}."
-    return TasteType(label=label, blurb=blurb)
 
 
 def _taste_summary(entries: Sequence[DiaryEntryInput], generated_at: datetime) -> TasteSummary:
@@ -361,21 +334,6 @@ def _top_dishes(weighted_entries: Sequence[WeightedEntryProfile]) -> list[TopDis
             key=lambda item: (-item[0], -item[1].rating, item[1].name),
         )[:3]
     ]
-
-
-def _primary_insight(
-    entries: Sequence[DiaryEntryInput],
-    top_category: str,
-    user_profile: UserProfileArtifact,
-) -> str:
-    ratings = [entry.rating for entry in entries if entry.rating is not None]
-    avg_rating = _round_one_decimal(sum(ratings) / len(ratings)) if ratings else 0.0
-    top_taste = next(iter(user_profile.long_term_profile.get("taste", {})), None)
-    flavor_text = f" and a {top_taste} flavor lean" if top_taste else ""
-    return (
-        f"Your strongest pattern is {top_category.lower()}, "
-        f"with an average logged rating of {avg_rating}{flavor_text}."
-    )
 
 
 def _round_one_decimal(value: float) -> float:
