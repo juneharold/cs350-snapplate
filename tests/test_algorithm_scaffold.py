@@ -23,6 +23,7 @@ from algorithm.config import (
     TEXT_PROFILE_MODEL,
 )
 from algorithm.fixtures import DEMO_USER_ID, load_demo_recommendation_context
+from algorithm.providers import DeterministicMLProvider
 from algorithm.schemas import RecommendationContext, TasteProfileReady
 
 
@@ -67,6 +68,7 @@ def test_demo_fixture_data_validates_and_drives_public_entrypoints() -> None:
         context.diary_entries,
         min_entries_required=min_entries_required,
         generated_at=datetime(2026, 5, 24, 12, 43, tzinfo=timezone.utc),
+        ml_provider=DeterministicMLProvider(),
     )
     recommendations = generate_recommendations(
         DEMO_USER_ID,

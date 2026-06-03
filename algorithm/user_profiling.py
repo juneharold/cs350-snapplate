@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from algorithm.config import SHORT_TERM_ENTRY_COUNT
-from algorithm.embedding import deterministic_text_embedding
 from algorithm.entry_profiling import FIELD_NAMES, profile_diary_entry
+from algorithm.providers import MLProvider, get_configured_ml_provider
 from algorithm.schemas import DiaryEntryInput, EntryProfileArtifact, UserProfileArtifact
 
 
@@ -42,6 +42,7 @@ def aggregate_user_profile(
     generated_at: datetime | None = None,
     short_term_entry_count: int = SHORT_TERM_ENTRY_COUNT,
     weighted_entries: Sequence[WeightedEntryProfile] | None = None,
+    ml_provider: MLProvider | None = None,
 ) -> UserProfileArtifact:
     if weighted_entries is None:
         weighted = build_weighted_entry_profiles(user_id, diary_entries)
@@ -59,6 +60,7 @@ def aggregate_user_profile(
     category_rating_vector = _category_rating_vector(weighted)
     profile_text = _profile_text(user_id, len(entries), long_term_profile, category_rating_vector)
     short_term_text = _profile_text(user_id, len(short_term), short_term_profile, {})
+    provider = ml_provider or get_configured_ml_provider()
 
     return UserProfileArtifact(
         user_id=user_id,
@@ -69,8 +71,8 @@ def aggregate_user_profile(
         confidence=confidence,
         evidence=evidence,
         profile_text=profile_text,
-        long_term_embedding=deterministic_text_embedding(profile_text),
-        short_term_embedding=deterministic_text_embedding(short_term_text),
+        long_term_embedding=provider.embed_text(profile_text),
+        short_term_embedding=provider.embed_text(short_term_text),
         category_rating_vector=category_rating_vector,
     )
 

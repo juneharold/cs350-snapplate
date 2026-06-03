@@ -16,6 +16,7 @@ from algorithm.config import (
     RECOMMENDATION_SCORE_WEIGHTS,
     SIMILAR_USER_THRESHOLD,
 )
+from algorithm.providers import MLProvider
 from algorithm.schemas import (
     DiaryEntryInput,
     FlavorLean,
@@ -59,6 +60,7 @@ def generate_taste_report(
     *,
     min_entries_required: int = MIN_ENTRIES_FOR_PERSONALIZATION,
     generated_at: datetime | None = None,
+    ml_provider: MLProvider | None = None,
 ) -> TasteProfileResponse:
     entries = _entries_for_user(user_id, diary_entries)
     if len(entries) < min_entries_required:
@@ -75,6 +77,7 @@ def generate_taste_report(
         entries,
         generated_at=computed_at,
         weighted_entries=weighted_entries,
+        ml_provider=ml_provider,
     )
     category_stats = _weighted_category_stats(weighted_entries)
     categories = _taste_categories(category_stats)

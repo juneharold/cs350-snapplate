@@ -15,11 +15,19 @@ from algorithm.config import (
 )
 from algorithm.contract import generate_recommendations, generate_taste_report
 from algorithm.entry_profiling import profile_diary_entry
+from algorithm.providers import (
+    DeterministicMLProvider,
+    MLProvider,
+    OpenAIProvider,
+    get_configured_ml_provider,
+)
 from algorithm.restaurant_profiling import profile_kakao_restaurant
 from algorithm.schemas import (
     DiaryEntryInput,
     EntryProfileArtifact,
     KakaoRestaurantMetadata,
+    ProfileExtractionResult,
+    ProfileSummaryResult,
     RecommendationArtifact,
     RecommendationContext,
     RecommendedResponse,
@@ -40,15 +48,20 @@ from algorithm.version import ALGORITHM_VERSION, __version__
 
 __all__ = [
     "ALGORITHM_VERSION",
+    "DeterministicMLProvider",
     "DiaryEntryInput",
     "EMBEDDING_DIMENSIONS",
     "EMBEDDING_MODEL",
     "EntryProfileArtifact",
     "IMAGE_PROFILE_MODEL",
     "KakaoRestaurantMetadata",
+    "MLProvider",
     "MIN_ENTRIES_FOR_PERSONALIZATION",
     "MIN_SIMILAR_USERS",
     "ML_PROVIDER",
+    "OpenAIProvider",
+    "ProfileExtractionResult",
+    "ProfileSummaryResult",
     "RecommendationArtifact",
     "RecommendationContext",
     "RECOMMENDATION_COOLDOWN_REQUESTS",
@@ -74,6 +87,7 @@ __all__ = [
     "build_weighted_entry_profiles",
     "generate_recommendations",
     "generate_taste_report",
+    "get_configured_ml_provider",
     "profile_diary_entry",
     "profile_kakao_restaurant",
 ]

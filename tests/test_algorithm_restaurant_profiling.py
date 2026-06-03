@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from algorithm import profile_kakao_restaurant
+from algorithm.config import EMBEDDING_DIMENSIONS
+from algorithm.providers import DeterministicMLProvider
 from algorithm.schemas import KakaoRestaurantMetadata, RestaurantProfileArtifact
 
 
@@ -24,8 +26,16 @@ def test_profile_kakao_restaurant_normalizes_supported_metadata() -> None:
         rating_count=312,
     )
 
-    profile = profile_kakao_restaurant(restaurant, generated_at=NOW)
-    repeat = profile_kakao_restaurant(restaurant, generated_at=NOW)
+    profile = profile_kakao_restaurant(
+        restaurant,
+        generated_at=NOW,
+        ml_provider=DeterministicMLProvider(),
+    )
+    repeat = profile_kakao_restaurant(
+        restaurant,
+        generated_at=NOW,
+        ml_provider=DeterministicMLProvider(),
+    )
 
     assert isinstance(profile, RestaurantProfileArtifact)
     assert profile.restaurant_id == "26338954"
@@ -40,7 +50,7 @@ def test_profile_kakao_restaurant_normalizes_supported_metadata() -> None:
     assert "category_name: Food > Korean BBQ" in profile.evidence["cuisine"]
     assert "tag: smoky grill" in profile.evidence["taste"]
     assert "korean" in profile.profile_text
-    assert profile.embedding
+    assert len(profile.embedding) == EMBEDDING_DIMENSIONS
     assert profile.embedding == repeat.embedding
 
 
@@ -52,7 +62,11 @@ def test_profile_kakao_restaurant_keeps_sparse_metadata_low_confidence() -> None
         address_name="Daejeon",
     )
 
-    profile = profile_kakao_restaurant(restaurant, generated_at=NOW)
+    profile = profile_kakao_restaurant(
+        restaurant,
+        generated_at=NOW,
+        ml_provider=DeterministicMLProvider(),
+    )
 
     assert profile.profile.get("taste", {}) == {}
     assert profile.profile.get("food_type", {}) == {}
@@ -60,4 +74,4 @@ def test_profile_kakao_restaurant_keeps_sparse_metadata_low_confidence() -> None
     assert profile.profile == {}
     assert profile.confidence == {}
     assert "taste" not in profile.evidence
-    assert profile.embedding
+    assert len(profile.embedding) == EMBEDDING_DIMENSIONS

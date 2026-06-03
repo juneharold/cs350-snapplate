@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "SnapPlate algorithm/backend contract schemas and entrypoints"
 requires-python = ">=3.11"
 dependencies = [
+    "openai>=2,<3",
     "pydantic>=2,<3",
 ]
 

@@ -3,8 +3,14 @@ from __future__ import annotations
 import hashlib
 import math
 
+from algorithm.config import EMBEDDING_DIMENSIONS
 
-def deterministic_text_embedding(text: str, *, dimensions: int = 16) -> list[float]:
+
+def deterministic_text_embedding(
+    text: str,
+    *,
+    dimensions: int = EMBEDDING_DIMENSIONS,
+) -> list[float]:
     normalized = " ".join(text.lower().split())
     values = []
     for index in range(dimensions):

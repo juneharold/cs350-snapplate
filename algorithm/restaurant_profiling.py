@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from algorithm.embedding import deterministic_text_embedding
 from algorithm.entry_profiling import (
     CATEGORY_CUISINES,
     CATEGORY_FOOD_TYPES,
@@ -12,6 +11,7 @@ from algorithm.entry_profiling import (
     TEXT_CONTEXTS,
     TEXT_TASTES,
 )
+from algorithm.providers import MLProvider, get_configured_ml_provider
 from algorithm.schemas import KakaoRestaurantMetadata, RestaurantProfileArtifact
 
 
@@ -19,6 +19,7 @@ def profile_kakao_restaurant(
     restaurant: KakaoRestaurantMetadata,
     *,
     generated_at: datetime | None = None,
+    ml_provider: MLProvider | None = None,
 ) -> RestaurantProfileArtifact:
     values: dict[str, dict[str, float]] = defaultdict(dict)
     confidence: dict[str, float] = {}
@@ -36,6 +37,7 @@ def profile_kakao_restaurant(
     }
     generated = generated_at or datetime.now(timezone.utc)
     profile_text = _profile_text(restaurant, profile)
+    provider = ml_provider or get_configured_ml_provider()
 
     return RestaurantProfileArtifact(
         restaurant_id=restaurant.id,
@@ -44,7 +46,7 @@ def profile_kakao_restaurant(
         confidence=confidence,
         evidence=dict(evidence),
         profile_text=profile_text,
-        embedding=deterministic_text_embedding(profile_text),
+        embedding=provider.embed_text(profile_text),
     )
 
 

@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from algorithm import aggregate_user_profile, generate_taste_report
+from algorithm.config import EMBEDDING_DIMENSIONS
+from algorithm.providers import DeterministicMLProvider
 from algorithm.schemas import DiaryEntryInput, RestaurantInput, TasteProfileReady
 
 
@@ -87,12 +89,14 @@ def test_aggregate_user_profile_weights_recency_richness_and_confidence() -> Non
         [old_sparse_sweet, recent_rich_spicy],
         generated_at=NOW,
         short_term_entry_count=1,
+        ml_provider=DeterministicMLProvider(),
     )
     repeat = aggregate_user_profile(
         USER_ID,
         [old_sparse_sweet, recent_rich_spicy],
         generated_at=NOW,
         short_term_entry_count=1,
+        ml_provider=DeterministicMLProvider(),
     )
 
     assert profile.source_entry_count == 2
@@ -105,8 +109,8 @@ def test_aggregate_user_profile_weights_recency_richness_and_confidence() -> Non
     assert profile.confidence["taste"] < profile.confidence["temporal_feature"]
     assert "note: spicy" in profile.evidence["taste"]
     assert "spicy" in profile.profile_text
-    assert profile.long_term_embedding
-    assert profile.short_term_embedding
+    assert len(profile.long_term_embedding) == EMBEDDING_DIMENSIONS
+    assert len(profile.short_term_embedding) == EMBEDDING_DIMENSIONS
     assert profile.long_term_embedding == repeat.long_term_embedding
     assert profile.short_term_embedding == repeat.short_term_embedding
 
@@ -147,6 +151,7 @@ def test_taste_report_uses_deterministic_profile_stats() -> None:
         entries,
         min_entries_required=len(entries),
         generated_at=NOW,
+        ml_provider=DeterministicMLProvider(),
     )
 
     assert isinstance(report, TasteProfileReady)

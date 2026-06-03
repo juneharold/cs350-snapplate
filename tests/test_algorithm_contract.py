@@ -4,6 +4,7 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from algorithm import generate_recommendations, generate_taste_report
+from algorithm.providers import DeterministicMLProvider
 from algorithm.schemas import (
     DiaryEntryInput,
     EntryProfileArtifact,
@@ -81,6 +82,7 @@ def test_taste_report_matches_frontend_profile_payload() -> None:
         entries,
         min_entries_required=len(entries),
         generated_at=NOW,
+        ml_provider=DeterministicMLProvider(),
     )
 
     assert isinstance(report, TasteProfileReady)
@@ -149,6 +151,7 @@ def test_taste_report_insufficient_data_shape_is_minimal() -> None:
         entries,
         min_entries_required=len(entries) + 1,
         generated_at=NOW,
+        ml_provider=DeterministicMLProvider(),
     )
 
     assert isinstance(report, TasteProfileInsufficient)

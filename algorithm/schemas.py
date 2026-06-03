@@ -137,6 +137,30 @@ class TopDish(ContractModel):
 RatingDistribution = dict[str, PositiveInt]
 
 
+class ProfileExtractionResult(ContractModel):
+    profile: dict[str, WeightedTerms] = Field(default_factory=dict)
+    confidence: dict[str, Score] = Field(default_factory=dict)
+    evidence: dict[str, list[str]] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def require_supported_terms_confidence_and_evidence(self) -> "ProfileExtractionResult":
+        _validate_profile_map("profile", self.profile)
+        for field_name, terms in self.profile.items():
+            if not terms:
+                continue
+            if field_name not in self.confidence:
+                raise ValueError(f"{field_name} requires confidence")
+            if not self.evidence.get(field_name):
+                raise ValueError(f"{field_name} requires evidence")
+        return self
+
+
+class ProfileSummaryResult(ContractModel):
+    label: str
+    blurb: str
+    insights: list[str] = Field(default_factory=list)
+
+
 class TasteProfileReady(ContractModel):
     has_enough_data: Literal[True]
     min_entries_required: PositiveInt
