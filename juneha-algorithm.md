@@ -627,12 +627,20 @@ Evaluation checks:
 3. Implement entry-level profile extraction for text, image, metadata, confidence, and evidence. Current state: metadata, deterministic labels, and provider-backed text/image references are implemented.
 4. Implement user profile aggregation, long-term/short-term profiles, and embeddings. Current state: aggregation supports precomputed entry artifacts and provider embeddings.
 5. Implement Kakao Map restaurant profiling and restaurant embeddings. Current state: Kakao metadata normalization and provider embeddings are implemented.
-6. Implement taste analysis report generation from structured profile and statistics.
-7. Generate synthetic users, restaurants, and diary data for collaborative filtering tests.
-8. Implement candidate generation and hybrid scoring. Current state: hybrid scoring supports artifact-based embedding content scoring when user and restaurant profile artifacts are provided.
-9. Implement diversity, novelty, repeated-exposure handling, and explanation generation.
-10. Integrate async jobs, persistence, and API payloads with backend.
-11. Add tests and evaluation scripts for extraction, aggregation, scoring, and response shape.
+6. Implement taste analysis report generation from structured profile and statistics. Current state: implemented in `generate_taste_report` with insufficient-data gating, deterministic chart-ready statistics, weighted category preferences, flavor lean, top dishes, and provider-generated profile label, blurb, and insights.
+7. Generate synthetic users, restaurants, and diary data for collaborative filtering tests. Current state: deterministic synthetic fixture data exists with multiple users, diary histories, restaurant candidates, and exposure history.
+8. Implement candidate generation and hybrid scoring. Current state: `generate_recommendations` ranks caller-supplied candidate restaurants. Hybrid scoring has baseline content, collaborative, context, quality, and novelty components. Artifact mode uses user and restaurant embeddings and fails loudly when required artifacts or embeddings are missing. Non-artifact mode keeps the category-frequency content path for local fixtures and legacy tests. Remaining decision: whether candidate generation from a broad restaurant pool belongs in the algorithm package or remains a backend/input responsibility.
+9. Implement diversity, novelty, repeated-exposure handling, and explanation generation. Current state: baseline category diversity, exact restaurant exposure penalty, and reason text are implemented. Remaining algorithm work: cooldown-window semantics, near-duplicate category/neighborhood exposure penalties, `reason_category`, and reason text selected from the strongest actual scoring signal.
+10. Integrate async jobs, persistence, and API payloads with backend. Current state: intentionally deferred from algorithm-only work. The algorithm contract exposes the functions and schemas backend integration needs.
+11. Add tests and evaluation scripts for extraction, aggregation, scoring, and response shape. Current state: tests cover taxonomy, contracts, fixtures, provider behavior, entry profiling, user aggregation, restaurant profiling, score hiding, collaborative boost, repeated-exposure penalty, category diversity, embedding artifact mode, and fail-loud artifact validation. Remaining test work: internal scoring artifacts/traces, context beyond distance, quality beyond rating, cooldown and near-duplicate novelty, explanation selection from strongest signal, and performance checks.
+
+Current algorithm-only next order:
+
+1. Populate internal recommendation scoring artifacts and trace data without exposing scores in `RecommendedResponse`.
+2. Derive recommendation explanations and `reason_category` from the strongest real scoring signal.
+3. Harden context, quality, novelty, and diversity scoring beyond the current baseline rules.
+4. Decide candidate-generation ownership before adding a candidate selector.
+5. Extend evaluation tests around the hardened scoring behavior and performance target.
 
 ## 13. Success Criteria
 
