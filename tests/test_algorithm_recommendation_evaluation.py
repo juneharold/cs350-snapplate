@@ -4,6 +4,8 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import pytest
+
 from algorithm import (
     aggregate_user_profile,
     generate_recommendations,
@@ -11,13 +13,15 @@ from algorithm import (
     profile_diary_entry,
     profile_kakao_restaurant,
 )
-from algorithm.config import MIN_SIMILAR_USERS
+from algorithm.config import EMBEDDING_DIMENSIONS, MIN_SIMILAR_USERS
 from algorithm.providers import DeterministicMLProvider
 from algorithm.schemas import (
     DiaryEntryInput,
     KakaoRestaurantMetadata,
     RecommendationContext,
+    RestaurantProfileArtifact,
     RestaurantInput,
+    UserProfileArtifact,
 )
 
 
@@ -200,6 +204,111 @@ def test_evaluation_explanations_are_grounded_in_visible_signals() -> None:
     assert all(reason.strip() for reason in reasons_by_category.values())
 
 
+def test_evaluation_embedding_content_score_beats_category_frequency_when_artifacts_exist() -> None:
+    category_match = restaurant(
+        "r_category_match",
+        "Noodles",
+        name="Category Match Noodles",
+        rating=4.6,
+        distance_m=400,
+    )
+    embedding_match = restaurant(
+        "r_embedding_match",
+        "Japanese",
+        name="Embedding Match Ramen",
+        rating=4.6,
+        distance_m=400,
+    )
+    context = RecommendationContext(
+        diary_entries=history_entries(USER_ID, "Noodles", count=10),
+        candidate_restaurants=[category_match, embedding_match],
+        user_profile=user_profile_artifact(
+            long_term_embedding=embedding_axis(1.0),
+            short_term_embedding=embedding_axis(1.0),
+        ),
+        restaurant_profiles=[
+            restaurant_profile_artifact(category_match, embedding=embedding_axis(-1.0)),
+            restaurant_profile_artifact(embedding_match, embedding=embedding_axis(1.0)),
+        ],
+    )
+
+    response = generate_recommendations(USER_ID, context, limit=2)
+    payload = response.model_dump(mode="json")
+
+    assert response.items[0].id == embedding_match.id
+    assert "taste profile" in response.items[0].reason.lower()
+    assert_no_score_keys(payload)
+
+
+def test_evaluation_non_artifact_recommendations_keep_category_content_score() -> None:
+    category_match = restaurant(
+        "r_category_match",
+        "Noodles",
+        name="Category Match Noodles",
+        rating=4.6,
+        distance_m=400,
+    )
+    variety_pick = restaurant(
+        "r_variety_pick",
+        "Japanese",
+        name="Variety Ramen",
+        rating=4.6,
+        distance_m=400,
+    )
+    context = RecommendationContext(
+        diary_entries=history_entries(USER_ID, "Noodles", count=10),
+        candidate_restaurants=[variety_pick, category_match],
+    )
+
+    response = generate_recommendations(USER_ID, context, limit=2)
+
+    assert response.items[0].id == category_match.id
+
+
+def test_evaluation_artifact_mode_requires_user_profile() -> None:
+    candidate = restaurant("r_candidate", "Noodles")
+    context = RecommendationContext(
+        diary_entries=history_entries(USER_ID, "Noodles", count=10),
+        candidate_restaurants=[candidate],
+        restaurant_profiles=[restaurant_profile_artifact(candidate, embedding=embedding_axis(1.0))],
+    )
+
+    with pytest.raises(ValueError, match="user_profile"):
+        generate_recommendations(USER_ID, context, limit=1)
+
+
+def test_evaluation_artifact_mode_requires_candidate_restaurant_profile() -> None:
+    candidate = restaurant("r_candidate", "Noodles")
+    context = RecommendationContext(
+        diary_entries=history_entries(USER_ID, "Noodles", count=10),
+        candidate_restaurants=[candidate],
+        user_profile=user_profile_artifact(
+            long_term_embedding=embedding_axis(1.0),
+            short_term_embedding=embedding_axis(1.0),
+        ),
+        restaurant_profiles=[],
+    )
+
+    with pytest.raises(ValueError, match="restaurant profile"):
+        generate_recommendations(USER_ID, context, limit=1)
+
+
+def test_evaluation_artifact_mode_rejects_invalid_embedding_dimensions() -> None:
+    candidate = restaurant("r_candidate", "Noodles")
+    context = RecommendationContext(
+        diary_entries=history_entries(USER_ID, "Noodles", count=10),
+        candidate_restaurants=[candidate],
+        user_profile=user_profile_artifact(
+            long_term_embedding=[1.0],
+            short_term_embedding=embedding_axis(1.0),
+        ),
+        restaurant_profiles=[restaurant_profile_artifact(candidate, embedding=embedding_axis(1.0))],
+    )
+
+    with pytest.raises(ValueError, match="embedding"):
+        generate_recommendations(USER_ID, context, limit=1)
+
+
 ENTRY_FIELDS = (
     "cuisine",
     "food_type",
@@ -290,6 +399,46 @@ def similar_peer_entries(peer_pick: RestaurantInput) -> list[DiaryEntryInput]:
             )
         )
     return rows
+
+
+def embedding_axis(value: float) -> list[float]:
+    return [value, *([0.0] * (EMBEDDING_DIMENSIONS - 1))]
+
+
+def user_profile_artifact(
+    *,
+    long_term_embedding: list[float],
+    short_term_embedding: list[float],
+) -> UserProfileArtifact:
+    return UserProfileArtifact(
+        user_id=USER_ID,
+        generated_at=NOW,
+        source_entry_count=10,
+        long_term_profile={"taste": {"umami": 0.9}},
+        short_term_profile={"taste": {"umami": 0.9}},
+        confidence={"taste": 0.9},
+        evidence={"taste": ["test: semantic taste profile"]},
+        profile_text="User favors umami ramen-like meals.",
+        long_term_embedding=long_term_embedding,
+        short_term_embedding=short_term_embedding,
+        category_rating_vector={"Noodles": 4.6},
+    )
+
+
+def restaurant_profile_artifact(
+    restaurant_input: RestaurantInput,
+    *,
+    embedding: list[float],
+) -> RestaurantProfileArtifact:
+    return RestaurantProfileArtifact(
+        restaurant_id=restaurant_input.id,
+        generated_at=NOW,
+        profile={"taste": {"umami": 0.9}},
+        confidence={"taste": 0.9},
+        evidence={"taste": ["test: candidate taste profile"]},
+        profile_text=f"{restaurant_input.name} semantic profile.",
+        embedding=embedding,
+    )
 
 
 def assert_profile_fields_have_evidence(

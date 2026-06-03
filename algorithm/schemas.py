@@ -200,6 +200,8 @@ class RecommendationContext(ContractModel):
     diary_entries: list[DiaryEntryInput]
     peer_diary_entries: list[DiaryEntryInput] = Field(default_factory=list)
     candidate_restaurants: list[RestaurantInput]
+    user_profile: UserProfileArtifact | None = None
+    restaurant_profiles: list[RestaurantProfileArtifact] = Field(default_factory=list)
     lat: float | None = None
     lng: float | None = None
     exposure_history: list[str] = Field(default_factory=list)

@@ -25,6 +25,11 @@ RECOMMENDATION_SCORE_WEIGHTS: Final[dict[str, float]] = {
     "novelty": 0.05,
 }
 
+RECOMMENDATION_EMBEDDING_WEIGHTS: Final[dict[str, float]] = {
+    "long_term": 0.70,
+    "short_term": 0.30,
+}
+
 HEATMAP_ROWS: Final[list[str]] = ["8 AM", "12 PM", "3 PM", "7 PM", "10 PM"]
 HEATMAP_COLS: Final[list[str]] = ["M", "T", "W", "T", "F", "S", "S"]
 DAY_NAMES: Final[list[str]] = [

@@ -8,10 +8,12 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from algorithm.config import (
     DAY_NAMES,
+    EMBEDDING_DIMENSIONS,
     HEATMAP_COLS,
     HEATMAP_ROWS,
     MIN_ENTRIES_FOR_PERSONALIZATION,
     MIN_SIMILAR_USERS,
+    RECOMMENDATION_EMBEDDING_WEIGHTS,
     RECOMMENDATION_LIMIT,
     RECOMMENDATION_SCORE_WEIGHTS,
     SIMILAR_USER_THRESHOLD,
@@ -24,6 +26,7 @@ from algorithm.schemas import (
     RecommendedResponse,
     RecommendedRestaurant,
     RestaurantInput,
+    RestaurantProfileArtifact,
     TasteCategory,
     TasteProfileInsufficient,
     TasteProfileReady,
@@ -128,15 +131,20 @@ def generate_recommendations(
         entries,
         context.peer_diary_entries,
     )
+    artifact_mode = _uses_recommendation_artifacts(context)
+    restaurant_profiles = _restaurant_profiles_by_candidate(context) if artifact_mode else {}
     scored = []
     for candidate in context.candidate_restaurants:
         if candidate.id in visited:
             continue
+        restaurant_profile = restaurant_profiles.get(candidate.id)
         score = _recommendation_score(
             candidate,
             category_stats,
             exposure_history,
             similar_user_entries,
+            context.user_profile,
+            restaurant_profile,
         )
         scored.append((score, candidate))
 
@@ -145,7 +153,12 @@ def generate_recommendations(
     items = [
         RecommendedRestaurant(
             **candidate.model_dump(),
-            reason=_recommendation_reason(candidate, category_stats, similar_user_entries),
+            reason=_recommendation_reason(
+                candidate,
+                category_stats,
+                similar_user_entries,
+                restaurant_profiles.get(candidate.id),
+            ),
         )
         for candidate in selected
     ]
@@ -349,10 +362,17 @@ def _recommendation_score(
     category_stats: dict[str, CategoryStats],
     exposure_history: set[str],
     similar_user_entries: Sequence[DiaryEntryInput],
+    user_profile: UserProfileArtifact | None,
+    restaurant_profile: RestaurantProfileArtifact | None,
 ) -> float:
     max_visits = max((stats.visits for stats in category_stats.values()), default=1)
-    stats = category_stats.get(candidate.category)
-    content_score = (stats.visits / max_visits) if stats else 0.0
+    content_score = _content_score(
+        candidate,
+        category_stats,
+        max_visits,
+        user_profile,
+        restaurant_profile,
+    )
     collaborative_score = _collaborative_score(candidate, similar_user_entries)
     context_score = max(0.0, min(1.0, 1.0 - candidate.distance_m / 5000))
     quality_score = candidate.rating / 5.0
@@ -371,9 +391,12 @@ def _recommendation_reason(
     candidate: RestaurantInput,
     category_stats: dict[str, CategoryStats],
     similar_user_entries: Sequence[DiaryEntryInput],
+    restaurant_profile: RestaurantProfileArtifact | None = None,
 ) -> str:
     if _similar_user_ratings(candidate, similar_user_entries):
         return f"Similar users also liked this {candidate.category.lower()} place."
+    if restaurant_profile is not None:
+        return "Matches your taste profile."
     stats = category_stats.get(candidate.category)
     if stats:
         return (
@@ -461,6 +484,88 @@ def _cosine_similarity(left: dict[str, float], right: dict[str, float]) -> float
     if not left_norm or not right_norm:
         return 0.0
     return dot_product / (left_norm * right_norm)
+
+
+def _content_score(
+    candidate: RestaurantInput,
+    category_stats: dict[str, CategoryStats],
+    max_visits: int,
+    user_profile: UserProfileArtifact | None,
+    restaurant_profile: RestaurantProfileArtifact | None,
+) -> float:
+    if user_profile is None and restaurant_profile is None:
+        stats = category_stats.get(candidate.category)
+        return (stats.visits / max_visits) if stats else 0.0
+    if user_profile is None or restaurant_profile is None:
+        raise ValueError("user_profile and restaurant profile are required together")
+
+    long_term = _normalized_embedding_similarity(
+        user_profile.long_term_embedding,
+        restaurant_profile.embedding,
+    )
+    short_term = _normalized_embedding_similarity(
+        user_profile.short_term_embedding,
+        restaurant_profile.embedding,
+    )
+    return round(
+        RECOMMENDATION_EMBEDDING_WEIGHTS["long_term"] * long_term
+        + RECOMMENDATION_EMBEDDING_WEIGHTS["short_term"] * short_term,
+        6,
+    )
+
+
+def _uses_recommendation_artifacts(context: RecommendationContext) -> bool:
+    return context.user_profile is not None or bool(context.restaurant_profiles)
+
+
+def _restaurant_profiles_by_candidate(
+    context: RecommendationContext,
+) -> dict[str, RestaurantProfileArtifact]:
+    if context.user_profile is None:
+        raise ValueError("user_profile is required when restaurant_profiles are supplied")
+    _validate_user_profile_embeddings(context.user_profile)
+    if not context.restaurant_profiles:
+        raise ValueError("restaurant profile artifacts are required when user_profile is supplied")
+
+    profiles_by_candidate: dict[str, RestaurantProfileArtifact] = {}
+    for candidate in context.candidate_restaurants:
+        matches = [
+            profile
+            for profile in context.restaurant_profiles
+            if profile.restaurant_id in {candidate.id, candidate.kakao_id}
+        ]
+        if not matches:
+            raise ValueError(f"restaurant profile is required for candidate {candidate.id}")
+        if len(matches) > 1:
+            raise ValueError(f"restaurant profile is ambiguous for candidate {candidate.id}")
+        _validate_embedding(matches[0].embedding, f"restaurant profile {matches[0].restaurant_id}")
+        profiles_by_candidate[candidate.id] = matches[0]
+    return profiles_by_candidate
+
+
+def _validate_user_profile_embeddings(user_profile: UserProfileArtifact) -> None:
+    _validate_embedding(user_profile.long_term_embedding, "user long-term embedding")
+    _validate_embedding(user_profile.short_term_embedding, "user short-term embedding")
+
+
+def _validate_embedding(embedding: Sequence[float], label: str) -> None:
+    if len(embedding) != EMBEDDING_DIMENSIONS:
+        raise ValueError(
+            f"{label} must have {EMBEDDING_DIMENSIONS} embedding values; "
+            f"got {len(embedding)}"
+        )
+    if not any(value != 0 for value in embedding):
+        raise ValueError(f"{label} embedding must not be all zeros")
+
+
+def _normalized_embedding_similarity(left: Sequence[float], right: Sequence[float]) -> float:
+    _validate_embedding(left, "left embedding")
+    _validate_embedding(right, "right embedding")
+    dot_product = sum(left_value * right_value for left_value, right_value in zip(left, right))
+    left_norm = sum(value * value for value in left) ** 0.5
+    right_norm = sum(value * value for value in right) ** 0.5
+    similarity = dot_product / (left_norm * right_norm)
+    return max(0.0, min(1.0, (similarity + 1.0) / 2.0))
 
 
 def _collaborative_score(

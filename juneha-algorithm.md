@@ -487,8 +487,11 @@ All component scores must be normalized to `[0, 1]`.
 Content score:
 
 - Compare user long-term and short-term embeddings with the restaurant embedding.
-- Use configurable weights for long-term vs short-term similarity.
+- Use configurable weights for long-term vs short-term similarity; current default is `0.70` long-term and `0.30` short-term.
 - Prefer restaurants whose structured profile also matches high-confidence user profile fields.
+- Current contract uses embedding content scoring when `RecommendationContext` includes `user_profile` and `restaurant_profiles`.
+- If only one side of the artifact input is present, or if an embedding is missing or dimension-invalid, recommendation scoring fails loudly instead of silently falling back.
+- If recommendation artifacts are absent, content scoring keeps the current category-frequency path for local fixtures and legacy tests.
 
 Collaborative score:
 
@@ -626,7 +629,7 @@ Evaluation checks:
 5. Implement Kakao Map restaurant profiling and restaurant embeddings. Current state: Kakao metadata normalization and provider embeddings are implemented.
 6. Implement taste analysis report generation from structured profile and statistics.
 7. Generate synthetic users, restaurants, and diary data for collaborative filtering tests.
-8. Implement candidate generation and hybrid scoring.
+8. Implement candidate generation and hybrid scoring. Current state: hybrid scoring supports artifact-based embedding content scoring when user and restaurant profile artifacts are provided.
 9. Implement diversity, novelty, repeated-exposure handling, and explanation generation.
 10. Integrate async jobs, persistence, and API payloads with backend.
 11. Add tests and evaluation scripts for extraction, aggregation, scoring, and response shape.
