@@ -1,4 +1,13 @@
 from tests.conftest import auth_headers
+import io
+from PIL import Image
+
+
+def _jpeg() -> bytes:
+    img = Image.new("RGB", (100, 100), (200, 90, 60))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    return buf.getvalue()
 
 
 def test_me_returns_stats(client):
@@ -40,3 +49,36 @@ def test_settings_bad_appearance(client):
     h = auth_headers(client, "t-appearance@snapplate.app")
     r = client.patch("/v1/settings", json={"appearance": "neon"}, headers=h)
     assert r.status_code == 422
+
+
+def test_upload_avatar_success(client):
+    h = auth_headers(client, "t-avatar@snapplate.app")
+    
+    # 1. Upload avatar
+    r = client.post(
+        "/v1/me/avatar",
+        files={"file": ("avatar.jpg", _jpeg(), "image/jpeg")},
+        headers=h,
+    )
+    assert r.status_code == 200
+    res = r.json()["response"]
+    assert "profile_image_url" in res
+    assert "http://localhost:9000/media/avatars/" in res["profile_image_url"]
+
+    # 2. Check /me endpoint returns the signed profile image url
+    me_res = client.get("/v1/me", headers=h)
+    assert me_res.status_code == 200
+    me_data = me_res.json()["response"]
+    assert me_data["profile_image_url"] == res["profile_image_url"]
+
+
+def test_upload_avatar_invalid_type(client):
+    h = auth_headers(client, "t-avatar-bad@snapplate.app")
+    
+    r = client.post(
+        "/v1/me/avatar",
+        files={"file": ("avatar.txt", b"not-an-image", "text/plain")},
+        headers=h,
+    )
+    assert r.status_code == 400
+    assert r.json()["error"]["code"] == "unsupported_format"
