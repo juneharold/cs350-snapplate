@@ -421,7 +421,7 @@ Recommend restaurants that match the user's taste profile, current context, and 
 - user diary history,
 - bookmarks if available,
 - current location if available,
-- request timestamp and active category, neighborhood, or distance filters if available,
+- request timestamp, active category/neighborhood filters, and max-distance context if available,
 - restaurant profiles,
 - restaurant embeddings,
 - restaurant quality metadata,
@@ -464,7 +464,8 @@ flowchart TD
 
 For the pre-integration algorithm package, `generate_recommendations` ranks caller-supplied
 candidate restaurants from `RecommendationContext`. Broad candidate retrieval remains outside
-the algorithm package until backend/search integration.
+the algorithm package until backend/search integration. Active category and neighborhood
+filters gate the supplied candidates before scoring.
 
 Future candidate sources may include:
 
@@ -488,6 +489,8 @@ S(u, r) =
 ```
 
 All component scores must be normalized to `[0, 1]`.
+If collaborative scoring is inactive for a request, the remaining score weights are
+renormalized to sum to `1.0`.
 
 Content score:
 
@@ -503,12 +506,12 @@ Collaborative score:
 - Build category-rating vectors from users' diary histories.
 - Similar users have cosine similarity at or above `SIMILAR_USER_THRESHOLD`.
 - Use similar users' ratings, visits, or bookmarks for the candidate restaurant or its category.
-- If fewer than `MIN_SIMILAR_USERS` exist, set collaborative score inactive for that request and log why.
+- If fewer than `MIN_SIMILAR_USERS` exist, set collaborative score inactive for that request, log why, and renormalize the other scoring weights.
 
 Context score:
 
 - Distance from the candidate metadata.
-- Optional category, neighborhood, and max-distance filters.
+- Optional max-distance context.
 - Optional request timestamp compared with the user's meal-period category history.
 
 Quality score:
@@ -633,10 +636,10 @@ Evaluation checks:
 5. Implement Kakao Map restaurant profiling and restaurant embeddings. Current state: Kakao metadata normalization and provider embeddings are implemented.
 6. Implement taste analysis report generation from structured profile and statistics. Current state: implemented in `generate_taste_report` with insufficient-data gating, deterministic chart-ready statistics, weighted category preferences, flavor lean, top dishes, and provider-generated profile label, blurb, and insights.
 7. Generate synthetic users, restaurants, and diary data for collaborative filtering tests. Current state: deterministic synthetic fixture data exists with multiple users, diary histories, restaurant candidates, and exposure history.
-8. Implement candidate generation and hybrid scoring. Current state: `generate_recommendations` ranks caller-supplied candidate restaurants. Hybrid scoring has content, collaborative, context, quality, and novelty components. Artifact mode uses user and restaurant embeddings and fails loudly when required artifacts or embeddings are missing. Non-artifact mode keeps the category-frequency content path for local fixtures and legacy tests. Broad candidate retrieval remains a backend/search responsibility for pre-integration work.
+8. Implement candidate generation and hybrid scoring. Current state: `generate_recommendations` ranks caller-supplied candidate restaurants after category/neighborhood filter gates. Hybrid scoring has content, collaborative, context, quality, and novelty components. Artifact mode uses user and restaurant embeddings and fails loudly when required artifacts or embeddings are missing. Non-artifact mode keeps the category-frequency content path for local fixtures and legacy tests. Broad candidate retrieval remains a backend/search responsibility for pre-integration work.
 9. Implement diversity, novelty, repeated-exposure handling, and explanation generation. Current state: score-aware category/neighborhood diversity, exact restaurant cooldown-window novelty, internal `reason_category`, and reason text selected from scoring signals are implemented.
 10. Integrate async jobs, persistence, and API payloads with backend. Current state: intentionally deferred from algorithm-only work. The algorithm contract exposes the functions and schemas backend integration needs.
-11. Add tests and evaluation scripts for extraction, aggregation, scoring, and response shape. Current state: tests cover taxonomy, contracts, fixtures, provider behavior, entry profiling, user aggregation, restaurant profiling, score hiding, collaborative boost, exposure cooldown, category and neighborhood diversity, embedding artifact mode, fail-loud artifact validation, scoring artifacts/traces, richer context and quality scoring, explanation categories, evaluation metrics, and the SRS recommendation latency target.
+11. Add tests and evaluation scripts for extraction, aggregation, scoring, and response shape. Current state: tests cover taxonomy, contracts, fixtures, provider behavior, entry profiling, user aggregation, restaurant profiling, score hiding, collaborative boost and inactive renormalization, exposure cooldown, category and neighborhood filtering/diversity, embedding artifact mode, fail-loud artifact validation, scoring artifacts/traces, richer context and quality scoring, explanation categories, evaluation metrics, and the SRS recommendation latency target.
 
 Current algorithm-only next order:
 

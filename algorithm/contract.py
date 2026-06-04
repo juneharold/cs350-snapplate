@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -48,6 +49,9 @@ from algorithm.user_profiling import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 @dataclass(frozen=True)
 class CategoryStats:
     visits: int = 0
@@ -67,6 +71,12 @@ class ScoredCandidate:
     scores: RecommendationScoreBreakdown
     reason: str
     reason_category: str
+
+
+@dataclass(frozen=True)
+class CollaborativeSignal:
+    entries: list[DiaryEntryInput]
+    inactive_reason: str | None = None
 
 
 def generate_taste_report(
@@ -169,16 +179,23 @@ def generate_recommendation_artifact(
     category_stats = _category_stats(entries)
     visited = {entry.restaurant.id for entry in entries}
     active_exposure_history = set(context.exposure_history[:RECOMMENDATION_COOLDOWN_REQUESTS])
-    similar_user_entries = _similar_user_entries(
+    collaborative_signal = _similar_user_signal(
         user_id,
         entries,
         context.peer_diary_entries,
     )
+    if collaborative_signal.inactive_reason is not None:
+        logger.debug(
+            "collaborative score inactive for request: %s",
+            collaborative_signal.inactive_reason,
+        )
     artifact_mode = _uses_recommendation_artifacts(context)
     restaurant_profiles = _restaurant_profiles_by_candidate(context) if artifact_mode else {}
     scored = []
     for candidate in context.candidate_restaurants:
         if candidate.id in visited:
+            continue
+        if not _matches_active_filters(candidate, context):
             continue
         restaurant_profile = restaurant_profiles.get(candidate.id)
         scores = _recommendation_scores(
@@ -186,7 +203,8 @@ def generate_recommendation_artifact(
             entries,
             category_stats,
             active_exposure_history,
-            similar_user_entries,
+            collaborative_signal.entries,
+            collaborative_signal.inactive_reason is None,
             context.user_profile,
             restaurant_profile,
             context,
@@ -195,7 +213,7 @@ def generate_recommendation_artifact(
             candidate,
             scores,
             category_stats,
-            similar_user_entries,
+            collaborative_signal.entries,
             restaurant_profile,
         )
         scored.append(
@@ -231,6 +249,7 @@ def _recommendation_scores(
     category_stats: dict[str, CategoryStats],
     active_exposure_history: set[str],
     similar_user_entries: Sequence[DiaryEntryInput],
+    collaborative_active: bool,
     user_profile: UserProfileArtifact | None,
     restaurant_profile: RestaurantProfileArtifact | None,
     context: RecommendationContext,
@@ -247,13 +266,25 @@ def _recommendation_scores(
     context_score = _context_score(candidate, entries, context)
     quality_score = _quality_score(candidate)
     novelty_score = _novelty_score(candidate, active_exposure_history)
-    final_score = (
-        RECOMMENDATION_SCORE_WEIGHTS["content"] * content_score
-        + RECOMMENDATION_SCORE_WEIGHTS["collaborative"] * collaborative_score
-        + RECOMMENDATION_SCORE_WEIGHTS["context"] * context_score
-        + RECOMMENDATION_SCORE_WEIGHTS["quality"] * quality_score
-        + RECOMMENDATION_SCORE_WEIGHTS["novelty"] * novelty_score
-    )
+    score_values = {
+        "content": content_score,
+        "collaborative": collaborative_score,
+        "context": context_score,
+        "quality": quality_score,
+        "novelty": novelty_score,
+    }
+    active_weights = RECOMMENDATION_SCORE_WEIGHTS
+    if not collaborative_active:
+        active_weights = {
+            key: weight
+            for key, weight in RECOMMENDATION_SCORE_WEIGHTS.items()
+            if key != "collaborative"
+        }
+    weight_total = sum(active_weights.values())
+    final_score = sum(
+        active_weights[key] * score_values[key]
+        for key in active_weights
+    ) / weight_total
     return RecommendationScoreBreakdown(
         content_score=round(content_score, 6),
         collaborative_score=round(collaborative_score, 6),
@@ -270,13 +301,20 @@ def _context_score(
     context: RecommendationContext,
 ) -> float:
     signals = [_distance_score(candidate, context.max_distance_m)]
-    if context.category_filters:
-        signals.append(1.0 if candidate.category in context.category_filters else 0.0)
-    if context.neighborhood_filters:
-        signals.append(1.0 if candidate.neighborhood in context.neighborhood_filters else 0.0)
     if context.requested_at is not None:
         signals.append(_meal_period_category_score(candidate, entries, context.requested_at))
     return sum(signals) / len(signals)
+
+
+def _matches_active_filters(
+    candidate: RestaurantInput,
+    context: RecommendationContext,
+) -> bool:
+    if context.category_filters and candidate.category not in context.category_filters:
+        return False
+    if context.neighborhood_filters and candidate.neighborhood not in context.neighborhood_filters:
+        return False
+    return True
 
 
 def _distance_score(candidate: RestaurantInput, max_distance_m: int | None) -> float:
@@ -606,14 +644,19 @@ def _diversity_adjusted_score(
     )
 
 
-def _similar_user_entries(
+def _similar_user_signal(
     user_id: str,
     entries: Sequence[DiaryEntryInput],
     peer_entries: Sequence[DiaryEntryInput],
-) -> list[DiaryEntryInput]:
+) -> CollaborativeSignal:
     active_vector = _category_rating_vector_from_entries(entries)
-    if not active_vector or not peer_entries:
-        return []
+    if not active_vector:
+        return CollaborativeSignal(
+            entries=[],
+            inactive_reason="active user has no rated category history",
+        )
+    if not peer_entries:
+        return CollaborativeSignal(entries=[], inactive_reason="no peer diary entries")
 
     entries_by_user: dict[str, list[DiaryEntryInput]] = defaultdict(list)
     for entry in peer_entries:
@@ -630,9 +673,16 @@ def _similar_user_entries(
         >= SIMILAR_USER_THRESHOLD
     ]
     if len(similar_groups) < MIN_SIMILAR_USERS:
-        return []
+        return CollaborativeSignal(
+            entries=[],
+            inactive_reason=(
+                f"found {len(similar_groups)} similar users; need {MIN_SIMILAR_USERS}"
+            ),
+        )
 
-    return [entry for group in similar_groups for entry in group]
+    return CollaborativeSignal(
+        entries=[entry for group in similar_groups for entry in group],
+    )
 
 
 def _category_rating_vector_from_entries(

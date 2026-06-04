@@ -15,7 +15,11 @@ from algorithm import (
     profile_diary_entry,
     profile_kakao_restaurant,
 )
-from algorithm.config import EMBEDDING_DIMENSIONS, MIN_SIMILAR_USERS
+from algorithm.config import (
+    EMBEDDING_DIMENSIONS,
+    MIN_SIMILAR_USERS,
+    RECOMMENDATION_SCORE_WEIGHTS,
+)
 from algorithm.providers import DeterministicMLProvider
 from algorithm.schemas import (
     DiaryEntryInput,
@@ -192,6 +196,51 @@ def test_evaluation_similar_users_boost_restaurants_the_peer_group_likes() -> No
     assert artifact.ranked_items[0].reason_category == "collaborative"
 
 
+def test_evaluation_inactive_collaborative_score_renormalizes_remaining_weights() -> None:
+    candidate = restaurant("r_no_peer_signal", "Noodles", rating=4.6, distance_m=400)
+    context = RecommendationContext(
+        diary_entries=history_entries(USER_ID, "Noodles", count=10),
+        candidate_restaurants=[candidate],
+    )
+
+    artifact = generate_recommendation_artifact(USER_ID, context, limit=1, generated_at=NOW)
+    scores = artifact.ranked_items[0].scores
+    active_weight_total = 1.0 - RECOMMENDATION_SCORE_WEIGHTS["collaborative"]
+    expected_final_score = (
+        RECOMMENDATION_SCORE_WEIGHTS["content"] * scores.content_score
+        + RECOMMENDATION_SCORE_WEIGHTS["context"] * scores.context_score
+        + RECOMMENDATION_SCORE_WEIGHTS["quality"] * scores.quality_score
+        + RECOMMENDATION_SCORE_WEIGHTS["novelty"] * scores.novelty_score
+    ) / active_weight_total
+
+    assert scores.collaborative_score == 0.0
+    assert scores.final_score == pytest.approx(expected_final_score, abs=1e-6)
+
+
+def test_evaluation_inactive_collaborative_score_logs_once(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    context = RecommendationContext(
+        diary_entries=history_entries(USER_ID, "Noodles", count=10),
+        candidate_restaurants=[
+            restaurant("r_no_peer_signal_1", "Noodles"),
+            restaurant("r_no_peer_signal_2", "Bakery"),
+        ],
+    )
+
+    with caplog.at_level("DEBUG", logger="algorithm.contract"):
+        generate_recommendation_artifact(USER_ID, context, limit=2, generated_at=NOW)
+
+    messages = [
+        record.message
+        for record in caplog.records
+        if "collaborative score inactive" in record.message
+    ]
+    assert messages == [
+        "collaborative score inactive for request: no peer diary entries"
+    ]
+
+
 def test_evaluation_repeated_exposure_penalty_prioritizes_fresh_equivalent_items() -> None:
     seen = restaurant("r_seen", "Noodles", name="A Seen Noodle")
     fresh = restaurant("r_fresh", "Noodles", name="Z Fresh Noodle")
@@ -350,7 +399,7 @@ def test_evaluation_low_signal_fresh_pick_gets_novelty_reason_category() -> None
     assert "variety" in artifact.ranked_items[0].reason.lower()
 
 
-def test_evaluation_context_signal_uses_time_and_filters() -> None:
+def test_evaluation_category_and_neighborhood_filters_gate_candidates() -> None:
     entries = [
         entry(
             index,
@@ -366,26 +415,66 @@ def test_evaluation_context_signal_uses_time_and_filters() -> None:
         neighborhood="Eoeun-dong",
         distance_m=400,
     )
-    filtered_out = restaurant(
-        "r_filtered_out",
+    category_mismatch = restaurant(
+        "r_category_mismatch",
         "Bakery",
+        neighborhood="Eoeun-dong",
+        distance_m=100,
+    )
+    neighborhood_mismatch = restaurant(
+        "r_neighborhood_mismatch",
+        "Noodles",
         neighborhood="Gung-dong",
-        distance_m=2400,
+        distance_m=100,
     )
     context = RecommendationContext(
         diary_entries=entries,
-        candidate_restaurants=[filtered_out, matching],
+        candidate_restaurants=[category_mismatch, neighborhood_mismatch, matching],
         requested_at=NOW.replace(hour=12),
         category_filters=["Noodles"],
         neighborhood_filters=["Eoeun-dong"],
         max_distance_m=1000,
     )
 
-    artifact = generate_recommendation_artifact(USER_ID, context, limit=2, generated_at=NOW)
-    scores = {item.restaurant_id: item.scores.context_score for item in artifact.ranked_items}
+    artifact = generate_recommendation_artifact(USER_ID, context, limit=3, generated_at=NOW)
 
-    assert response_ids(artifact)[0] == matching.id
-    assert scores[matching.id] > scores[filtered_out.id]
+    assert response_ids(artifact) == [matching.id]
+
+
+def test_evaluation_context_score_does_not_boost_category_or_neighborhood_filters() -> None:
+    candidate = restaurant(
+        "r_context_filter_match",
+        "Noodles",
+        neighborhood="Eoeun-dong",
+        distance_m=1000,
+    )
+    base_context = RecommendationContext(
+        diary_entries=history_entries(USER_ID, "Noodles", count=10),
+        candidate_restaurants=[candidate],
+    )
+    filtered_context = RecommendationContext(
+        diary_entries=history_entries(USER_ID, "Noodles", count=10),
+        candidate_restaurants=[candidate],
+        category_filters=["Noodles"],
+        neighborhood_filters=["Eoeun-dong"],
+    )
+
+    base_artifact = generate_recommendation_artifact(
+        USER_ID,
+        base_context,
+        limit=1,
+        generated_at=NOW,
+    )
+    filtered_artifact = generate_recommendation_artifact(
+        USER_ID,
+        filtered_context,
+        limit=1,
+        generated_at=NOW,
+    )
+
+    assert filtered_artifact.ranked_items[0].scores.context_score == (
+        base_artifact.ranked_items[0].scores.context_score
+    )
 
 
 def test_evaluation_embedding_content_score_beats_category_frequency_when_artifacts_exist() -> None:
