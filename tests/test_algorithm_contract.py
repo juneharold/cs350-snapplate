@@ -4,9 +4,11 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from algorithm import generate_recommendations, generate_taste_report
+from algorithm.providers import DeterministicMLProvider
 from algorithm.schemas import (
     DiaryEntryInput,
     EntryProfileArtifact,
+    ProfileSummaryResult,
     RecommendationContext,
     RecommendedResponse,
     RestaurantInput,
@@ -18,6 +20,19 @@ from algorithm.schemas import (
 
 NOW = datetime(2026, 5, 24, 12, 43, tzinfo=timezone.utc)
 USER_ID = "u_contract"
+
+
+class SummaryProvider(DeterministicMLProvider):
+    def __init__(self) -> None:
+        self.summary_inputs: list[str] = []
+
+    def generate_profile_summary(self, profile_text: str) -> ProfileSummaryResult:
+        self.summary_inputs.append(profile_text)
+        return ProfileSummaryResult(
+            label="The ML Taste Profile",
+            blurb="ML-generated profile text grounded in structured signals.",
+            insights=["ML-generated insight."],
+        )
 
 
 def restaurant(
@@ -81,6 +96,7 @@ def test_taste_report_matches_frontend_profile_payload() -> None:
         entries,
         min_entries_required=len(entries),
         generated_at=NOW,
+        ml_provider=DeterministicMLProvider(),
     )
 
     assert isinstance(report, TasteProfileReady)
@@ -149,6 +165,7 @@ def test_taste_report_insufficient_data_shape_is_minimal() -> None:
         entries,
         min_entries_required=len(entries) + 1,
         generated_at=NOW,
+        ml_provider=DeterministicMLProvider(),
     )
 
     assert isinstance(report, TasteProfileInsufficient)
@@ -157,6 +174,25 @@ def test_taste_report_insufficient_data_shape_is_minimal() -> None:
         "min_entries_required": len(entries) + 1,
         "current_entries": len(entries),
     }
+
+
+def test_taste_report_uses_provider_summary_when_available() -> None:
+    entries = enough_entries()
+    provider = SummaryProvider()
+
+    report = generate_taste_report(
+        USER_ID,
+        entries,
+        min_entries_required=len(entries),
+        generated_at=NOW,
+        ml_provider=provider,
+    )
+
+    assert isinstance(report, TasteProfileReady)
+    assert provider.summary_inputs
+    assert report.type.label == "The ML Taste Profile"
+    assert report.type.blurb == "ML-generated profile text grounded in structured signals."
+    assert report.insights == ["ML-generated insight."]
 
 
 def test_recommendations_match_frontend_payload_and_hide_internal_scores() -> None:

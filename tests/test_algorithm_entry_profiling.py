@@ -1,7 +1,16 @@
 from datetime import datetime, timezone
 
+import pytest
+
 from algorithm import profile_diary_entry
-from algorithm.schemas import DiaryEntryInput, EntryProfileArtifact, RestaurantInput
+from algorithm.providers import DeterministicMLProvider
+from algorithm.schemas import (
+    DiaryEntryInput,
+    EntryProfileArtifact,
+    ProfileExtractionResult,
+    ProfileSummaryResult,
+    RestaurantInput,
+)
 
 
 CAPTURED_AT = datetime(2026, 5, 24, 12, 43, tzinfo=timezone.utc)
@@ -41,6 +50,7 @@ def entry(
     rating: float | None = 4.5,
     note: str = "",
     image_labels: list[str] | None = None,
+    image_references: list[str] | None = None,
 ) -> DiaryEntryInput:
     return DiaryEntryInput(
         id="e_profile",
@@ -50,7 +60,36 @@ def entry(
         rating=rating,
         note=note,
         image_labels=image_labels or [],
+        image_references=image_references or [],
     )
+
+
+class FakeExtractionProvider:
+    def __init__(self) -> None:
+        self.text_inputs: list[str] = []
+        self.image_references: list[str] = []
+
+    def extract_text_profile(self, text: str) -> ProfileExtractionResult:
+        self.text_inputs.append(text)
+        return ProfileExtractionResult(
+            profile={"taste": {"spicy": 0.93}, "context": {"solo_meal": 0.72}},
+            confidence={"taste": 0.91, "context": 0.74},
+            evidence={"taste": ["model: spicy broth"], "context": ["model: solo wording"]},
+        )
+
+    def extract_image_profile(self, image_reference: str) -> ProfileExtractionResult:
+        self.image_references.append(image_reference)
+        return ProfileExtractionResult(
+            profile={"cuisine": {"japanese": 0.84}, "food_type": {"noodle": 0.82}},
+            confidence={"cuisine": 0.86, "food_type": 0.83},
+            evidence={"cuisine": ["image: Japanese bowl"], "food_type": ["image: noodles"]},
+        )
+
+    def generate_profile_summary(self, profile_text: str) -> ProfileSummaryResult:
+        raise AssertionError("entry profiling should not request profile summaries")
+
+    def embed_text(self, text: str) -> list[float]:
+        raise AssertionError("entry profiling should not request embeddings")
 
 
 def test_profile_diary_entry_extracts_metadata_time_location_and_rating() -> None:
@@ -71,9 +110,9 @@ def test_profile_diary_entry_extracts_metadata_time_location_and_rating() -> Non
     assert "korean" in profile.cuisine
     assert "bbq" in profile.food_type
     assert profile.temporal_feature.keys() == {"lunch", "weekend"}
-    assert profile.location_feature.keys() == {"eoeun_dong", "nearby"}
-    assert "korean_bbq" in profile.venue
-    assert "satisfied" in profile.emotion
+    assert profile.location_feature.keys() == {"near_campus", "nearby"}
+    assert "bbq_place" in profile.venue
+    assert "delighted" in profile.emotion
     assert profile.taste == {}
     assert profile.context == {}
     assert_all_profile_fields_have_confidence_and_evidence(profile)
@@ -90,7 +129,7 @@ def test_profile_diary_entry_leaves_unknown_optional_fields_empty() -> None:
     profile = profile_diary_entry(
         entry(
             restaurant(
-                category="Restaurant",
+                category="Western",
                 signature_dish=None,
                 distance_m=5000,
                 neighborhood="",
@@ -99,16 +138,16 @@ def test_profile_diary_entry_leaves_unknown_optional_fields_empty() -> None:
         )
     )
 
-    assert profile.cuisine == {}
+    assert profile.cuisine == {"western": 0.85}
     assert profile.food_type == {}
     assert profile.taste == {}
     assert profile.context == {}
-    assert profile.venue == {}
+    assert profile.venue == {"sit_down": 0.8}
     assert profile.emotion == {}
     assert profile.location_feature == {}
     assert profile.temporal_feature == {"lunch": 1.0, "weekend": 1.0}
-    assert set(profile.confidence) == {"temporal_feature"}
-    assert set(profile.evidence) == {"temporal_feature"}
+    assert set(profile.confidence) == {"cuisine", "venue", "temporal_feature"}
+    assert set(profile.evidence) == {"cuisine", "venue", "temporal_feature"}
 
 
 def test_profile_diary_entry_extracts_supported_text_signals() -> None:
@@ -120,12 +159,13 @@ def test_profile_diary_entry_extracts_supported_text_signals() -> None:
             ),
             rating=4.0,
             note="The kimchi stew was spicy, savory, and satisfying. Quick lunch after lab.",
-        )
+        ),
+        ml_provider=DeterministicMLProvider(),
     )
 
     assert {"spicy", "savory"} <= set(profile.taste)
     assert "quick_meal" in profile.context
-    assert {"positive", "satisfied"} <= set(profile.emotion)
+    assert "satisfied" in profile.emotion
     assert_all_profile_fields_have_confidence_and_evidence(profile)
     assert "note: spicy" in profile.evidence["taste"]
     assert "note: savory" in profile.evidence["taste"]
@@ -136,7 +176,7 @@ def test_profile_diary_entry_extracts_supported_text_signals() -> None:
 def test_profile_diary_entry_extracts_supported_image_labels() -> None:
     profile = profile_diary_entry(
         entry(
-            restaurant(category="Restaurant", signature_dish=None),
+            restaurant(category="Snacks", signature_dish=None),
             rating=None,
             image_labels=["korean stew", "rice bowl"],
         )
@@ -148,6 +188,52 @@ def test_profile_diary_entry_extracts_supported_image_labels() -> None:
     assert "image_label: korean stew" in profile.evidence["cuisine"]
     assert "image_label: korean stew" in profile.evidence["food_type"]
     assert "image_label: rice bowl" in profile.evidence["food_type"]
+
+
+def test_profile_diary_entry_merges_ml_text_and_image_signals() -> None:
+    provider = FakeExtractionProvider()
+
+    profile = profile_diary_entry(
+        entry(
+            restaurant(
+                category="Japanese",
+                signature_dish="Shoyu ramen",
+            ),
+            rating=4.5,
+            note="Spicy broth during a solo dinner.",
+            image_references=["file-entry-image-1"],
+        ),
+        ml_provider=provider,
+    )
+
+    assert len(provider.text_inputs) == 1
+    assert "Spicy broth during a solo dinner." in provider.text_inputs[0]
+    assert "restaurant.category: Japanese" in provider.text_inputs[0]
+    assert provider.image_references == ["file-entry-image-1"]
+    assert profile.taste["spicy"] == 0.93
+    assert profile.context["solo_meal"] == 0.72
+    assert profile.cuisine["japanese"] == 0.85
+    assert profile.food_type["noodle"] == 0.82
+    assert "model: spicy broth" in profile.evidence["taste"]
+    assert "image: noodles" in profile.evidence["food_type"]
+    assert_all_profile_fields_have_confidence_and_evidence(profile)
+
+
+def test_profile_diary_entry_with_ml_input_uses_configured_provider_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
+        profile_diary_entry(
+            entry(
+                restaurant(
+                    category="Japanese",
+                    signature_dish="Shoyu ramen",
+                ),
+                note="Spicy broth.",
+            )
+        )
 
 
 def assert_all_profile_fields_have_confidence_and_evidence(

@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from algorithm.config import SHORT_TERM_ENTRY_COUNT
-from algorithm.embedding import deterministic_text_embedding
 from algorithm.entry_profiling import FIELD_NAMES, profile_diary_entry
+from algorithm.providers import MLProvider, get_configured_ml_provider
 from algorithm.schemas import DiaryEntryInput, EntryProfileArtifact, UserProfileArtifact
 
 
@@ -21,9 +21,17 @@ class WeightedEntryProfile:
 def build_weighted_entry_profiles(
     user_id: str,
     diary_entries: Sequence[DiaryEntryInput],
+    *,
+    entry_profiles: Sequence[EntryProfileArtifact] | None = None,
+    ml_provider: MLProvider | None = None,
 ) -> list[WeightedEntryProfile]:
     entries = _entries_for_user(user_id, diary_entries)
-    profiles = [profile_diary_entry(entry) for entry in entries]
+    profiles = _entry_profiles_for_entries(
+        user_id,
+        entries,
+        entry_profiles,
+        ml_provider,
+    )
     newest = max((entry.captured_at for entry in entries), default=None)
     return [
         WeightedEntryProfile(
@@ -41,10 +49,19 @@ def aggregate_user_profile(
     *,
     generated_at: datetime | None = None,
     short_term_entry_count: int = SHORT_TERM_ENTRY_COUNT,
+    entry_profiles: Sequence[EntryProfileArtifact] | None = None,
     weighted_entries: Sequence[WeightedEntryProfile] | None = None,
+    ml_provider: MLProvider | None = None,
 ) -> UserProfileArtifact:
+    if entry_profiles is not None and weighted_entries is not None:
+        raise ValueError("pass either entry_profiles or weighted_entries, not both")
     if weighted_entries is None:
-        weighted = build_weighted_entry_profiles(user_id, diary_entries)
+        weighted = build_weighted_entry_profiles(
+            user_id,
+            diary_entries,
+            entry_profiles=entry_profiles,
+            ml_provider=ml_provider,
+        )
     else:
         weighted = list(weighted_entries)
     entries = [item.entry for item in weighted]
@@ -59,6 +76,7 @@ def aggregate_user_profile(
     category_rating_vector = _category_rating_vector(weighted)
     profile_text = _profile_text(user_id, len(entries), long_term_profile, category_rating_vector)
     short_term_text = _profile_text(user_id, len(short_term), short_term_profile, {})
+    provider = ml_provider or get_configured_ml_provider()
 
     return UserProfileArtifact(
         user_id=user_id,
@@ -69,8 +87,8 @@ def aggregate_user_profile(
         confidence=confidence,
         evidence=evidence,
         profile_text=profile_text,
-        long_term_embedding=deterministic_text_embedding(profile_text),
-        short_term_embedding=deterministic_text_embedding(short_term_text),
+        long_term_embedding=provider.embed_text(profile_text),
+        short_term_embedding=provider.embed_text(short_term_text),
         category_rating_vector=category_rating_vector,
     )
 
@@ -84,6 +102,24 @@ def _entries_for_user(
     if mismatched:
         raise ValueError(f"diary_entries include entries for a different user: {mismatched}")
     return entries
+
+
+def _entry_profiles_for_entries(
+    user_id: str,
+    entries: Sequence[DiaryEntryInput],
+    entry_profiles: Sequence[EntryProfileArtifact] | None,
+    ml_provider: MLProvider | None,
+) -> list[EntryProfileArtifact]:
+    if entry_profiles is None:
+        return [profile_diary_entry(entry, ml_provider=ml_provider) for entry in entries]
+
+    profiles = list(entry_profiles)
+    if len(profiles) != len(entries):
+        raise ValueError("entry_profiles must match diary_entries")
+    for entry, profile in zip(entries, profiles, strict=True):
+        if profile.entry_id != entry.id or profile.user_id != user_id:
+            raise ValueError("entry_profiles must match diary_entries")
+    return profiles
 
 
 def _entry_weight(

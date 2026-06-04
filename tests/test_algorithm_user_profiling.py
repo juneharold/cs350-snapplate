@@ -2,12 +2,30 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from algorithm import aggregate_user_profile, generate_taste_report
-from algorithm.schemas import DiaryEntryInput, RestaurantInput, TasteProfileReady
+from algorithm.config import EMBEDDING_DIMENSIONS
+from algorithm.providers import DeterministicMLProvider
+from algorithm.schemas import (
+    DiaryEntryInput,
+    EntryProfileArtifact,
+    ProfileExtractionResult,
+    RestaurantInput,
+    TasteProfileReady,
+)
 
 
 NOW = datetime(2026, 5, 24, 12, 43, tzinfo=timezone.utc)
 USER_ID = "u_user_profile"
+
+
+class NoExtractionProvider(DeterministicMLProvider):
+    def extract_text_profile(self, text: str) -> ProfileExtractionResult:
+        raise AssertionError("precomputed entry profiles should not run text extraction")
+
+    def extract_image_profile(self, image_reference: str) -> ProfileExtractionResult:
+        raise AssertionError("precomputed entry profiles should not run image extraction")
 
 
 def restaurant(
@@ -87,12 +105,14 @@ def test_aggregate_user_profile_weights_recency_richness_and_confidence() -> Non
         [old_sparse_sweet, recent_rich_spicy],
         generated_at=NOW,
         short_term_entry_count=1,
+        ml_provider=DeterministicMLProvider(),
     )
     repeat = aggregate_user_profile(
         USER_ID,
         [old_sparse_sweet, recent_rich_spicy],
         generated_at=NOW,
         short_term_entry_count=1,
+        ml_provider=DeterministicMLProvider(),
     )
 
     assert profile.source_entry_count == 2
@@ -105,10 +125,72 @@ def test_aggregate_user_profile_weights_recency_richness_and_confidence() -> Non
     assert profile.confidence["taste"] < profile.confidence["temporal_feature"]
     assert "note: spicy" in profile.evidence["taste"]
     assert "spicy" in profile.profile_text
-    assert profile.long_term_embedding
-    assert profile.short_term_embedding
+    assert len(profile.long_term_embedding) == EMBEDDING_DIMENSIONS
+    assert len(profile.short_term_embedding) == EMBEDDING_DIMENSIONS
     assert profile.long_term_embedding == repeat.long_term_embedding
     assert profile.short_term_embedding == repeat.short_term_embedding
+
+
+def test_aggregate_user_profile_accepts_precomputed_entry_profiles() -> None:
+    logged_entry = entry(
+        1,
+        category="Bakery",
+        signature_dish="Honey roll",
+        rating=5.0,
+        note="This note would trigger extraction if precomputed profiles were ignored.",
+        days_ago=0,
+    )
+    entry_profile = EntryProfileArtifact(
+        entry_id=logged_entry.id,
+        user_id=USER_ID,
+        captured_at=logged_entry.captured_at,
+        rating=logged_entry.rating,
+        taste={"sweet": 0.88},
+        confidence={"taste": 0.91},
+        evidence={"taste": ["precomputed: stored entry profile"]},
+    )
+
+    profile = aggregate_user_profile(
+        USER_ID,
+        [logged_entry],
+        generated_at=NOW,
+        entry_profiles=[entry_profile],
+        ml_provider=NoExtractionProvider(),
+    )
+
+    assert profile.long_term_profile["taste"] == {"sweet": 0.88}
+    assert profile.short_term_profile["taste"] == {"sweet": 0.88}
+    assert profile.evidence["taste"] == ["precomputed: stored entry profile"]
+    assert len(profile.long_term_embedding) == EMBEDDING_DIMENSIONS
+
+
+def test_aggregate_user_profile_rejects_mismatched_precomputed_entry_profiles() -> None:
+    logged_entry = entry(
+        1,
+        category="Bakery",
+        signature_dish="Honey roll",
+        rating=5.0,
+        note="Sweet.",
+        days_ago=0,
+    )
+    mismatched_profile = EntryProfileArtifact(
+        entry_id="different_entry",
+        user_id=USER_ID,
+        captured_at=logged_entry.captured_at,
+        rating=logged_entry.rating,
+        taste={"sweet": 0.88},
+        confidence={"taste": 0.91},
+        evidence={"taste": ["precomputed: stored entry profile"]},
+    )
+
+    with pytest.raises(ValueError, match="entry_profiles must match diary_entries"):
+        aggregate_user_profile(
+            USER_ID,
+            [logged_entry],
+            generated_at=NOW,
+            entry_profiles=[mismatched_profile],
+            ml_provider=NoExtractionProvider(),
+        )
 
 
 def test_taste_report_uses_deterministic_profile_stats() -> None:
@@ -147,6 +229,7 @@ def test_taste_report_uses_deterministic_profile_stats() -> None:
         entries,
         min_entries_required=len(entries),
         generated_at=NOW,
+        ml_provider=DeterministicMLProvider(),
     )
 
     assert isinstance(report, TasteProfileReady)

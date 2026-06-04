@@ -5,6 +5,7 @@ from algorithm.fixtures import (
     load_synthetic_fixture_set,
     synthetic_recommendation_context_for_user,
 )
+from algorithm.providers import DeterministicMLProvider
 from algorithm.schemas import RecommendationContext, SyntheticFixtureSet, TasteProfileReady
 
 
@@ -71,6 +72,7 @@ def test_synthetic_contexts_drive_outputs_and_novelty_checks() -> None:
         context.diary_entries,
         min_entries_required=len(context.diary_entries),
         generated_at=fixtures.generated_at,
+        ml_provider=DeterministicMLProvider(),
     )
     recommendations = generate_recommendations(
         user_id,

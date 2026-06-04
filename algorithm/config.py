@@ -10,10 +10,12 @@ MIN_SIMILAR_USERS: Final[int] = 3
 RECOMMENDATION_LIMIT: Final[int] = 10
 RECOMMENDATION_COOLDOWN_REQUESTS: Final[int] = 20
 
-ML_PROVIDER: Final[str | None] = None
-TEXT_PROFILE_MODEL: Final[str | None] = None
-IMAGE_PROFILE_MODEL: Final[str | None] = None
-EMBEDDING_MODEL: Final[str | None] = None
+ML_PROVIDER: Final[str] = "openai"
+TEXT_PROFILE_MODEL: Final[str] = "gpt-5.4-mini"
+IMAGE_PROFILE_MODEL: Final[str] = "gpt-5.4-mini"
+SUMMARY_MODEL: Final[str] = "gpt-5.4-mini"
+EMBEDDING_MODEL: Final[str] = "text-embedding-3-large"
+EMBEDDING_DIMENSIONS: Final[int] = 1024
 
 RECOMMENDATION_SCORE_WEIGHTS: Final[dict[str, float]] = {
     "content": 0.45,
@@ -21,6 +23,11 @@ RECOMMENDATION_SCORE_WEIGHTS: Final[dict[str, float]] = {
     "context": 0.15,
     "quality": 0.10,
     "novelty": 0.05,
+}
+
+RECOMMENDATION_EMBEDDING_WEIGHTS: Final[dict[str, float]] = {
+    "long_term": 0.70,
+    "short_term": 0.30,
 }
 
 HEATMAP_ROWS: Final[list[str]] = ["8 AM", "12 PM", "3 PM", "7 PM", "10 PM"]
