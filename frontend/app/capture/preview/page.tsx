@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Clock, Pencil } from "lucide-react";
+import { ChevronLeft, MapPin, Pencil, Plus } from "lucide-react";
 import { Screen } from "@/components/layout/Screen";
-import { useCapture, deriveDraftMeta } from "@/lib/store/capture";
+import { useCapture, deriveDraftMeta, MAX_PHOTOS } from "@/lib/store/capture";
 import { useAuth } from "@/lib/store/auth";
 import { useUploadMedia } from "@/lib/api/media";
 import { useCreateDraft } from "@/lib/api/drafts";
+import { useNearbyRestaurants } from "@/lib/api/restaurants";
 
 /**
  * Preview the captured photo(s) and choose between two paths:
@@ -28,15 +29,25 @@ export default function CapturePreviewPage() {
   const create = useCreateDraft();
   const [submitting, setSubmitting] = useState<"draft" | "notes" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Set once we've saved and are navigating onward, so clearing `pending`
+  // doesn't trip the "empty → back to camera" guard below.
+  const leaving = useRef(false);
 
   useEffect(() => {
-    if (pending.length === 0) router.replace("/capture");
+    if (pending.length === 0 && !leaving.current) router.replace("/capture");
   }, [pending.length, router]);
 
   const cover = useMemo(
     () => pending.find((p) => p.key === coverKey) ?? pending[0],
     [pending, coverKey],
   );
+
+  // No reverse-geocoding backend, so name the location by its nearest
+  // restaurant's neighborhood — same proxy the home screen uses.
+  const coverLat = cover?.lat ?? location?.lat ?? null;
+  const coverLng = cover?.lng ?? location?.lng ?? null;
+  const { data: nearby } = useNearbyRestaurants(coverLat, coverLng);
+  const placeName = nearby?.items?.[0]?.neighborhood ?? null;
 
   async function submit(path: "draft" | "notes") {
     if (pending.length === 0) return;
@@ -64,10 +75,12 @@ export default function CapturePreviewPage() {
         lat: meta.lat,
         lng: meta.lng,
       });
+      leaving.current = true;
       clear();
       if (path === "draft") router.replace(`/drafts/saved?id=${draft.id}`);
       else router.replace(`/drafts/${draft.id}/finish`);
     } catch (e) {
+      leaving.current = false;
       setError(e instanceof Error ? e.message : "Couldn't save that just yet.");
     } finally {
       setSubmitting(null);
@@ -76,197 +89,154 @@ export default function CapturePreviewPage() {
 
   if (!cover) return null;
 
-  const detected = cover.lat != null && cover.lng != null
-    ? `${cover.lat.toFixed(4)}°N ${cover.lng.toFixed(4)}°E`
-    : location
-      ? `${location.lat.toFixed(4)}°N ${location.lng.toFixed(4)}°E (device)`
-      : "Location not available";
+  const capturedAt = cover.captured_at ? new Date(cover.captured_at) : new Date();
+  const timeLabel = capturedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const placeLabel = placeName ?? (coverLat != null ? "Around you" : "Location off");
 
   return (
     <Screen bg="#0A0A08">
-      {/* Top */}
-      <div
-        className="absolute left-4 right-4 flex items-center justify-between"
-        style={{ top: "calc(env(safe-area-inset-top, 0px) + 24px)", color: "var(--color-cream)" }}
-      >
-        <Link
-          href="/capture"
-          aria-label="Back"
-          className="flex items-center justify-center rounded-full"
-          style={{ width: 40, height: 40, background: "rgba(0,0,0,0.5)" }}
-        >
-          <ChevronLeft size={22} />
-        </Link>
+      <div className="absolute inset-0 flex flex-col" style={{ color: "var(--color-cream)" }}>
+        {/* Header — back button + board on one line, hugging the left edge */}
         <div
-          style={{
-            background: "rgba(0,0,0,0.5)",
-            padding: "6px 14px",
-            borderRadius: 999,
-            fontSize: 11,
-            fontFamily: "var(--font-mono)",
-          }}
+          className="shrink-0 px-5 flex items-center gap-2.5"
+          style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 16px)" }}
         >
-          PREVIEW · 1 OF {pending.length}
+          <Link
+            href="/capture"
+            aria-label="Back"
+            className="flex items-center justify-center rounded-full shrink-0"
+            style={{ width: 40, height: 40, background: "rgba(0,0,0,0.5)" }}
+          >
+            <ChevronLeft size={22} />
+          </Link>
+          {/* "We'll remember the rest" board, beside the back button */}
+          <div
+            className="flex-1 min-w-0"
+            style={{ background: "rgba(244,240,222,0.07)", borderRadius: 12, padding: 14 }}
+          >
+            <div className="flex justify-between items-baseline gap-2">
+              <div style={{ fontSize: 12, fontFamily: "var(--font-mono)", opacity: 0.7 }}>
+                WE&apos;LL REMEMBER THE REST
+              </div>
+              <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", opacity: 0.7 }}>
+                {timeLabel}
+              </div>
+            </div>
+            <div
+              className="flex items-center gap-1.5"
+              style={{ marginTop: 8, fontSize: 14, opacity: 0.92 }}
+            >
+              <MapPin size={15} style={{ opacity: 0.8, flexShrink: 0 }} />
+              {placeLabel}
+            </div>
+          </div>
         </div>
-        <div style={{ width: 40, height: 40 }} />
-      </div>
 
-      {/* Cover */}
-      <div
-        className="absolute left-0 right-0"
-        style={{ top: 0, bottom: 280, background: "#0A0A08" }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={cover.dataUrl}
-          alt={cover.name}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
-          }}
-        />
-      </div>
+        {/* Scrollable content — square photo centered in the remaining space */}
+        <div className="flex-1 overflow-y-auto px-5 flex flex-col" style={{ minHeight: 0 }}>
+          {/* Square photo + thumbnails — centered */}
+          <div style={{ marginTop: "auto", marginBottom: "auto", width: "100%" }}>
+          {/* Square photo — never stretched */}
+          <div
+            style={{
+              width: "100%",
+              aspectRatio: "1 / 1",
+              borderRadius: 24,
+              overflow: "hidden",
+              background: "#000",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={cover.dataUrl}
+              alt={cover.name}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          </div>
 
-      {/* Thumbnail strip if multiple */}
-      {pending.length > 1 && (
-        <div
-          className="absolute"
-          style={{
-            left: 16,
-            right: 16,
-            bottom: 410,
-            display: "flex",
-            gap: 6,
-            overflowX: "auto",
-            padding: "4px 2px",
-          }}
-        >
-          {pending.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              onClick={() => setCover(p.key)}
-              aria-label={`Cover: ${p.name}`}
+          {/* Thumbnail strip if multiple */}
+          {pending.length > 1 && (
+            <div
               style={{
-                width: 56,
-                height: 56,
-                flexShrink: 0,
-                borderRadius: 10,
-                overflow: "hidden",
-                border:
-                  p.key === cover.key
-                    ? "2px solid var(--color-cream)"
-                    : "2px solid transparent",
-                opacity: p.key === cover.key ? 1 : 0.75,
+                marginTop: 12,
+                display: "flex",
+                gap: 6,
+                overflowX: "auto",
+                padding: "4px 2px",
               }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={p.dataUrl}
-                alt=""
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            </button>
-          ))}
+              {pending.map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setCover(p.key)}
+                  aria-label={`Cover: ${p.name}`}
+                  style={{
+                    width: 56,
+                    height: 56,
+                    flexShrink: 0,
+                    borderRadius: 10,
+                    overflow: "hidden",
+                    border:
+                      p.key === cover.key
+                        ? "2px solid var(--color-cream)"
+                        : "2px solid transparent",
+                    opacity: p.key === cover.key ? 1 : 0.75,
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={p.dataUrl}
+                    alt=""
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+          </div>
         </div>
-      )}
 
-      {/* Metadata card */}
-      <div
-        className="absolute"
-        style={{
-          left: 16,
-          right: 16,
-          bottom: 300,
-          background: "rgba(0,0,0,0.55)",
-          backdropFilter: "blur(14px)",
-          WebkitBackdropFilter: "blur(14px)",
-          borderRadius: 10,
-          padding: 14,
-          color: "var(--color-cream)",
-        }}
-      >
-        <div className="flex justify-between items-baseline">
-          <div
-            style={{
-              fontSize: 12,
-              fontFamily: "var(--font-mono)",
-              opacity: 0.7,
-            }}
-          >
-            WE&apos;LL REMEMBER THE REST
-          </div>
-          <div
-            style={{
-              fontSize: 11,
-              fontFamily: "var(--font-mono)",
-              opacity: 0.7,
-            }}
-          >
-            {new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-          </div>
-        </div>
-        <div style={{ marginTop: 6, fontSize: 13.5 }}>
-          <span style={{ opacity: 0.92 }}>EXIF · location</span>
-          <div style={{ marginTop: 2, opacity: 0.65, fontFamily: "var(--font-mono)", fontSize: 11 }}>
-            {detected}
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom action sheet */}
-      <div
-        className="absolute left-0 right-0"
-        style={{
-          bottom: 0,
-          height: 280,
-          background: "#0A0A08",
-          borderRadius: "24px 24px 0 0",
-          padding: "22px 20px 40px",
-          color: "var(--color-cream)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 14,
-        }}
-      >
+        {/* Bottom action sheet — pinned */}
+        <div
+          className="shrink-0"
+          style={{
+            padding: "14px 20px",
+            paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
+            borderTop: "1px solid rgba(244,240,222,0.08)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}
+        >
         <div className="flex justify-between items-center">
-          <Link href="/capture" style={{ fontSize: 13.5, color: "rgba(244,240,222,0.7)" }}>
+          <Link
+            href={`/capture?retake=${encodeURIComponent(cover.key)}`}
+            style={{ fontSize: 13.5, color: "rgba(244,240,222,0.7)" }}
+          >
             ← Retake
           </Link>
           <div
             style={{
-              fontSize: 10.5,
+              fontSize: 11,
               fontFamily: "var(--font-mono)",
               opacity: 0.5,
             }}
           >
-            {cover.width}×{cover.height} · {(cover.bytes / (1024 * 1024)).toFixed(1)} MB
+            {pending.length} {pending.length === 1 ? "photo" : "photos"}
           </div>
-          <div style={{ fontSize: 13.5, opacity: 0.55 }}>+{pending.length - 1 > 0 ? ` ${pending.length - 1}` : ""}</div>
-        </div>
-
-        <div
-          style={{
-            background: "rgba(244,240,222,0.07)",
-            borderRadius: 12,
-            padding: 12,
-            fontSize: 12,
-            lineHeight: 1.45,
-            color: "rgba(244,240,222,0.78)",
-            display: "flex",
-            gap: 10,
-          }}
-        >
-          <span style={{ color: "#F4E37A", flexShrink: 0, marginTop: 1 }}>
-            <Clock size={16} />
-          </span>
-          <div>
-            <b style={{ color: "var(--color-cream)" }}>Eat first, log later.</b>{" "}
-            We&apos;ll save the photo and ping you in about an hour to add your
-            rating.
-          </div>
+          {pending.length < MAX_PHOTOS ? (
+            <Link
+              href="/capture?add=1"
+              aria-label="Add another photo"
+              className="flex items-center gap-1"
+              style={{ fontSize: 13.5, color: "var(--color-cream)" }}
+            >
+              <Plus size={16} /> Add
+            </Link>
+          ) : (
+            <span style={{ fontSize: 13, opacity: 0.4 }}>Max {MAX_PHOTOS}</span>
+          )}
         </div>
 
         {error && (
@@ -290,6 +260,7 @@ export default function CapturePreviewPage() {
           <Pencil size={14} />
           {submitting === "notes" ? "Saving…" : "Or, write notes now →"}
         </button>
+        </div>
       </div>
     </Screen>
   );
