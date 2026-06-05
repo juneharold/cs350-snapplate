@@ -214,7 +214,7 @@ export default function SetupPage() {
         </div>
       </div>
 
-      <div>
+      <div className="w-full">
         <button
           type="submit"
           className="btn btn-block"

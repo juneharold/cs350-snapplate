@@ -86,6 +86,7 @@ export default function DraftsInboxPage() {
           </div>
         </div>
 
+        {/* Scrollable list on short viewports (min-h-0 lets flex-1 shrink) */}
         <div className="px-5 pb-8 flex-1 overflow-y-auto min-h-0">
           {items.length === 0 && <EmptyState />}
           {today.length > 0 && (
