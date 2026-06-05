@@ -38,7 +38,9 @@ export default function CapturePreviewPage() {
     if (mounted && pending.length === 0) {
       router.replace("/capture");
     }
-    // Only check once on mount / initial hydration to handle page reloads
+    // Intentionally omit `pending.length`. If included, submit()'s clear()
+    // would re-fire this effect after upload and race the router.replace()
+    // into /drafts/[id]/finish, bouncing the user back to /capture.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, router]);
 

@@ -226,7 +226,7 @@ function DraftCard({
           </div>
         </div>
         <div className="mt-0.5" style={{ fontSize: 11.5, color: "var(--color-muted)" }}>
-          {time} · {d.restaurant?.neighborhood ?? "no neighborhood"}
+          {`${time} · ${d.restaurant?.neighborhood ?? "no neighborhood"}`}
         </div>
         <div
           style={{
