@@ -6,7 +6,12 @@ import { Bell, BookOpen, Camera, ChevronLeft, ChevronRight, Compass, Image as Im
 import { useAuth } from "@/lib/store/auth";
 import { useLogout, useMe, useUploadAvatar } from "@/lib/api/auth";
 import { useSettings, useUpdateSettings } from "@/lib/api/settings";
+import { useToast } from "@/lib/store/toast";
+import { ApiException } from "@/lib/api/client";
 import type { SettingsResponse } from "@/lib/types";
+
+const AVATAR_MAX_BYTES = 10 * 1024 * 1024;
+const AVATAR_TYPES = ["image/jpeg", "image/png"];
 
 /**
  * Settings screen — list-of-rows pattern, grouped by section.
@@ -24,6 +29,7 @@ export default function SettingsPage() {
   const localUser = useAuth((s) => s.user);
   const logout = useLogout();
   const accessToken = useAuth((s) => s.accessToken);
+  const showToast = useToast((s) => s.show);
   const [confirming, setConfirming] = useState<"logout" | "delete" | null>(null);
 
   const nickname = me?.nickname ?? localUser?.nickname ?? "—";
@@ -42,12 +48,20 @@ export default function SettingsPage() {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      try {
-        await upload.mutateAsync(file);
-      } catch (e) {
-        console.error("Avatar upload failed", e);
-      }
+    e.target.value = ""; // allow re-selecting the same file after an error
+    if (!file) return;
+    if (file.type && !AVATAR_TYPES.includes(file.type)) {
+      showToast("Please choose a JPEG or PNG image.");
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      showToast("That image is over 10MB — pick a smaller one.");
+      return;
+    }
+    try {
+      await upload.mutateAsync(file);
+    } catch (err) {
+      showToast(err instanceof ApiException ? err.message : "Couldn't upload that photo.");
     }
   };
 
@@ -58,7 +72,7 @@ export default function SettingsPage() {
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
-        accept="image/*"
+        accept="image/jpeg,image/png"
         style={{ display: "none" }}
       />
 

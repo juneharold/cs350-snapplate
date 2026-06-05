@@ -45,9 +45,6 @@ export async function apiFetch<T>(path: string, opts: Options = {}): Promise<T> 
     "X-Client-Version": "web-0.1.0",
     "Accept-Language": "en",
   };
-  if (!(body instanceof FormData)) {
-    headers["Content-Type"] = "application/json";
-  }
   // Let the browser set the multipart Content-Type (with boundary) for FormData;
   // only set JSON content-type for JSON bodies.
   if (!isFormData) headers["Content-Type"] = "application/json";

@@ -8,7 +8,11 @@ import { z } from "zod";
 import { Camera, Send, Loader2 } from "lucide-react";
 import { useUpdateMe, useUploadAvatar } from "@/lib/api/auth";
 import { useAuth } from "@/lib/store/auth";
+import { useToast } from "@/lib/store/toast";
 import { ApiException } from "@/lib/api/client";
+
+const AVATAR_MAX_BYTES = 10 * 1024 * 1024;
+const AVATAR_TYPES = ["image/jpeg", "image/png"];
 
 const schema = z.object({
   nickname: z
@@ -48,14 +52,24 @@ export default function SetupPage() {
   const nickname = watch("nickname") ?? "";
   const firstLetter = (nickname.trim().charAt(0) || email.charAt(0) || "?").toUpperCase();
 
+  const showToast = useToast((s) => s.show);
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      try {
-        await upload.mutateAsync(file);
-      } catch (e) {
-        console.error("Avatar upload failed", e);
-      }
+    e.target.value = ""; // allow re-selecting the same file after an error
+    if (!file) return;
+    if (file.type && !AVATAR_TYPES.includes(file.type)) {
+      showToast("Please choose a JPEG or PNG image.");
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      showToast("That image is over 10MB — pick a smaller one.");
+      return;
+    }
+    try {
+      await upload.mutateAsync(file);
+    } catch (err) {
+      showToast(err instanceof ApiException ? err.message : "Couldn't upload that photo.");
     }
   };
 
@@ -80,7 +94,7 @@ export default function SetupPage() {
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
-        accept="image/*"
+        accept="image/jpeg,image/png"
         style={{ display: "none" }}
       />
 
