@@ -61,12 +61,17 @@ export default function SetupPage() {
   });
 
   return (
-    <form onSubmit={onSubmit} className="contents">
+    <form
+      onSubmit={onSubmit}
+      className="flex flex-col h-full px-7"
+      style={{
+        paddingTop: 64,
+        paddingBottom: 56,
+        boxSizing: "border-box",
+      }}
+    >
       {/* Progress dots — step 2 of 3 to match the prototype */}
-      <div
-        className="absolute left-0 right-0 flex gap-1.5 justify-center"
-        style={{ top: 64 }}
-      >
+      <div className="flex gap-1.5 justify-center" style={{ marginBottom: 40 }}>
         {[0, 1, 2].map((i) => (
           <span
             key={i}
@@ -83,7 +88,8 @@ export default function SetupPage() {
         ))}
       </div>
 
-      <div className="absolute left-7 right-7" style={{ top: 110 }}>
+      {/* Main form content - scrollable on small screens */}
+      <div className="flex-1 overflow-y-auto" style={{ minHeight: 0, marginBottom: 20 }}>
         <div
           style={{
             fontSize: 11,
@@ -208,7 +214,7 @@ export default function SetupPage() {
         </div>
       </div>
 
-      <div className="absolute left-7 right-7" style={{ bottom: 56 }}>
+      <div className="w-full">
         <button
           type="submit"
           className="btn btn-block"
