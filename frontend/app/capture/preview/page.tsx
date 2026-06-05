@@ -20,6 +20,10 @@ function CapturePreviewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const restaurantId = searchParams.get("restaurant_id");
+  // Carry the restaurant selection back to /capture on every exit (reload
+  // redirect, Back, Retake) so it survives the round trip, mirroring the
+  // forward navigation in capture/page.tsx.
+  const captureHref = restaurantId ? `/capture?restaurant_id=${restaurantId}` : "/capture";
   const pending = useCapture((s) => s.pending);
   const coverKey = useCapture((s) => s.coverKey);
   const setCover = useCapture((s) => s.setCover);
@@ -38,7 +42,7 @@ function CapturePreviewContent() {
 
   useEffect(() => {
     if (mounted && pending.length === 0) {
-      router.replace("/capture");
+      router.replace(captureHref);
     }
     // Intentionally omit `pending.length`. If included, submit()'s clear()
     // would re-fire this effect after upload and race the router.replace()
@@ -97,7 +101,7 @@ function CapturePreviewContent() {
         style={{ top: "calc(env(safe-area-inset-top, 0px) + 24px)", color: "var(--color-cream)" }}
       >
         <Link
-          href="/capture"
+          href={captureHref}
           aria-label="Back"
           className="flex items-center justify-center rounded-full"
           style={{ width: 40, height: 40, background: "rgba(0,0,0,0.5)" }}
@@ -239,7 +243,7 @@ function CapturePreviewContent() {
         }}
       >
         <div className="flex justify-between items-center">
-          <Link href="/capture" style={{ fontSize: 13.5, color: "rgba(244,240,222,0.7)" }}>
+          <Link href={captureHref} style={{ fontSize: 13.5, color: "rgba(244,240,222,0.7)" }}>
             ← Retake
           </Link>
           <div
