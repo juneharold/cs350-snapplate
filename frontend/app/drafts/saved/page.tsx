@@ -93,9 +93,9 @@ function SavedConfirm() {
             }}
           >
             <FoodPlaceholder
-              src={cover?.url}
+              src={cover?.thumbnail_url}
               tone={cover?.tone}
-              label=""
+              label={draft.restaurant?.name ?? "Meal photo"}
               width={48}
               height={48}
               radius={10}

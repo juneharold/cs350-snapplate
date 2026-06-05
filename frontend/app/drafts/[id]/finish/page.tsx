@@ -199,12 +199,13 @@ export default function FinishDraftPage({ params }: { params: Promise<{ id: stri
 
         {/* Photo strip */}
         <div className="flex gap-2 overflow-x-auto mb-4">
-          {draft.media.map((m) => (
+          {draft.media.map((m, i) => (
             <div key={m.id} className="relative shrink-0">
               <FoodPlaceholder
-                src={m.url}
+                src={m.thumbnail_url}
                 tone={m.tone}
                 label={m.label}
+                alt={`Photo ${i + 1} of ${draft.media.length}${m.is_cover ? " (cover)" : ""}`}
                 width={104}
                 height={104}
                 radius={14}
