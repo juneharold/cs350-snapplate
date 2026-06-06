@@ -88,7 +88,15 @@ export default function SetupPage() {
   });
 
   return (
-    <form onSubmit={onSubmit} className="contents">
+    <form
+      onSubmit={onSubmit}
+      className="flex flex-col"
+      style={{
+        height: "100%",
+        padding:
+          "calc(env(safe-area-inset-top, 0px) + 48px) 28px calc(env(safe-area-inset-bottom, 0px) + 40px)",
+      }}
+    >
       {/* Hidden file input */}
       <input
         type="file"
