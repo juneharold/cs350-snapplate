@@ -7,7 +7,7 @@ from typing import TypedDict
 
 import aioboto3
 import httpx
-from algorithm.providers import ProfileProvider
+from app.services.algorithm.providers import ProfileProvider
 from fastapi import FastAPI, Request
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,

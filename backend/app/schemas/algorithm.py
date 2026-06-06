@@ -6,28 +6,15 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from algorithm.taxonomy import INTERNAL_PROFILE_TAXONOMY, PUBLIC_RESTAURANT_CATEGORIES
-from algorithm.version import ALGORITHM_VERSION
+from app.config.algorithm import ALGORITHM_VERSION
+from app.services.algorithm.taxonomy import INTERNAL_PROFILE_TAXONOMY, PUBLIC_RESTAURANT_CATEGORIES
+from app.types.restaurant import FoodTone
 
 Score = Annotated[float, Field(ge=0.0, le=1.0)]
 Rating = Annotated[float, Field(ge=0.0, le=5.0)]
 PositiveInt = Annotated[int, Field(ge=0)]
 WeightedTerms = dict[str, Score]
-
-FoodTone = Literal[
-    "terra",
-    "ochre",
-    "rust",
-    "moss",
-    "cream",
-    "char",
-    "berry",
-    "forest",
-    "paprika",
-    "butter",
-    "hay",
-    "bone",
-]
+RecommendationReasonCategory = Literal["content", "collaborative", "context", "quality", "novelty"]
 
 
 @dataclass(frozen=True)
@@ -42,7 +29,7 @@ class CategoryStats:
     visits: int = 0
     rating_sum: float = 0.0
     rating_count: int = 0
-    tone: str = "bone"
+    tone: FoodTone = FoodTone.BONE
     weight_sum: float = 0.0
 
     @property
@@ -55,7 +42,7 @@ class ScoredCandidate:
     candidate: RestaurantInput
     scores: RecommendationScoreBreakdown
     reason: str
-    reason_category: str
+    reason_category: RecommendationReasonCategory
 
 
 @dataclass(frozen=True)
@@ -103,21 +90,6 @@ class DiaryEntryInput(ContractModel):
     note: str = ""
     image_labels: list[str] = Field(default_factory=list)
     image_references: list[str] = Field(default_factory=list)
-
-
-class SyntheticUser(ContractModel):
-    id: str
-    label: str
-    primary_categories: list[str]
-
-
-class SyntheticFixtureSet(ContractModel):
-    is_synthetic: Literal[True] = True
-    generated_at: datetime
-    users: list[SyntheticUser]
-    restaurants: list[RestaurantInput]
-    diary_entries: list[DiaryEntryInput]
-    exposure_history: dict[str, list[str]]
 
 
 class TasteType(ContractModel):
@@ -178,7 +150,7 @@ class ProfileExtractionResult(ContractModel):
     evidence: dict[str, list[str]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def require_supported_terms_confidence_and_evidence(self) -> "ProfileExtractionResult":
+    def require_supported_terms_confidence_and_evidence(self) -> ProfileExtractionResult:
         _validate_profile_map("profile", self.profile)
         for field_name, terms in self.profile.items():
             if not terms:
@@ -273,7 +245,7 @@ class EntryProfileArtifact(ContractModel):
     algorithm_version: str = ALGORITHM_VERSION
 
     @model_validator(mode="after")
-    def require_confidence_and_evidence(self) -> "EntryProfileArtifact":
+    def require_confidence_and_evidence(self) -> EntryProfileArtifact:
         for field_name in INTERNAL_PROFILE_TAXONOMY:
             terms = getattr(self, field_name)
             if not terms:
@@ -322,7 +294,7 @@ class UserProfileArtifact(ContractModel):
     algorithm_version: str = ALGORITHM_VERSION
 
     @model_validator(mode="after")
-    def require_supported_profile_terms(self) -> "UserProfileArtifact":
+    def require_supported_profile_terms(self) -> UserProfileArtifact:
         _validate_profile_map("long_term_profile", self.long_term_profile)
         _validate_profile_map("short_term_profile", self.short_term_profile)
         return self
@@ -339,7 +311,7 @@ class RestaurantProfileArtifact(ContractModel):
     algorithm_version: str = ALGORITHM_VERSION
 
     @model_validator(mode="after")
-    def require_supported_profile_terms(self) -> "RestaurantProfileArtifact":
+    def require_supported_profile_terms(self) -> RestaurantProfileArtifact:
         _validate_profile_map("profile", self.profile)
         return self
 
@@ -356,7 +328,7 @@ class RecommendationScoreBreakdown(ContractModel):
 class ScoredRecommendationArtifact(ContractModel):
     restaurant_id: str
     reason: str
-    reason_category: Literal["content", "collaborative", "context", "quality", "novelty"]
+    reason_category: RecommendationReasonCategory
     scores: RecommendationScoreBreakdown
 
 

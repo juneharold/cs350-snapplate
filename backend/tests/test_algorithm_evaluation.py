@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from algorithm.evaluation import (
+from tests.helpers.evaluation import (
     category_diversity,
     ndcg_at_k,
     precision_at_k,

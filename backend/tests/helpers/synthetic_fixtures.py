@@ -1,19 +1,33 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+from typing import Literal
 
-from algorithm.schemas import (
+from app.schemas.algorithm import (
+    ContractModel,
     DiaryEntryInput,
     RecommendationContext,
     RestaurantInput,
-    SyntheticFixtureSet,
-    SyntheticUser,
 )
 
-
-GENERATED_AT = datetime(2026, 5, 24, 12, 0, tzinfo=timezone.utc)
+GENERATED_AT = datetime(2026, 5, 24, 12, 0, tzinfo=UTC)
 BASE_LAT = 36.371
 BASE_LNG = 127.361
+
+
+class SyntheticUser(ContractModel):
+    id: str
+    label: str
+    primary_categories: list[str]
+
+
+class SyntheticFixtureSet(ContractModel):
+    is_synthetic: Literal[True] = True
+    generated_at: datetime
+    users: list[SyntheticUser]
+    restaurants: list[RestaurantInput]
+    diary_entries: list[DiaryEntryInput]
+    exposure_history: dict[str, list[str]]
 
 
 def load_synthetic_fixture_set() -> SyntheticFixtureSet:

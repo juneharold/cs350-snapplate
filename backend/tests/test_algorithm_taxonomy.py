@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
 
-from algorithm.schemas import EntryProfileArtifact, RestaurantInput, RestaurantProfileArtifact
-from algorithm.taxonomy import (
+from app.schemas.algorithm import EntryProfileArtifact, RestaurantInput, RestaurantProfileArtifact
+from app.services.algorithm.taxonomy import (
     FLAVOR_LEAN_FIELDS,
     INTERNAL_PROFILE_TAXONOMY,
     PUBLIC_RESTAURANT_CATEGORIES,
@@ -14,8 +14,7 @@ from algorithm.taxonomy import (
     normalize_public_restaurant_category,
 )
 
-
-NOW = datetime(2026, 5, 24, 12, 43, tzinfo=timezone.utc)
+NOW = datetime(2026, 5, 24, 12, 43, tzinfo=UTC)
 
 
 def test_public_restaurant_categories_are_frozen_for_frontend_contract() -> None:

@@ -1,41 +1,36 @@
 from __future__ import annotations
 
-import tomllib
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 
-import algorithm
 import pytest
-from algorithm import (
-    EMBEDDING_DIMENSIONS,
-    MIN_ENTRIES_FOR_PERSONALIZATION,
-    SUMMARY_MODEL,
-    RECOMMENDATION_LIMIT,
-    __version__,
-    generate_recommendation_artifact,
-    generate_recommendations,
-    generate_taste_report,
-)
-from algorithm.config import (
+
+import app.services.algorithm as algorithm
+from app.config.algorithm import (
     EMBEDDING_MODEL,
     IMAGE_PROFILE_MODEL,
     RECOMMENDATION_SCORE_WEIGHTS,
     TEXT_PROFILE_MODEL,
 )
-from algorithm.fixtures import DEMO_USER_ID, load_demo_recommendation_context
-from algorithm.providers import DeterministicProvider
-from algorithm.schemas import (
+from app.schemas.algorithm import (
     RecommendationContext,
     RecommendationScoreBreakdown,
     TasteProfileReady,
 )
+from app.services.algorithm import (
+    EMBEDDING_DIMENSIONS,
+    MIN_ENTRIES_FOR_PERSONALIZATION,
+    RECOMMENDATION_LIMIT,
+    SUMMARY_MODEL,
+    __version__,
+    generate_recommendation_artifact,
+    generate_recommendations,
+    generate_taste_report,
+)
+from app.services.algorithm.providers import DeterministicProvider
+from tests.helpers.demo_fixtures import DEMO_USER_ID, load_demo_recommendation_context
 
 
 def test_public_imports_expose_stable_scaffold_metadata() -> None:
-    pyproject = tomllib.loads(Path("pyproject.toml").read_text())
-
-    assert pyproject["project"]["name"] == "algorithm"
-    assert __version__ == pyproject["project"]["version"]
     assert algorithm.__version__ == __version__
     assert algorithm.ALGORITHM_VERSION
     assert algorithm.MIN_ENTRIES_FOR_PERSONALIZATION == MIN_ENTRIES_FOR_PERSONALIZATION
@@ -73,7 +68,7 @@ def test_demo_fixture_data_validates_and_drives_public_entrypoints() -> None:
         DEMO_USER_ID,
         context.diary_entries,
         min_entries_required=min_entries_required,
-        generated_at=datetime(2026, 5, 24, 12, 43, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 24, 12, 43, tzinfo=UTC),
         profile_provider=DeterministicProvider(),
     )
     recommendations = generate_recommendations(

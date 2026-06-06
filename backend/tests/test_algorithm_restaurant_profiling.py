@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from algorithm import profile_kakao_restaurant
-from algorithm.config import EMBEDDING_DIMENSIONS
-from algorithm.providers import DeterministicProvider
-from algorithm.schemas import KakaoRestaurantMetadata, RestaurantProfileArtifact
+from app.config.algorithm import EMBEDDING_DIMENSIONS
+from app.schemas.algorithm import KakaoRestaurantMetadata, RestaurantProfileArtifact
+from app.services.algorithm import profile_kakao_restaurant
+from app.services.algorithm.providers import DeterministicProvider
 
-
-NOW = datetime(2026, 5, 24, 12, 43, tzinfo=timezone.utc)
+NOW = datetime(2026, 5, 24, 12, 43, tzinfo=UTC)
 
 
 def test_profile_kakao_restaurant_normalizes_supported_metadata() -> None:

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from algorithm.providers import DeterministicProvider, OpenAIProvider, ProfileProvider
 from openai import OpenAI
 
 from app.config.env import Env
+from app.services.algorithm.providers import DeterministicProvider, OpenAIProvider, ProfileProvider
 
 
 def build_profile_provider() -> ProfileProvider:

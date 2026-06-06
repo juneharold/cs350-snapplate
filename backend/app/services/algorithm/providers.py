@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import re
-from typing import Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
 
-from algorithm.config import (
+from app.config.algorithm import (
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
     IMAGE_PROFILE_MODEL,
@@ -11,9 +11,9 @@ from algorithm.config import (
     SUMMARY_MODEL,
     TEXT_PROFILE_MODEL,
 )
-from algorithm.embedding import deterministic_text_embedding
-from algorithm.schemas import ProfileExtractionResult, ProfileSummaryResult
-from algorithm.taxonomy import INTERNAL_PROFILE_TAXONOMY
+from app.schemas.algorithm import ProfileExtractionResult, ProfileSummaryResult
+from app.services.algorithm.embedding import deterministic_text_embedding
+from app.services.algorithm.taxonomy import INTERNAL_PROFILE_TAXONOMY
 
 TParsed = TypeVar("TParsed", ProfileExtractionResult, ProfileSummaryResult)
 
@@ -71,7 +71,7 @@ class OpenAIProvider:
     def __init__(
         self,
         *,
-        client: object,
+        client: Any,
         model: str | None = None,
         text_model: str = TEXT_PROFILE_MODEL,
         image_model: str = IMAGE_PROFILE_MODEL,

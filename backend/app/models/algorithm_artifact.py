@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from algorithm.config import EMBEDDING_DIMENSIONS
+from app.config.algorithm import EMBEDDING_DIMENSIONS
 from pgvector.sqlalchemy import VECTOR
 from sqlalchemy import UniqueConstraint
 from sqlmodel import JSON as SAJSON

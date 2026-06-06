@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 
 import httpx
-from algorithm.taxonomy import normalize_public_restaurant_category
+from app.services.algorithm.taxonomy import normalize_public_restaurant_category
 from tenacity import (
     retry,
     retry_if_exception_type,

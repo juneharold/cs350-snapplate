@@ -1,12 +1,13 @@
 from collections import Counter
 
-from algorithm import generate_recommendations, generate_taste_report
-from algorithm.fixtures import (
+from app.schemas.algorithm import RecommendationContext, TasteProfileReady
+from app.services.algorithm import generate_recommendations, generate_taste_report
+from app.services.algorithm.providers import DeterministicProvider
+from tests.helpers.demo_fixtures import (
     load_synthetic_fixture_set,
     synthetic_recommendation_context_for_user,
 )
-from algorithm.providers import DeterministicProvider
-from algorithm.schemas import RecommendationContext, SyntheticFixtureSet, TasteProfileReady
+from tests.helpers.synthetic_fixtures import SyntheticFixtureSet
 
 
 def test_synthetic_fixture_set_is_deterministic_and_complete() -> None:

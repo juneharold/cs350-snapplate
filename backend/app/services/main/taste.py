@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from algorithm import generate_taste_report
+from app.services.algorithm import generate_taste_report
 from sqlalchemy import desc, select
 
 from app.config.lifespan import Context

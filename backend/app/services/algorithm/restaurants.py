@@ -3,16 +3,15 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 
-from algorithm.providers import ProfileProvider
-from algorithm.restaurant_profiling import profile_kakao_restaurant
-from algorithm.schemas import KakaoRestaurantMetadata, RestaurantProfileArtifact
-from algorithm.taxonomy import normalize_public_restaurant_category
-
 from app.config.lifespan import InternalContext
 from app.config.logger import create_logger
 from app.models.restaurant import RestaurantModel
 from app.repositories.algorithm_artifact import AlgorithmArtifactRepository
 from app.repositories.restaurant import RestaurantRepository
+from app.schemas.algorithm import KakaoRestaurantMetadata, RestaurantProfileArtifact
+from app.services.algorithm.providers import ProfileProvider
+from app.services.algorithm.restaurant_profiling import profile_kakao_restaurant
+from app.services.algorithm.taxonomy import normalize_public_restaurant_category
 from app.utils.time import as_utc, utcnow
 
 logger = create_logger(__name__)

@@ -9,8 +9,6 @@ import httpx
 import pytest
 
 _ROOT = Path(__file__).resolve().parent.parent
-_REPO = _ROOT.parent
-_ALGORITHM_ROOT = _REPO / "algorithm"
 _LOG = Path("/tmp/snapplate_test_server.log")
 
 
@@ -27,7 +25,6 @@ def server() -> str:
     port = _free_port()
     env = {
         **os.environ,
-        "PYTHONPATH": str(_ALGORITHM_ROOT),
         "ALGORITHM_PROVIDER": "deterministic",
     }
     log = _LOG.open("w")

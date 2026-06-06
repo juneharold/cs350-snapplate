@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Final
 
-
 PUBLIC_RESTAURANT_CATEGORIES: Final[tuple[str, ...]] = (
     "Korean",
     "Korean BBQ",

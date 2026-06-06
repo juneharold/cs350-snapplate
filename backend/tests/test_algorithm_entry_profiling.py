@@ -1,19 +1,18 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from algorithm import profile_diary_entry
-from algorithm.providers import DeterministicProvider
-from algorithm.schemas import (
+from app.schemas.algorithm import (
     DiaryEntryInput,
     EntryProfileArtifact,
     ProfileExtractionResult,
     ProfileSummaryResult,
     RestaurantInput,
 )
+from app.services.algorithm import profile_diary_entry
+from app.services.algorithm.providers import DeterministicProvider
 
-
-CAPTURED_AT = datetime(2026, 5, 24, 12, 43, tzinfo=timezone.utc)
+CAPTURED_AT = datetime(2026, 5, 24, 12, 43, tzinfo=UTC)
 USER_ID = "u_profile"
 
 

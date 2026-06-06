@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from algorithm.schemas import DiaryEntryInput, RestaurantInput
-from algorithm.taxonomy import normalize_public_restaurant_category
-
 from app.models.entry import EntryModel
 from app.models.restaurant import RestaurantModel
+from app.schemas.algorithm import DiaryEntryInput, RestaurantInput
+from app.services.algorithm.taxonomy import normalize_public_restaurant_category
 from app.utils.geo import haversine_m
 from app.utils.time import as_utc
 
@@ -25,7 +24,7 @@ def restaurant_input_from_model(
         rating_count=restaurant.rating_count,
         distance_m=_distance_m(restaurant, lat, lng),
         thumbnail_url=restaurant.thumbnail_url,
-        thumbnail_tone=restaurant.thumbnail_tone.value,
+        thumbnail_tone=restaurant.thumbnail_tone,
         thumbnail_label=restaurant.thumbnail_label,
         tags=list(restaurant.tags or []),
         lat=restaurant.lat,

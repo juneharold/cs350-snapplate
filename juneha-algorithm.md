@@ -10,9 +10,9 @@ References:
 
 ## 1. Goal
 
-Build the profile and recommendation algorithm package for SnapPlate.
+Build the profile and recommendation algorithm logic for SnapPlate.
 
-The algorithm package supports two user-facing features:
+The backend-owned algorithm modules support two user-facing features:
 
 1. Taste analysis and profile generation
 2. Personalized restaurant recommendations
@@ -28,7 +28,7 @@ The frontend and backend are owned by teammates. This plan defines the algorithm
 
 ## 2. Current Decisions
 
-- Build the whole algorithm package, not only a minimal statistics-only version.
+- Build the whole algorithm feature set, not only a minimal statistics-only version.
 - Use provider-backed extraction for text understanding, image understanding, profile generation, and embeddings.
 - Use Kakao Map as the official restaurant metadata source.
 - Keep the minimum-entry threshold as a configurable constant.
@@ -465,9 +465,9 @@ flowchart TD
 
 ### Candidate Generation
 
-For the pre-integration algorithm package, `generate_recommendations` ranks caller-supplied
+For the pre-integration algorithm work, `generate_recommendations` ranks caller-supplied
 candidate restaurants from `RecommendationContext`. Broad candidate retrieval remains outside
-the algorithm package until backend/search integration. Active category and neighborhood
+the algorithm logic until backend/search integration. Active category and neighborhood
 filters gate the supplied candidates before scoring.
 
 Future candidate sources may include:
@@ -586,7 +586,9 @@ The algorithm layer should not handle:
 
 ### Pinned Backend Contract
 
-The shared Python contract lives in `algorithm`.
+The shared Python contract now lives in backend code:
+`app.services.algorithm` for entrypoints and `app.schemas.algorithm` for internal
+Pydantic contracts.
 
 Public functions:
 
@@ -597,7 +599,7 @@ Public functions:
 - `aggregate_user_profile(user_id, diary_entries, profile_provider, entry_profiles=None) -> UserProfileArtifact`
 - `profile_kakao_restaurant(restaurant_metadata, profile_provider) -> RestaurantProfileArtifact`
 
-Shared Pydantic schemas live in `algorithm.schemas`. The client-facing response
+Shared Pydantic schemas live in `app.schemas.algorithm`. The client-facing response
 models intentionally match the current frontend payloads for `GET /taste/profile` and
 `GET /restaurants/recommended`; internal artifacts carry `algorithm_version`, confidence,
 evidence, profile text, provider embeddings, and scoring fields that are stored by the
@@ -646,7 +648,7 @@ Evaluation checks:
 10. Integrate async jobs, persistence, and API payloads with backend. Current state: backend persists taste refresh jobs and failures. `POST /v1/taste/refresh` returns a `job_id` and `queued`/`running`/`done`/`failed` status, reusing an existing active job for the user. `GET /v1/taste/jobs/{job_id}` returns the user-scoped job state with `started_at`, `finished_at`, and `error`.
 11. Add tests and evaluation scripts for extraction, aggregation, scoring, and response shape. Current state: tests cover taxonomy, contracts, fixtures, provider behavior, entry profiling, user aggregation, restaurant profiling, score hiding, collaborative boost and inactive renormalization, exposure cooldown, category and neighborhood filtering/diversity, embedding artifact mode, fail-loud artifact validation, scoring artifacts/traces, richer context and quality scoring, explanation categories, evaluation metrics, and the SRS recommendation latency target.
 
-Current algorithm-only next order:
+Current backend algorithm next order:
 
 1. Use the evaluation harness to compare future scoring changes against the current baseline.
 2. Add real-data or semi-real-data evaluation cases when diary data is available.

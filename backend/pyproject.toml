@@ -19,8 +19,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "python-multipart>=0.0.9",
     "pgvector>=0.4",
-    # Algorithm package, imported in-process. Path dependency on the sibling project dir.
-    "algorithm",
+    "openai>=2,<3",
 ]
 
 [dependency-groups]
@@ -30,9 +29,6 @@ dev = [
     "ruff>=0.6",
     "pyright>=1.1",
 ]
-
-[tool.uv.sources]
-algorithm = { path = "../algorithm", editable = true }
 
 [tool.ruff]
 line-length = 100

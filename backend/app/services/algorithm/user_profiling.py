@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from algorithm.config import SHORT_TERM_ENTRY_COUNT
-from algorithm.entry_profiling import FIELD_NAMES, profile_diary_entry
-from algorithm.providers import ProfileProvider
-from algorithm.schemas import (
+from app.config.algorithm import SHORT_TERM_ENTRY_COUNT
+from app.schemas.algorithm import (
     DiaryEntryInput,
     EntryProfileArtifact,
     UserProfileArtifact,
     WeightedEntryProfile,
 )
+from app.services.algorithm.entry_profiling import FIELD_NAMES, profile_diary_entry
+from app.services.algorithm.providers import ProfileProvider
 
 
 def build_weighted_entry_profiles(
@@ -64,7 +64,7 @@ def aggregate_user_profile(
     entries = [item.entry for item in weighted]
     _entries_for_user(user_id, entries)
 
-    generated = generated_at or datetime.now(timezone.utc)
+    generated = generated_at or datetime.now(UTC)
     long_term_profile, confidence, evidence = _aggregate_terms(weighted)
     short_term = sorted(weighted, key=lambda item: item.entry.captured_at, reverse=True)[
         :short_term_entry_count

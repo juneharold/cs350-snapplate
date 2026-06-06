@@ -1,9 +1,9 @@
 from datetime import UTC, datetime, timedelta
 
-from algorithm import aggregate_user_profile
-from algorithm.providers import DeterministicProvider
-from algorithm.restaurant_profiling import profile_kakao_restaurant
-from algorithm.schemas import DiaryEntryInput, KakaoRestaurantMetadata, RestaurantInput
+from app.schemas.algorithm import DiaryEntryInput, KakaoRestaurantMetadata, RestaurantInput
+from app.services.algorithm import aggregate_user_profile
+from app.services.algorithm.providers import DeterministicProvider
+from app.services.algorithm.restaurant_profiling import profile_kakao_restaurant
 
 NOW = datetime(2026, 5, 24, 12, 43, tzinfo=UTC)
 USER_ID = "u_recommendation"

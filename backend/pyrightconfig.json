@@ -3,9 +3,8 @@
   "venv": ".venv",
   "include": ["app", "db"],
   "exclude": [".venv", "**/__pycache__", ".pytest_cache"],
-  "extraPaths": [".", "../algorithm"],
+  "extraPaths": ["."],
   "typeCheckingMode": "basic",
   "pythonVersion": "3.11",
-  "reportMissingImports": true,
-  "reportImplicitRelativeImport": false
+  "reportMissingImports": true
 }

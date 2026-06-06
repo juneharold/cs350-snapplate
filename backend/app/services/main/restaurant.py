@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from algorithm.taxonomy import UnknownRestaurantCategoryError
+from app.services.algorithm.taxonomy import UnknownRestaurantCategoryError
 from fastapi import BackgroundTasks
 
 from app.config.http_errors import AppError, NotFoundError

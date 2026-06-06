@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from algorithm.providers import ProfileProvider
-from algorithm.schemas import DiaryEntryInput, EntryProfileArtifact
-from algorithm.taxonomy import PROFILE_FIELD_NAMES
-
+from app.schemas.algorithm import DiaryEntryInput, EntryProfileArtifact, ProfileExtractionResult
+from app.services.algorithm.providers import ProfileProvider
+from app.services.algorithm.taxonomy import PROFILE_FIELD_NAMES
 
 FIELD_NAMES = PROFILE_FIELD_NAMES
 
@@ -421,11 +420,11 @@ def _merge_profile_result(
     values: dict[str, dict[str, float]],
     confidence: dict[str, float],
     evidence: dict[str, list[str]],
-    result: object,
+    result: ProfileExtractionResult,
 ) -> None:
-    profile = getattr(result, "profile")
-    field_confidence = getattr(result, "confidence")
-    field_evidence = getattr(result, "evidence")
+    profile = result.profile
+    field_confidence = result.confidence
+    field_evidence = result.evidence
     for field_name, terms in profile.items():
         for term, score in terms.items():
             sources = field_evidence.get(field_name, [])

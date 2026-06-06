@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from algorithm.schemas import DiaryEntryInput
+from app.schemas.algorithm import DiaryEntryInput
 from sqlalchemy import select
 
 from app.config.lifespan import Context

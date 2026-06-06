@@ -4,9 +4,8 @@ import pytest
 def test_build_profile_provider_can_be_deterministic_without_openai_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from algorithm.providers import DeterministicProvider
-
     from app.services.algorithm.provider import build_profile_provider
+    from app.services.algorithm.providers import DeterministicProvider
 
     monkeypatch.setenv("ALGORITHM_PROVIDER", "deterministic")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)

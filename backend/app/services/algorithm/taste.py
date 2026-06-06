@@ -4,16 +4,16 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from algorithm import aggregate_user_profile, generate_taste_report
-from algorithm.entry_profiling import profile_diary_entry
-from algorithm.providers import ProfileProvider
-from algorithm.schemas import (
+from app.schemas.algorithm import (
     DiaryEntryInput,
     EntryProfileArtifact,
     TasteProfileResponse,
     UserProfileArtifact,
 )
-from algorithm.user_profiling import build_weighted_entry_profiles
+from app.services.algorithm import aggregate_user_profile, generate_taste_report
+from app.services.algorithm.entry_profiling import profile_diary_entry
+from app.services.algorithm.providers import ProfileProvider
+from app.services.algorithm.user_profiling import build_weighted_entry_profiles
 
 
 @dataclass(frozen=True)

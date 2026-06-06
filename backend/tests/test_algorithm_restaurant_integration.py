@@ -1,10 +1,9 @@
 from datetime import UTC, datetime, timedelta
 
-from algorithm.config import EMBEDDING_DIMENSIONS
-from algorithm.providers import DeterministicProvider
-
+from app.config.algorithm import EMBEDDING_DIMENSIONS
 from app.models.algorithm_artifact import RestaurantProfileArtifactModel
 from app.models.restaurant import RestaurantModel
+from app.services.algorithm.providers import DeterministicProvider
 from app.types.restaurant import FoodTone
 
 NOW = datetime(2026, 5, 24, 12, 43, tzinfo=UTC)

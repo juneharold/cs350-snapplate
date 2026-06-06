@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime
 
-from algorithm.schemas import (
+from app.schemas.algorithm import (
     DiaryEntryInput,
     RecommendationContext,
     RestaurantInput,

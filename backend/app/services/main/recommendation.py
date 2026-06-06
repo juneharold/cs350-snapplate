@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from algorithm import generate_recommendations
-from algorithm.config import RECOMMENDATION_COOLDOWN_REQUESTS
-from algorithm.schemas import DiaryEntryInput, RestaurantInput
+from app.services.algorithm import generate_recommendations
+from app.config.algorithm import RECOMMENDATION_COOLDOWN_REQUESTS
+from app.schemas.algorithm import DiaryEntryInput, RestaurantInput
 
 from app.config.http_errors import AppError
 from app.config.lifespan import Context

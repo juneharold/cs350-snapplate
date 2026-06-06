@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
-from algorithm.providers import DeterministicProvider
-from algorithm.schemas import DiaryEntryInput, RestaurantInput
+from app.schemas.algorithm import DiaryEntryInput, RestaurantInput
+from app.services.algorithm.providers import DeterministicProvider
 
 NOW = datetime(2026, 5, 24, 12, 43, tzinfo=UTC)
 USER_ID = "u_backend_taste"

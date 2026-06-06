@@ -5,18 +5,18 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from algorithm.config import (
+from app.config.algorithm import (
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
     IMAGE_PROFILE_MODEL,
     SUMMARY_MODEL,
     TEXT_PROFILE_MODEL,
 )
-from algorithm.providers import (
+from app.schemas.algorithm import ProfileExtractionResult, ProfileSummaryResult
+from app.services.algorithm.providers import (
     DeterministicProvider,
     OpenAIProvider,
 )
-from algorithm.schemas import ProfileExtractionResult, ProfileSummaryResult
 
 
 class FakeEmbeddingClient:

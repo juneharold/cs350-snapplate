@@ -1,8 +1,9 @@
 from datetime import UTC, datetime
 
-from algorithm.config import EMBEDDING_DIMENSIONS
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.dialects import postgresql
+
+from app.config.algorithm import EMBEDDING_DIMENSIONS
 
 
 def test_algorithm_artifact_models_store_payload_and_version() -> None:

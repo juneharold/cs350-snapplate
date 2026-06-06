@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from algorithm.entry_profiling import (
+from app.schemas.algorithm import KakaoRestaurantMetadata, RestaurantProfileArtifact
+from app.services.algorithm.entry_profiling import (
     CATEGORY_CUISINES,
     CATEGORY_FOOD_TYPES,
     CATEGORY_VENUES,
@@ -11,8 +12,7 @@ from algorithm.entry_profiling import (
     TEXT_CONTEXTS,
     TEXT_TASTES,
 )
-from algorithm.providers import ProfileProvider
-from algorithm.schemas import KakaoRestaurantMetadata, RestaurantProfileArtifact
+from app.services.algorithm.providers import ProfileProvider
 
 
 def profile_kakao_restaurant(
@@ -35,7 +35,7 @@ def profile_kakao_restaurant(
         for field_name, terms in values.items()
         if terms
     }
-    generated = generated_at or datetime.now(timezone.utc)
+    generated = generated_at or datetime.now(UTC)
     profile_text = _profile_text(restaurant, profile)
 
     return RestaurantProfileArtifact(

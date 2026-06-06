@@ -1,12 +1,9 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from algorithm import aggregate_user_profile, generate_recommendations, generate_taste_report
-from algorithm.entry_profiling import profile_diary_entry
-from algorithm.providers import DeterministicProvider
-from algorithm.schemas import (
+from app.schemas.algorithm import (
     DiaryEntryInput,
     EntryProfileArtifact,
     ProfileSummaryResult,
@@ -17,9 +14,15 @@ from algorithm.schemas import (
     TasteProfileReady,
     TasteProfileResponse,
 )
+from app.services.algorithm import (
+    aggregate_user_profile,
+    generate_recommendations,
+    generate_taste_report,
+)
+from app.services.algorithm.entry_profiling import profile_diary_entry
+from app.services.algorithm.providers import DeterministicProvider
 
-
-NOW = datetime(2026, 5, 24, 12, 43, tzinfo=timezone.utc)
+NOW = datetime(2026, 5, 24, 12, 43, tzinfo=UTC)
 USER_ID = "u_contract"
 
 

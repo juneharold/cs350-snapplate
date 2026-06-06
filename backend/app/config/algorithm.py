@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import Final
 
+__version__: Final[str] = "0.1.0"
+ALGORITHM_VERSION: Final[str] = "snapplate-v1"
+
 MIN_ENTRIES_FOR_PERSONALIZATION: Final[int] = 10
 SHORT_TERM_ENTRY_COUNT: Final[int] = 20
 SIMILAR_USER_THRESHOLD: Final[float] = 0.70

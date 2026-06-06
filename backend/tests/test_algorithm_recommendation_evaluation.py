@@ -1,13 +1,26 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from time import perf_counter
 from typing import Any
 
 import pytest
 
-from algorithm import (
+from app.config.algorithm import (
+    EMBEDDING_DIMENSIONS,
+    MIN_SIMILAR_USERS,
+    RECOMMENDATION_SCORE_WEIGHTS,
+)
+from app.schemas.algorithm import (
+    DiaryEntryInput,
+    KakaoRestaurantMetadata,
+    RecommendationContext,
+    RestaurantInput,
+    RestaurantProfileArtifact,
+    UserProfileArtifact,
+)
+from app.services.algorithm import (
     aggregate_user_profile,
     generate_recommendation_artifact,
     generate_recommendations,
@@ -15,23 +28,9 @@ from algorithm import (
     profile_diary_entry,
     profile_kakao_restaurant,
 )
-from algorithm.config import (
-    EMBEDDING_DIMENSIONS,
-    MIN_SIMILAR_USERS,
-    RECOMMENDATION_SCORE_WEIGHTS,
-)
-from algorithm.providers import DeterministicProvider
-from algorithm.schemas import (
-    DiaryEntryInput,
-    KakaoRestaurantMetadata,
-    RecommendationContext,
-    RestaurantProfileArtifact,
-    RestaurantInput,
-    UserProfileArtifact,
-)
+from app.services.algorithm.providers import DeterministicProvider
 
-
-NOW = datetime(2026, 5, 24, 12, 43, tzinfo=timezone.utc)
+NOW = datetime(2026, 5, 24, 12, 43, tzinfo=UTC)
 USER_ID = "u_eval"
 
 
@@ -228,7 +227,7 @@ def test_evaluation_inactive_collaborative_score_logs_once(
         ],
     )
 
-    with caplog.at_level("DEBUG", logger="algorithm.contract"):
+    with caplog.at_level("DEBUG", logger="app.services.algorithm.recommendation_engine"):
         generate_recommendation_artifact(USER_ID, context, limit=2, generated_at=NOW)
 
     messages = [

@@ -10,12 +10,9 @@
 #   3b) make run-frontend  # Next.js on http://localhost:3000
 
 BACKEND_DIR = backend
-ALGORITHM_DIR = algorithm
 FRONTEND_DIR = frontend
-# Sibling algorithm project on PYTHONPATH so backend imports algorithm.*.
-BACKEND_ALGORITHM_PATH = ../$(ALGORITHM_DIR)
-PY = PYTHONPATH=$(BACKEND_ALGORITHM_PATH) .venv/bin/python
-ALEMBIC = PYTHONPATH=$(BACKEND_ALGORITHM_PATH) .venv/bin/alembic
+PY = .venv/bin/python
+ALEMBIC = .venv/bin/alembic
 
 .DEFAULT_GOAL := help
 
@@ -38,8 +35,7 @@ reset-db:  ## Drop the data-layer volumes (wipes all local data) and restart fre
 	$(MAKE) up
 
 # Backend (FastAPI on the host)
-install:  ## Install algorithm + backend deps into backend/.venv
-	cd $(BACKEND_DIR) && .venv/bin/python -m pip install -e ../$(ALGORITHM_DIR)
+install:  ## Install backend deps into backend/.venv
 	cd $(BACKEND_DIR) && .venv/bin/python -m pip install -e .
 
 run-backend:  ## Run FastAPI (host) with reload on http://localhost:8000
@@ -78,13 +74,10 @@ format:  ## ruff format + autofix
 typecheck:  ## pyright
 	cd $(BACKEND_DIR) && pyright app
 
-test-algorithm:  ## Run the algorithm pytest suite
-	cd $(ALGORITHM_DIR) && uv run pytest tests/ -q
-
 test:  ## Run the backend pytest suite (needs `make up` first)
 	cd $(BACKEND_DIR) && $(PY) -m pytest tests/ -q
 
-test-all: test-algorithm test  ## Run algorithm + backend pytest suites
+test-all: test  ## Run the backend pytest suite
 
 .PHONY: help up down reset-db install run-backend frontend-install run-frontend \
-	dev db-migrate db-rollback lint format typecheck test-algorithm test test-all
+	dev db-migrate db-rollback lint format typecheck test test-all
