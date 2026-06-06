@@ -400,8 +400,11 @@ Statistics should be deterministic. Provider calls should be used for profile ex
 ### Update Behavior
 
 - Trigger analysis after diary creation or edit.
-- Run asynchronously (REQ-4.8-016).
-- Store the result when complete.
+- Run asynchronously through persisted refresh jobs (REQ-4.8-016).
+- Return the existing queued or running refresh job for the user instead of
+  enqueueing duplicate active work.
+- Store job state and failures for `GET /v1/taste/jobs/{job_id}`.
+- Store the latest successful result when complete.
 - Notify the user when analysis completes if notifications are enabled (REQ-4.8-014).
 - Preserve the previous successful report if a refresh fails (REQ-SAFE-009).
 
@@ -600,7 +603,9 @@ models intentionally match the current frontend payloads for `GET /taste/profile
 evidence, profile text, provider embeddings, and scoring fields that are stored by the
 backend but not returned to users. User aggregation can consume stored entry artifacts so
 profile refreshes do not need to re-run entry extraction. External provider-generated labels and
-blurbs should remain grounded in the structured user and restaurant profiles.
+blurbs should remain grounded in the structured user and restaurant profiles. Backend refresh
+jobs are exposed as `POST /v1/taste/refresh`, which returns `job_id` and `status`, and
+`GET /v1/taste/jobs/{job_id}`, which returns user-scoped state, timestamps, and failures.
 
 ## 11. Development and Evaluation Data
 
@@ -638,14 +643,14 @@ Evaluation checks:
 7. Generate synthetic users, restaurants, and diary data for collaborative filtering tests. Current state: deterministic synthetic fixture data exists with multiple users, diary histories, restaurant candidates, and exposure history.
 8. Implement candidate generation and hybrid scoring. Current state: `generate_recommendations` ranks caller-supplied candidate restaurants after category/neighborhood filter gates. Hybrid scoring has content, collaborative, context, quality, and novelty components. Artifact mode uses user and restaurant embeddings and fails loudly when required artifacts or embeddings are missing. Non-artifact mode keeps the category-frequency content path for local fixtures and legacy tests. Broad candidate retrieval remains a backend/search responsibility for pre-integration work.
 9. Implement diversity, novelty, repeated-exposure handling, and explanation generation. Current state: score-aware category/neighborhood diversity, exact restaurant cooldown-window novelty, internal `reason_category`, and reason text selected from scoring signals are implemented.
-10. Integrate async jobs, persistence, and API payloads with backend. Current state: intentionally deferred from algorithm-only work. The algorithm contract exposes the functions and schemas backend integration needs.
+10. Integrate async jobs, persistence, and API payloads with backend. Current state: backend persists taste refresh jobs and failures. `POST /v1/taste/refresh` returns a `job_id` and `queued`/`running`/`done`/`failed` status, reusing an existing active job for the user. `GET /v1/taste/jobs/{job_id}` returns the user-scoped job state with `started_at`, `finished_at`, and `error`.
 11. Add tests and evaluation scripts for extraction, aggregation, scoring, and response shape. Current state: tests cover taxonomy, contracts, fixtures, provider behavior, entry profiling, user aggregation, restaurant profiling, score hiding, collaborative boost and inactive renormalization, exposure cooldown, category and neighborhood filtering/diversity, embedding artifact mode, fail-loud artifact validation, scoring artifacts/traces, richer context and quality scoring, explanation categories, evaluation metrics, and the SRS recommendation latency target.
 
 Current algorithm-only next order:
 
 1. Use the evaluation harness to compare future scoring changes against the current baseline.
 2. Add real-data or semi-real-data evaluation cases when diary data is available.
-3. Integrate backend persistence, async refresh, and frontend payload wiring.
+3. Wire frontend refresh progress to `GET /v1/taste/jobs/{job_id}` if the UI needs explicit job state.
 
 ## 13. Success Criteria
 
