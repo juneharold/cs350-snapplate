@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from algorithm.providers import ProfileProvider
 from algorithm.restaurant_profiling import profile_kakao_restaurant
@@ -10,12 +10,14 @@ from algorithm.taxonomy import normalize_public_restaurant_category
 
 from app.config.lifespan import InternalContext
 from app.config.logger import create_logger
-from app.models.algorithm_artifact import RestaurantProfileArtifactModel
 from app.models.restaurant import RestaurantModel
+from app.repositories.algorithm_artifact import AlgorithmArtifactRepository
 from app.repositories.restaurant import RestaurantRepository
-from app.utils.time import utcnow
+from app.utils.time import as_utc, utcnow
 
 logger = create_logger(__name__)
+
+_RESTAURANT_PROFILE_FRESHNESS_WINDOW = timedelta(hours=1)
 
 
 def metadata_from_restaurant_model(restaurant: RestaurantModel) -> KakaoRestaurantMetadata:
@@ -67,8 +69,15 @@ async def profile_restaurants(
         return
     async with internal.db_sessionmaker() as db:
         repo = RestaurantRepository(db)
+        artifact_repo = AlgorithmArtifactRepository(db)
         generated_at = utcnow()
-        for restaurant_id in dict.fromkeys(restaurant_ids):
+        unique_restaurant_ids = list(dict.fromkeys(restaurant_ids))
+        fresh_after = generated_at - _RESTAURANT_PROFILE_FRESHNESS_WINDOW
+        existing_profiles = await artifact_repo.latest_restaurant_profiles(unique_restaurant_ids)
+        for restaurant_id in unique_restaurant_ids:
+            existing = existing_profiles.get(restaurant_id)
+            if existing is not None and as_utc(existing.generated_at) >= fresh_after:
+                continue
             restaurant = await repo.find(restaurant_id)
             if restaurant is None or restaurant.deleted_at is not None:
                 continue
@@ -77,13 +86,13 @@ async def profile_restaurants(
                 generated_at=generated_at,
                 profile_provider=internal.profile_provider,
             )
-            db.add(
-                RestaurantProfileArtifactModel(
-                    restaurant_id=restaurant.id,
-                    payload_json=profile.model_dump(mode="json"),
-                    algorithm_version=profile.algorithm_version,
-                    generated_at=generated_at,
-                )
+            await artifact_repo.add_restaurant_profile(
+                restaurant_id=restaurant.id,
+                payload_json=profile.model_dump(mode="json"),
+                embedding=profile.embedding,
+                algorithm_version=profile.algorithm_version,
+                generated_at=generated_at,
+                commit=False,
             )
         try:
             await db.commit()

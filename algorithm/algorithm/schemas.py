@@ -166,6 +166,7 @@ class TasteProfileReady(ContractModel):
     has_enough_data: Literal[True]
     min_entries_required: PositiveInt
     current_entries: PositiveInt
+    algorithm_version: str = ALGORITHM_VERSION
     computed_at: datetime
     type: TasteType
     summary: TasteSummary
@@ -181,6 +182,7 @@ class TasteProfileInsufficient(ContractModel):
     has_enough_data: Literal[False]
     min_entries_required: PositiveInt
     current_entries: PositiveInt
+    algorithm_version: str = ALGORITHM_VERSION
 
 
 TasteProfileResponse = TasteProfileReady | TasteProfileInsufficient
@@ -234,6 +236,7 @@ class EntryProfileArtifact(ContractModel):
     temporal_feature: WeightedTerms = Field(default_factory=dict)
     confidence: dict[str, Score] = Field(default_factory=dict)
     evidence: dict[str, list[str]] = Field(default_factory=dict)
+    algorithm_version: str = ALGORITHM_VERSION
 
     @model_validator(mode="after")
     def require_confidence_and_evidence(self) -> "EntryProfileArtifact":

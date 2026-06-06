@@ -126,6 +126,7 @@ def test_taste_report_matches_frontend_profile_payload() -> None:
         "has_enough_data",
         "min_entries_required",
         "current_entries",
+        "algorithm_version",
         "computed_at",
         "type",
         "summary",
@@ -192,6 +193,7 @@ def test_taste_report_insufficient_data_shape_is_minimal() -> None:
         "has_enough_data": False,
         "min_entries_required": len(entries) + 1,
         "current_entries": len(entries),
+        "algorithm_version": "snapplate-v1",
     }
 
 

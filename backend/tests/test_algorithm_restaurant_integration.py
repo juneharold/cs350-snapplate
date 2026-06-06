@@ -1,7 +1,9 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
+from algorithm.config import EMBEDDING_DIMENSIONS
 from algorithm.providers import DeterministicProvider
 
+from app.models.algorithm_artifact import RestaurantProfileArtifactModel
 from app.models.restaurant import RestaurantModel
 from app.types.restaurant import FoodTone
 
@@ -52,3 +54,120 @@ def test_build_restaurant_profile_artifact() -> None:
     assert profile.restaurant_id == "r_profile"
     assert profile.profile["food_type"]["noodle"] > 0
     assert profile.embedding
+
+
+async def test_profile_restaurants_skips_fresh_existing_profiles(monkeypatch) -> None:
+    from app.services.algorithm import restaurants as restaurant_module
+
+    fresh = _restaurant()
+    fresh.id = "r_fresh"
+    stale = _restaurant()
+    stale.id = "r_stale"
+    provider = _CountingProvider()
+    restaurant_repo = _FakeRestaurantRepository({"r_fresh": fresh, "r_stale": stale})
+    artifact_repo = _FakeArtifactRepository(
+        {
+            "r_fresh": RestaurantProfileArtifactModel(
+                restaurant_id="r_fresh",
+                payload_json={"restaurant_id": "r_fresh", "embedding": [0.1]},
+                embedding=[0.1] * EMBEDDING_DIMENSIONS,
+                algorithm_version="alg-old",
+                generated_at=NOW - timedelta(minutes=10),
+            ),
+            "r_stale": RestaurantProfileArtifactModel(
+                restaurant_id="r_stale",
+                payload_json={"restaurant_id": "r_stale", "embedding": [0.1]},
+                embedding=[0.1] * EMBEDDING_DIMENSIONS,
+                algorithm_version="alg-old",
+                generated_at=NOW - timedelta(hours=2),
+            ),
+        }
+    )
+    db = _CommitOnlyDb()
+    internal = _FakeInternal(db, provider)
+
+    monkeypatch.setattr(restaurant_module, "utcnow", lambda: NOW)
+    monkeypatch.setattr(
+        restaurant_module,
+        "RestaurantRepository",
+        lambda db_session: restaurant_repo,  # noqa: ARG005
+    )
+    monkeypatch.setattr(
+        restaurant_module,
+        "AlgorithmArtifactRepository",
+        lambda db_session: artifact_repo,  # noqa: ARG005
+        raising=False,
+    )
+
+    await restaurant_module.profile_restaurants(internal, ["r_fresh", "r_stale", "r_fresh"])
+
+    assert artifact_repo.requested_ids == ["r_fresh", "r_stale"]
+    assert len(provider.embedded_texts) == 1
+    assert artifact_repo.added_restaurant_ids == ["r_stale"]
+    assert db.commits == 1
+
+
+class _CountingProvider:
+    def __init__(self):
+        self.embedded_texts = []
+
+    def embed_text(self, text: str) -> list[float]:
+        self.embedded_texts.append(text)
+        return [0.1] * EMBEDDING_DIMENSIONS
+
+
+class _FakeRestaurantRepository:
+    def __init__(self, rows: dict[str, RestaurantModel]):
+        self.rows = rows
+
+    async def find(self, restaurant_id: str) -> RestaurantModel | None:
+        return self.rows.get(restaurant_id)
+
+
+class _FakeArtifactRepository:
+    def __init__(self, existing: dict[str, RestaurantProfileArtifactModel]):
+        self.existing = existing
+        self.requested_ids = []
+        self.added_restaurant_ids = []
+
+    async def latest_restaurant_profiles(
+        self, restaurant_ids: list[str]
+    ) -> dict[str, RestaurantProfileArtifactModel]:
+        self.requested_ids = restaurant_ids
+        return self.existing
+
+    async def add_restaurant_profile(self, **kwargs):
+        self.added_restaurant_ids.append(kwargs["restaurant_id"])
+
+
+class _CommitOnlyDb:
+    def __init__(self):
+        self.commits = 0
+
+    async def commit(self):
+        self.commits += 1
+
+
+class _FakeSessionContext:
+    def __init__(self, db: _CommitOnlyDb):
+        self.db = db
+
+    async def __aenter__(self) -> _CommitOnlyDb:
+        return self.db
+
+    async def __aexit__(self, exc_type, exc, traceback) -> None:  # noqa: ANN001
+        return None
+
+
+class _FakeSessionmaker:
+    def __init__(self, db: _CommitOnlyDb):
+        self.db = db
+
+    def __call__(self) -> _FakeSessionContext:
+        return _FakeSessionContext(self.db)
+
+
+class _FakeInternal:
+    def __init__(self, db: _CommitOnlyDb, profile_provider: _CountingProvider):
+        self.db_sessionmaker = _FakeSessionmaker(db)
+        self.profile_provider = profile_provider

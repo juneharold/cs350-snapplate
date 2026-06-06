@@ -18,6 +18,7 @@ dependencies = [
     "loguru>=0.7",
     "python-dotenv>=1.0",
     "python-multipart>=0.0.9",
+    "pgvector>=0.4",
     # Algorithm package, imported in-process. Path dependency on the sibling project dir.
     "algorithm",
 ]

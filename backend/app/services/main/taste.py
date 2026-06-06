@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from algorithm import generate_taste_report
-from algorithm.version import ALGORITHM_VERSION
 from sqlalchemy import desc, select
 
 from app.config.lifespan import Context
 from app.dto.auth import UpdateUserData
-from app.models.algorithm_artifact import (
-    EntryProfileArtifactModel,
-    UserProfileArtifactModel,
-)
 from app.models.taste_report import TasteReportModel
+from app.repositories.algorithm_artifact import AlgorithmArtifactRepository
 from app.repositories.user import UserRepository
 from app.services.algorithm.taste import build_taste_refresh_artifacts
 from app.services.main.diary_inputs import DiaryInputService
@@ -52,27 +48,30 @@ class TasteService:
             min_entries_required=_MIN_ENTRIES,
         )
         report = artifacts.report
+        artifact_repo = AlgorithmArtifactRepository(self.db)
 
         payload = report.model_dump(mode="json")
         for profile in artifacts.entry_profiles:
-            self.db.add(
-                EntryProfileArtifactModel(
-                    entry_id=profile.entry_id,
-                    user_id=profile.user_id,
-                    payload_json=profile.model_dump(mode="json"),
-                    algorithm_version=ALGORITHM_VERSION,
-                    generated_at=generated_at,
-                )
+            profile_payload = profile.model_dump(mode="json")
+            await artifact_repo.add_entry_profile(
+                entry_id=profile.entry_id,
+                user_id=profile.user_id,
+                payload_json=profile_payload,
+                algorithm_version=profile_payload["algorithm_version"],
+                generated_at=generated_at,
+                commit=False,
             )
         if artifacts.user_profile is not None:
-            self.db.add(
-                UserProfileArtifactModel(
-                    user_id=user_id,
-                    source_entry_count=artifacts.user_profile.source_entry_count,
-                    payload_json=artifacts.user_profile.model_dump(mode="json"),
-                    algorithm_version=artifacts.user_profile.algorithm_version,
-                    generated_at=generated_at,
-                )
+            user_profile_payload = artifacts.user_profile.model_dump(mode="json")
+            await artifact_repo.add_user_profile(
+                user_id=user_id,
+                source_entry_count=artifacts.user_profile.source_entry_count,
+                payload_json=user_profile_payload,
+                long_term_embedding=user_profile_payload["long_term_embedding"],
+                short_term_embedding=user_profile_payload["short_term_embedding"],
+                algorithm_version=artifacts.user_profile.algorithm_version,
+                generated_at=generated_at,
+                commit=False,
             )
         self.db.add(
             TasteReportModel(
@@ -80,7 +79,7 @@ class TasteService:
                 payload_json=payload,
                 has_enough_data=bool(report.has_enough_data),
                 source_entry_count=len(entries),
-                algorithm_version=ALGORITHM_VERSION,
+                algorithm_version=report.algorithm_version,
                 generated_at=generated_at,
             )
         )
