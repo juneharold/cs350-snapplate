@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useRef } from "react";
 import { Bell, BookOpen, Camera, ChevronLeft, ChevronRight, Compass, Image as ImageIcon, MapPin, Send, Sparkles, Sun, User, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/store/auth";
-import { useLogout, useMe, useUploadAvatar } from "@/lib/api/auth";
+import { useLogout, useMe, useUpdateMe, useUploadAvatar } from "@/lib/api/auth";
 import { useSettings, useUpdateSettings } from "@/lib/api/settings";
 import { useToast } from "@/lib/store/toast";
 import { ApiException } from "@/lib/api/client";
@@ -16,14 +16,15 @@ const AVATAR_TYPES = ["image/jpeg", "image/png"];
 /**
  * Settings screen — list-of-rows pattern, grouped by section.
  *
- * Notification toggles flow through `PATCH /settings`. Account-level
- * read-only rows (email, nickname) link back to the profile setup
- * route once we add edit deep-links — for now they're informational.
+ * Notification toggles flow through `PATCH /settings`. The Nickname row
+ * opens an edit sheet that saves through `PATCH /me`; the Email row stays
+ * read-only since it's the account identity.
  */
 export default function SettingsPage() {
   const { data: me } = useMe();
   const { data: settings } = useSettings();
   const update = useUpdateSettings();
+  const updateMe = useUpdateMe();
   const upload = useUploadAvatar();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const localUser = useAuth((s) => s.user);
@@ -31,6 +32,7 @@ export default function SettingsPage() {
   const accessToken = useAuth((s) => s.accessToken);
   const showToast = useToast((s) => s.show);
   const [confirming, setConfirming] = useState<"logout" | "delete" | null>(null);
+  const [editingNickname, setEditingNickname] = useState(false);
 
   const nickname = me?.nickname ?? localUser?.nickname ?? "—";
   const email = me?.email ?? localUser?.email ?? "—";
@@ -95,7 +97,13 @@ export default function SettingsPage() {
 
       <SectionLabel>ACCOUNT</SectionLabel>
       <Group>
-        <Row Icon={User} label="Nickname" value={nickname} />
+        <Row
+          Icon={User}
+          label="Nickname"
+          value={nickname}
+          right="chev"
+          onClick={() => setEditingNickname(true)}
+        />
         <Row Icon={Send} label="Email" value={email} last />
         <Row
           Icon={upload.isPending ? Loader2 : ImageIcon}
@@ -226,6 +234,24 @@ export default function SettingsPage() {
           }}
         />
       )}
+
+      {editingNickname && (
+        <EditNicknameSheet
+          current={me?.nickname ?? localUser?.nickname ?? ""}
+          saving={updateMe.isPending}
+          onCancel={() => setEditingNickname(false)}
+          onSave={async (value) => {
+            try {
+              await updateMe.mutateAsync({ nickname: value });
+              setEditingNickname(false);
+            } catch (err) {
+              showToast(
+                err instanceof ApiException ? err.message : "Couldn't save that nickname.",
+              );
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -311,7 +337,7 @@ function Row({
         <span style={{ fontSize: 12.5, color: "var(--color-muted)" }}>{value}</span>
       )}
       {toggle !== undefined && <Toggle on={toggle} />}
-      {right === "chev" && toggle === undefined && value === undefined && !danger && (
+      {right === "chev" && toggle === undefined && !danger && (
         <ChevronRight size={16} style={{ color: "var(--color-muted-2)" }} />
       )}
     </Element>
@@ -344,6 +370,88 @@ function Toggle({ on }: { on: boolean }) {
         }}
       />
     </span>
+  );
+}
+
+const NICKNAME_MAX = 20;
+
+function EditNicknameSheet({
+  current,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  current: string;
+  saving: boolean;
+  onSave: (value: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(current);
+  const trimmed = value.trim();
+  const invalid = trimmed.length === 0 || trimmed.length > NICKNAME_MAX;
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center"
+      style={{
+        background: "rgba(18,18,20,0.45)",
+        backdropFilter: "blur(3px)",
+        WebkitBackdropFilter: "blur(3px)",
+        padding: 24,
+        animation: "snapplate-dialog-fade 0.18s ease both",
+      }}
+      onClick={onCancel}
+    >
+      <form
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!invalid && !saving) onSave(trimmed);
+        }}
+        style={{
+          width: "100%",
+          maxWidth: 320,
+          background: "var(--color-surface-2)",
+          borderRadius: 16,
+          padding: 22,
+          boxShadow: "0 24px 60px -16px rgba(0,0,0,0.4)",
+          animation: "snapplate-dialog-in 0.2s cubic-bezier(0.2,0.9,0.3,1) both",
+        }}
+      >
+        <div className="flex justify-between items-baseline mb-2">
+          <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 19, fontWeight: 600 }}>
+            Edit nickname
+          </h2>
+          <span
+            style={{
+              fontSize: 10.5,
+              fontFamily: "var(--font-mono)",
+              color: "var(--color-muted-2)",
+            }}
+          >
+            {trimmed.length} / {NICKNAME_MAX}
+          </span>
+        </div>
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className="input"
+          placeholder="Nickname"
+          maxLength={NICKNAME_MAX}
+          autoFocus
+        />
+        <div className="flex gap-2 mt-4">
+          <button type="button" onClick={onCancel} className="btn btn-secondary" style={{ flex: 1 }}>
+            Cancel
+          </button>
+          <button type="submit" disabled={invalid || saving} className="btn" style={{ flex: 1 }}>
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
