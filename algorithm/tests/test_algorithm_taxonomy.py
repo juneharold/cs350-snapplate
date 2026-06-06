@@ -10,6 +10,8 @@ from algorithm.taxonomy import (
     FLAVOR_LEAN_FIELDS,
     INTERNAL_PROFILE_TAXONOMY,
     PUBLIC_RESTAURANT_CATEGORIES,
+    UnknownRestaurantCategoryError,
+    normalize_public_restaurant_category,
 )
 
 
@@ -158,6 +160,35 @@ def test_restaurant_input_rejects_unknown_public_category() -> None:
             neighborhood="Eoeun-dong",
             is_bookmarked=False,
         )
+
+
+@pytest.mark.parametrize(
+    ("raw_category", "raw_path", "expected"),
+    [
+        ("한식", "음식점 > 한식", "Korean"),
+        ("육류,고기", "음식점 > 한식 > 육류,고기", "Korean BBQ"),
+        ("국수", "음식점 > 한식 > 국수", "Noodles"),
+        ("분식", "음식점 > 분식", "Snacks"),
+        ("커피전문점", "음식점 > 카페 > 커피전문점", "Cafe"),
+        ("제과,베이커리", "음식점 > 카페 > 제과,베이커리", "Bakery"),
+        ("중식", "음식점 > 중식", "Chinese"),
+        ("일식", "음식점 > 일식", "Japanese"),
+        ("양식", "음식점 > 양식", "Western"),
+        ("호프,요리주점", "음식점 > 술집 > 호프,요리주점", "Bar"),
+        ("Noodles", None, "Noodles"),
+    ],
+)
+def test_normalize_public_restaurant_category_maps_kakao_labels(
+    raw_category: str,
+    raw_path: str | None,
+    expected: str,
+) -> None:
+    assert normalize_public_restaurant_category(raw_category, raw_path) == expected
+
+
+def test_normalize_public_restaurant_category_fails_loud_for_unknown_label() -> None:
+    with pytest.raises(UnknownRestaurantCategoryError, match="unsupported restaurant category"):
+        normalize_public_restaurant_category("퓨전음식", "음식점 > 퓨전음식")
 
 
 def test_entry_profile_rejects_unknown_taxonomy_term() -> None:

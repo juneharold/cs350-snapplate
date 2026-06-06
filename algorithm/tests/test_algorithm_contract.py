@@ -3,7 +3,8 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from algorithm import generate_recommendations, generate_taste_report
+from algorithm import aggregate_user_profile, generate_recommendations, generate_taste_report
+from algorithm.entry_profiling import profile_diary_entry
 from algorithm.providers import DeterministicMLProvider
 from algorithm.schemas import (
     DiaryEntryInput,
@@ -32,6 +33,24 @@ class SummaryProvider(DeterministicMLProvider):
             label="The ML Taste Profile",
             blurb="ML-generated profile text grounded in structured signals.",
             insights=["ML-generated insight."],
+        )
+
+
+class ArtifactOnlyProvider(DeterministicMLProvider):
+    def extract_text_profile(self, text: str):
+        raise AssertionError("stored entry profiles should skip text extraction")
+
+    def extract_image_profile(self, image_reference: str):
+        raise AssertionError("stored entry profiles should skip image extraction")
+
+    def embed_text(self, text: str) -> list[float]:
+        raise AssertionError("stored user profile should skip embedding")
+
+    def generate_profile_summary(self, profile_text: str) -> ProfileSummaryResult:
+        return ProfileSummaryResult(
+            label="Stored Artifact Profile",
+            blurb="Generated from stored algorithm artifacts.",
+            insights=["Stored artifacts powered this profile."],
         )
 
 
@@ -193,6 +212,35 @@ def test_taste_report_uses_provider_summary_when_available() -> None:
     assert report.type.label == "The ML Taste Profile"
     assert report.type.blurb == "ML-generated profile text grounded in structured signals."
     assert report.insights == ["ML-generated insight."]
+
+
+def test_taste_report_accepts_precomputed_profile_artifacts() -> None:
+    entries = enough_entries()
+    deterministic = DeterministicMLProvider()
+    entry_profiles = [
+        profile_diary_entry(entry, ml_provider=deterministic)
+        for entry in entries
+    ]
+    user_profile = aggregate_user_profile(
+        USER_ID,
+        entries,
+        generated_at=NOW,
+        entry_profiles=entry_profiles,
+        ml_provider=deterministic,
+    )
+
+    report = generate_taste_report(
+        USER_ID,
+        entries,
+        min_entries_required=len(entries),
+        generated_at=NOW,
+        ml_provider=ArtifactOnlyProvider(),
+        entry_profiles=entry_profiles,
+        user_profile=user_profile,
+    )
+
+    assert isinstance(report, TasteProfileReady)
+    assert report.type.label == "Stored Artifact Profile"
 
 
 def test_recommendations_match_frontend_payload_and_hide_internal_scores() -> None:

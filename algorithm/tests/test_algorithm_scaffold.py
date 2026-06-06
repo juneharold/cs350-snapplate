@@ -35,6 +35,7 @@ from algorithm.schemas import (
 def test_public_imports_expose_stable_scaffold_metadata() -> None:
     pyproject = tomllib.loads(Path("pyproject.toml").read_text())
 
+    assert pyproject["project"]["name"] == "algorithm"
     assert __version__ == pyproject["project"]["version"]
     assert algorithm.__version__ == __version__
     assert algorithm.ALGORITHM_VERSION

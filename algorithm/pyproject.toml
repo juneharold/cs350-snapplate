@@ -1,7 +1,7 @@
 [project]
-name = "snapplate"
+name = "algorithm"
 version = "0.1.0"
-description = "SnapPlate algorithm/backend contract schemas and entrypoints"
+description = "SnapPlate algorithm contract schemas and entrypoints"
 requires-python = ">=3.11"
 dependencies = [
     "openai>=2,<3",
@@ -23,4 +23,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["algorithm*"]
-exclude = ["backend*", "frontend*", "tests*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+algorithm = ["fixtures/*.json"]
