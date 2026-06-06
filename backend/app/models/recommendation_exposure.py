@@ -4,7 +4,7 @@ from datetime import datetime
 
 from sqlmodel import BigInteger, Column, Field
 
-from app.models.base import ForeignKeyField, OptionalTimestampField, SQLModelBase, TimestampField
+from app.models.base import ForeignKeyField, SQLModelBase, TimestampField
 
 
 class RecommendationExposureModel(SQLModelBase, table=True):
@@ -15,5 +15,5 @@ class RecommendationExposureModel(SQLModelBase, table=True):
     )
     user_id: str = ForeignKeyField("users.id", ondelete="CASCADE")
     restaurant_id: str = ForeignKeyField("restaurants.id", ondelete="CASCADE")
-    shown_at: datetime = TimestampField()
+    shown_at: datetime = TimestampField(index=True)
     reason: str | None = Field(default=None)

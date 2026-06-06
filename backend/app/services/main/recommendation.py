@@ -8,12 +8,10 @@ from algorithm.schemas import DiaryEntryInput, RestaurantInput
 
 from app.config.http_errors import AppError
 from app.config.lifespan import Context
-from app.dto.restaurant import RecommendedResponseCore
 from app.repositories.algorithm_artifact import AlgorithmArtifactRepository
 from app.repositories.bookmark import BookmarkRepository
 from app.repositories.recommendation_exposure import RecommendationExposureRepository
 from app.repositories.restaurant import RestaurantRepository
-from app.schemas.restaurant import RecommendedRestaurantInfo
 from app.services.algorithm.inputs import restaurant_input_from_model
 from app.services.algorithm.recommendations import recommendation_context_from_artifacts
 from app.services.main.diary_inputs import DiaryInputService
@@ -33,35 +31,37 @@ class RecommendationService:
 
     async def recommend(
         self, user_id: str | None, lat: float | None, lng: float | None, limit: int
-    ) -> RecommendedResponseCore:
+    ) -> dict:
         if not user_id:
-            return RecommendedResponseCore(items=[], based_on_entries=0, has_enough_data=False)
+            return {"items": [], "based_on_entries": 0, "has_enough_data": False}
 
         entries = await DiaryInputService(self.ctx).for_user(user_id)
         if len(entries) < _MIN_ENTRIES:
-            return RecommendedResponseCore(
-                items=[], based_on_entries=len(entries), has_enough_data=False
-            )
+            return {"items": [], "based_on_entries": len(entries), "has_enough_data": False}
 
         user_profile = await self.artifacts.latest_user_profile(user_id)
         if user_profile is None:
             raise AppError(
-                503,
-                "recommendations_unavailable",
+                412,
+                "user_profile_not_ready",
                 "Recommendations are not ready. Refresh taste analysis first.",
             )
 
         candidates = await self._candidates(entries, user_id, lat, lng)
-        restaurant_artifacts = await self.artifacts.latest_restaurant_profiles(
-            [candidate.id for candidate in candidates]
+        candidate_by_id = {candidate.id: candidate for candidate in candidates}
+        nearest_restaurant_profiles = await self.artifacts.nearest_restaurant_profiles(
+            user_profile.long_term_embedding,
+            candidate_restaurant_ids=list(candidate_by_id),
+            limit=max(limit * 5, limit),
         )
+        restaurant_artifacts = [artifact for artifact, _distance in nearest_restaurant_profiles]
         profiled_candidates = [
-            candidate for candidate in candidates if candidate.id in restaurant_artifacts
+            candidate_by_id[artifact.restaurant_id] for artifact in restaurant_artifacts
         ]
         if not profiled_candidates:
             raise AppError(
                 503,
-                "recommendations_unavailable",
+                "restaurant_profiles_not_ready",
                 "Restaurant profiles are not ready yet.",
             )
 
@@ -72,7 +72,7 @@ class RecommendationService:
             candidate_restaurants=profiled_candidates,
             user_profile_payload=user_profile.payload_json,
             restaurant_profile_payloads=[
-                restaurant_artifacts[candidate.id].payload_json for candidate in profiled_candidates
+                artifact.payload_json for artifact in restaurant_artifacts
             ],
             exposure_history=await self.exposures.latest_restaurant_ids(
                 user_id,
@@ -89,17 +89,12 @@ class RecommendationService:
             min_entries_required=_MIN_ENTRIES,
         )
 
-        items = [RecommendedRestaurantInfo(**r.model_dump()) for r in result.items]
         await self.exposures.add_many(
             user_id=user_id,
-            restaurant_reasons={item.id: item.reason for item in items},
+            restaurant_reasons={item.id: item.reason for item in result.items},
             shown_at=requested_at,
         )
-        return RecommendedResponseCore(
-            items=items,
-            based_on_entries=result.based_on_entries,
-            has_enough_data=result.has_enough_data,
-        )
+        return result.model_dump(mode="json")
 
     async def _candidates(
         self,

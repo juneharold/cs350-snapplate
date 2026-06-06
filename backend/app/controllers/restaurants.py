@@ -8,6 +8,7 @@ from app.dto.restaurant import (
     NearbyResponse,
     NearbyResponseCore,
     RecommendedResponse,
+    RecommendedResponseCore,
     RestaurantDetailResponse,
     SearchResponse,
     SearchResponseCore,
@@ -74,7 +75,7 @@ async def recommended(
     user: UserContext | None = Depends(get_optional_user_context),
 ) -> RecommendedResponse:
     result = await RecommendationService(ctx).recommend(_uid(user), lat, lng, limit)
-    return RecommendedResponse(response=result)
+    return RecommendedResponse(response=RecommendedResponseCore.model_validate(result))
 
 
 # NOTE: this dynamic route is registered LAST so /nearby, /search, /recommended
