@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Camera, ImagePlus, X } from "lucide-react";
 import { Screen } from "@/components/layout/Screen";
@@ -17,8 +17,10 @@ import { readManyFiles } from "@/lib/files";
  * `/capture/preview`. Real in-app camera via MediaDevices.getUserMedia
  * lands in a later phase per the build spec.
  */
-export default function CapturePage() {
+function CapturePageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const restaurantId = searchParams.get("restaurant_id");
   const setPending = useCapture((s) => s.setPending);
   const cameraInput = useRef<HTMLInputElement>(null);
   const galleryInput = useRef<HTMLInputElement>(null);
@@ -36,7 +38,7 @@ export default function CapturePage() {
       const photos = await readManyFiles(files);
       const limited = photos.slice(0, 10);
       setPending(limited);
-      router.push("/capture/preview");
+      router.push(`/capture/preview${restaurantId ? `?restaurant_id=${restaurantId}` : ""}`);
     } finally {
       setReading(false);
     }
@@ -208,5 +210,13 @@ export default function CapturePage() {
         </button>
       </div>
     </Screen>
+  );
+}
+
+export default function CapturePage() {
+  return (
+    <Suspense fallback={null}>
+      <CapturePageContent />
+    </Suspense>
   );
 }
