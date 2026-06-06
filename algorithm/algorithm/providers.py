@@ -7,6 +7,7 @@ from algorithm.config import (
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
     IMAGE_PROFILE_MODEL,
+    OPENAI_TIMEOUT_SECONDS,
     SUMMARY_MODEL,
     TEXT_PROFILE_MODEL,
 )
@@ -14,10 +15,7 @@ from algorithm.embedding import deterministic_text_embedding
 from algorithm.schemas import ProfileExtractionResult, ProfileSummaryResult
 from algorithm.taxonomy import INTERNAL_PROFILE_TAXONOMY
 
-
 TParsed = TypeVar("TParsed", ProfileExtractionResult, ProfileSummaryResult)
-
-OPENAI_TIMEOUT_SECONDS = 30.0
 
 EMAIL_RE = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
 URL_RE = re.compile(r"\b(?:https?://|www\.)\S+\b", re.IGNORECASE)
@@ -27,14 +25,6 @@ ID_TOKEN_RE = re.compile(
     r"\b(?:user|u|entry|e|restaurant|r|kakao)_[A-Za-z0-9-]+\b",
     re.IGNORECASE,
 )
-
-
-class _OpenAIProfileExtractionResult(ProfileExtractionResult):
-    pass
-
-
-class _OpenAIProfileSummaryResult(ProfileSummaryResult):
-    pass
 
 
 class ProfileProvider(Protocol):
@@ -106,7 +96,7 @@ class OpenAIProvider:
             model=self._text_model,
             instructions=_text_profile_instructions(),
             input=f"Diary text:\n{redacted_text}",
-            text_format=_OpenAIProfileExtractionResult,
+            text_format=ProfileExtractionResult,
             temperature=0,
             store=False,
             timeout=self._timeout_seconds,
@@ -136,7 +126,7 @@ class OpenAIProvider:
                     ],
                 }
             ],
-            text_format=_OpenAIProfileExtractionResult,
+            text_format=ProfileExtractionResult,
             temperature=0,
             store=False,
             timeout=self._timeout_seconds,
@@ -149,7 +139,7 @@ class OpenAIProvider:
             model=self._summary_model,
             instructions=_summary_instructions(),
             input=f"Structured profile text:\n{redacted_text}",
-            text_format=_OpenAIProfileSummaryResult,
+            text_format=ProfileSummaryResult,
             temperature=0,
             store=False,
             timeout=self._timeout_seconds,

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Final
 
-
 MIN_ENTRIES_FOR_PERSONALIZATION: Final[int] = 10
 SHORT_TERM_ENTRY_COUNT: Final[int] = 20
 SIMILAR_USER_THRESHOLD: Final[float] = 0.70
@@ -15,6 +14,7 @@ IMAGE_PROFILE_MODEL: Final[str] = "gpt-5.4-mini"
 SUMMARY_MODEL: Final[str] = "gpt-5.4-mini"
 EMBEDDING_MODEL: Final[str] = "text-embedding-3-large"
 EMBEDDING_DIMENSIONS: Final[int] = 1024
+OPENAI_TIMEOUT_SECONDS: Final[float] = 30.0
 
 RECOMMENDATION_SCORE_WEIGHTS: Final[dict[str, float]] = {
     "content": 0.45,

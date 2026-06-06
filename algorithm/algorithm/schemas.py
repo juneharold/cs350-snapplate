@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Literal
 
@@ -7,7 +8,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from algorithm.taxonomy import INTERNAL_PROFILE_TAXONOMY, PUBLIC_RESTAURANT_CATEGORIES
 from algorithm.version import ALGORITHM_VERSION
-
 
 Score = Annotated[float, Field(ge=0.0, le=1.0)]
 Rating = Annotated[float, Field(ge=0.0, le=5.0)]
@@ -28,6 +28,40 @@ FoodTone = Literal[
     "hay",
     "bone",
 ]
+
+
+@dataclass(frozen=True)
+class WeightedEntryProfile:
+    entry: DiaryEntryInput
+    profile: EntryProfileArtifact
+    weight: float
+
+
+@dataclass(frozen=True)
+class CategoryStats:
+    visits: int = 0
+    rating_sum: float = 0.0
+    rating_count: int = 0
+    tone: str = "bone"
+    weight_sum: float = 0.0
+
+    @property
+    def avg_rating(self) -> float:
+        return self.rating_sum / self.rating_count if self.rating_count else 0.0
+
+
+@dataclass(frozen=True)
+class ScoredCandidate:
+    candidate: RestaurantInput
+    scores: RecommendationScoreBreakdown
+    reason: str
+    reason_category: str
+
+
+@dataclass(frozen=True)
+class CollaborativeSignal:
+    entries: list[DiaryEntryInput]
+    inactive_reason: str | None = None
 
 
 class ContractModel(BaseModel):

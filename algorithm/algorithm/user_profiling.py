@@ -2,20 +2,17 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from algorithm.config import SHORT_TERM_ENTRY_COUNT
 from algorithm.entry_profiling import FIELD_NAMES, profile_diary_entry
 from algorithm.providers import ProfileProvider
-from algorithm.schemas import DiaryEntryInput, EntryProfileArtifact, UserProfileArtifact
-
-
-@dataclass(frozen=True)
-class WeightedEntryProfile:
-    entry: DiaryEntryInput
-    profile: EntryProfileArtifact
-    weight: float
+from algorithm.schemas import (
+    DiaryEntryInput,
+    EntryProfileArtifact,
+    UserProfileArtifact,
+    WeightedEntryProfile,
+)
 
 
 def build_weighted_entry_profiles(

@@ -3,9 +3,8 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 from algorithm.config import (
     DAY_NAMES,
@@ -22,6 +21,8 @@ from algorithm.config import (
 )
 from algorithm.providers import ProfileProvider
 from algorithm.schemas import (
+    CategoryStats,
+    CollaborativeSignal,
     DiaryEntryInput,
     EntryProfileArtifact,
     FlavorLean,
@@ -32,6 +33,7 @@ from algorithm.schemas import (
     RecommendedRestaurant,
     RestaurantInput,
     RestaurantProfileArtifact,
+    ScoredCandidate,
     ScoredRecommendationArtifact,
     TasteCategory,
     TasteProfileInsufficient,
@@ -42,42 +44,14 @@ from algorithm.schemas import (
     TimeHeatmap,
     TopDish,
     UserProfileArtifact,
+    WeightedEntryProfile,
 )
 from algorithm.user_profiling import (
-    WeightedEntryProfile,
     aggregate_user_profile,
     build_weighted_entry_profiles,
 )
 
-
 logger = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class CategoryStats:
-    visits: int = 0
-    rating_sum: float = 0.0
-    rating_count: int = 0
-    tone: str = "bone"
-    weight_sum: float = 0.0
-
-    @property
-    def avg_rating(self) -> float:
-        return self.rating_sum / self.rating_count if self.rating_count else 0.0
-
-
-@dataclass(frozen=True)
-class ScoredCandidate:
-    candidate: RestaurantInput
-    scores: RecommendationScoreBreakdown
-    reason: str
-    reason_category: str
-
-
-@dataclass(frozen=True)
-class CollaborativeSignal:
-    entries: list[DiaryEntryInput]
-    inactive_reason: str | None = None
 
 
 def generate_taste_report(
