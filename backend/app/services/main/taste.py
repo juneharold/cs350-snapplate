@@ -4,11 +4,19 @@ from algorithm import generate_taste_report
 from algorithm.version import ALGORITHM_VERSION
 from sqlalchemy import desc, select
 
+from app.config.http_errors import AppError
 from app.config.lifespan import Context
 from app.dto.auth import UpdateUserData
+from app.models.algorithm_artifact import (
+    EntryProfileArtifactModel,
+    UserProfileArtifactModel,
+)
 from app.models.taste_report import TasteReportModel
 from app.repositories.user import UserRepository
+from app.services.algorithm.provider import configured_algorithm_provider
+from app.services.algorithm.taste import build_taste_refresh_artifacts
 from app.services.main.diary_inputs import DiaryInputService
+from app.utils.time import utcnow
 
 _MIN_ENTRIES = 10
 
@@ -24,31 +32,58 @@ class TasteService:
         stored yet, compute the insufficient-data shape on the fly."""
         stmt = (
             select(TasteReportModel)
-            .where(TasteReportModel.user_id == user_id)
-            .order_by(desc(TasteReportModel.generated_at))
+            .where(TasteReportModel.user_id == user_id)  # type: ignore[reportArgumentType]
+            .order_by(desc(TasteReportModel.generated_at))  # type: ignore[reportArgumentType]
             .limit(1)
         )
         latest = (await self.db.execute(stmt)).scalars().first()
         if latest is not None:
             return latest.payload_json
-        # Nothing stored → compute current shape (likely insufficient).
+        entries = await DiaryInputService(self.ctx).for_user(user_id)
+        if len(entries) >= _MIN_ENTRIES:
+            raise AppError(
+                503,
+                "taste_profile_unavailable",
+                "Taste profile is not ready. Start a refresh and try again.",
+            )
         return await self._compute_payload(user_id)
 
     async def refresh(self, user_id: str) -> dict:
-        """Recompute inline + persist, return the fresh payload."""
         return await self.recompute_and_store(user_id)
 
     async def recompute_and_store(self, user_id: str) -> dict:
         entries = await DiaryInputService(self.ctx).for_user(user_id)
-        try:
-            report = generate_taste_report(
-                user_id, entries, min_entries_required=_MIN_ENTRIES
-            )
-        except Exception:
-            # Preserve prior report on failure — just don't insert.
-            return await self.get_profile(user_id)
+        generated_at = utcnow()
+        artifacts = build_taste_refresh_artifacts(
+            user_id,
+            entries,
+            generated_at=generated_at,
+            ml_provider=configured_algorithm_provider(),
+            min_entries_required=_MIN_ENTRIES,
+        )
+        report = artifacts.report
 
         payload = report.model_dump(mode="json")
+        for profile in artifacts.entry_profiles:
+            self.db.add(
+                EntryProfileArtifactModel(
+                    entry_id=profile.entry_id,
+                    user_id=profile.user_id,
+                    payload_json=profile.model_dump(mode="json"),
+                    algorithm_version=ALGORITHM_VERSION,
+                    generated_at=generated_at,
+                )
+            )
+        if artifacts.user_profile is not None:
+            self.db.add(
+                UserProfileArtifactModel(
+                    user_id=user_id,
+                    source_entry_count=artifacts.user_profile.source_entry_count,
+                    payload_json=artifacts.user_profile.model_dump(mode="json"),
+                    algorithm_version=artifacts.user_profile.algorithm_version,
+                    generated_at=generated_at,
+                )
+            )
         self.db.add(
             TasteReportModel(
                 user_id=user_id,
@@ -56,6 +91,7 @@ class TasteService:
                 has_enough_data=bool(report.has_enough_data),
                 source_entry_count=len(entries),
                 algorithm_version=ALGORITHM_VERSION,
+                generated_at=generated_at,
             )
         )
         await self.db.commit()
@@ -71,5 +107,9 @@ class TasteService:
 
     async def _compute_payload(self, user_id: str) -> dict:
         entries = await DiaryInputService(self.ctx).for_user(user_id)
-        report = generate_taste_report(user_id, entries, min_entries_required=_MIN_ENTRIES)
+        report = generate_taste_report(
+            user_id,
+            entries,
+            min_entries_required=_MIN_ENTRIES,
+        )
         return report.model_dump(mode="json")

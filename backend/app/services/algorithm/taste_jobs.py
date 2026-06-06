@@ -1,0 +1,21 @@
+from __future__ import annotations
+
+from app.config.lifespan import Context, InternalContext
+from app.config.logger import create_logger
+from app.services.main.taste import TasteService
+
+logger = create_logger(__name__)
+
+
+async def refresh_taste_for_user(internal: InternalContext, user_id: str) -> None:
+    async with internal.db_sessionmaker() as db:
+        ctx = Context(
+            db_session=db,
+            http_client=internal.http_client,
+            s3=internal.s3,
+        )
+        try:
+            await TasteService(ctx).recompute_and_store(user_id)
+        except Exception as exc:
+            logger.error(f"taste refresh failed for {user_id}: {exc}", exc_info=exc)
+            raise

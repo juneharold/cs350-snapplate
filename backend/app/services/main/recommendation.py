@@ -1,21 +1,35 @@
 from __future__ import annotations
 
-from algorithm import generate_recommendations
-from algorithm.schemas import DiaryEntryInput, RecommendationContext, RestaurantInput
+from collections.abc import Sequence
 
+from algorithm import generate_recommendations
+from algorithm.config import RECOMMENDATION_COOLDOWN_REQUESTS
+from algorithm.schemas import DiaryEntryInput, RestaurantInput
+
+from app.config.http_errors import AppError
 from app.config.lifespan import Context
 from app.dto.restaurant import RecommendedResponseCore
+from app.repositories.algorithm_artifact import AlgorithmArtifactRepository
+from app.repositories.bookmark import BookmarkRepository
+from app.repositories.recommendation_exposure import RecommendationExposureRepository
 from app.repositories.restaurant import RestaurantRepository
 from app.schemas.restaurant import RecommendedRestaurantInfo
+from app.services.algorithm.inputs import restaurant_input_from_model
+from app.services.algorithm.recommendations import recommendation_context_from_artifacts
 from app.services.main.diary_inputs import DiaryInputService
+from app.utils.time import utcnow
 
-_MIN_ENTRIES = 3
+_MIN_ENTRIES = 10
 
 
 class RecommendationService:
     def __init__(self, ctx: Context):
         self.ctx = ctx
-        self.restaurants = RestaurantRepository(ctx.db_session)
+        self.db = ctx.db_session
+        self.restaurants = RestaurantRepository(self.db)
+        self.bookmarks = BookmarkRepository(self.db)
+        self.artifacts = AlgorithmArtifactRepository(self.db)
+        self.exposures = RecommendationExposureRepository(self.db)
 
     async def recommend(
         self, user_id: str | None, lat: float | None, lng: float | None, limit: int
@@ -29,57 +43,81 @@ class RecommendationService:
                 items=[], based_on_entries=len(entries), has_enough_data=False
             )
 
-        candidates = await self._candidates(entries)
-        context = RecommendationContext(
-            diary_entries=entries,
-            candidate_restaurants=candidates,
-            lat=lat,
-            lng=lng,
-            exposure_history=[],
-        )
-        try:
-            result = generate_recommendations(user_id, context, limit=limit, min_entries_required=_MIN_ENTRIES)
-        except Exception:
-            return RecommendedResponseCore(
-                items=[], based_on_entries=len(entries), has_enough_data=False
+        user_profile = await self.artifacts.latest_user_profile(user_id)
+        if user_profile is None:
+            raise AppError(
+                503,
+                "recommendations_unavailable",
+                "Recommendations are not ready. Refresh taste analysis first.",
             )
 
-        items = [
-            RecommendedRestaurantInfo(**r.model_dump())
-            for r in result.items
+        candidates = await self._candidates(entries, user_id, lat, lng)
+        restaurant_artifacts = await self.artifacts.latest_restaurant_profiles(
+            [candidate.id for candidate in candidates]
+        )
+        profiled_candidates = [
+            candidate for candidate in candidates if candidate.id in restaurant_artifacts
         ]
+        if not profiled_candidates:
+            raise AppError(
+                503,
+                "recommendations_unavailable",
+                "Restaurant profiles are not ready yet.",
+            )
+
+        requested_at = utcnow()
+        context = recommendation_context_from_artifacts(
+            diary_entries=entries,
+            peer_diary_entries=await DiaryInputService(self.ctx).for_peers(user_id),
+            candidate_restaurants=profiled_candidates,
+            user_profile_payload=user_profile.payload_json,
+            restaurant_profile_payloads=[
+                restaurant_artifacts[candidate.id].payload_json for candidate in profiled_candidates
+            ],
+            exposure_history=await self.exposures.latest_restaurant_ids(
+                user_id,
+                RECOMMENDATION_COOLDOWN_REQUESTS,
+            ),
+            lat=lat,
+            lng=lng,
+            requested_at=requested_at,
+        )
+        result = generate_recommendations(
+            user_id,
+            context,
+            limit=limit,
+            min_entries_required=_MIN_ENTRIES,
+        )
+
+        items = [RecommendedRestaurantInfo(**r.model_dump()) for r in result.items]
+        await self.exposures.add_many(
+            user_id=user_id,
+            restaurant_reasons={item.id: item.reason for item in items},
+            shown_at=requested_at,
+        )
         return RecommendedResponseCore(
             items=items,
             based_on_entries=result.based_on_entries,
             has_enough_data=result.has_enough_data,
         )
 
-    async def _candidates(self, entries: list[DiaryEntryInput]) -> list[RestaurantInput]:
-        """Candidate pool = all active restaurants not yet visited, as RestaurantInput."""
+    async def _candidates(
+        self,
+        entries: Sequence[DiaryEntryInput],
+        user_id: str,
+        lat: float | None,
+        lng: float | None,
+    ) -> list[RestaurantInput]:
         visited = {e.restaurant.id for e in entries}
+        bookmarked = await self.bookmarks.bookmarked_restaurant_ids(user_id)
         rows = await self.restaurants.list_active(None, None, limit=200)
-        out: list[RestaurantInput] = []
-        for r in rows:
-            if r.id in visited:
-                continue
-            out.append(
-                RestaurantInput(
-                    id=r.id,
-                    name=r.name,
-                    category=r.category,
-                    signature_dish=r.signature_dish,
-                    rating=r.rating,
-                    rating_count=r.rating_count,
-                    distance_m=0,
-                    thumbnail_url=r.thumbnail_url,
-                    thumbnail_tone=r.thumbnail_tone,
-                    thumbnail_label=r.thumbnail_label,
-                    tags=list(r.tags or []),
-                    lat=r.lat,
-                    lng=r.lng,
-                    kakao_id=r.kakao_id,
-                    neighborhood=r.neighborhood,
-                    is_bookmarked=False,
-                )
+        return [
+            restaurant_input_from_model(
+                row,
+                lat=lat,
+                lng=lng,
+                is_bookmarked=row.id in bookmarked,
             )
-        return out
+            for row in rows
+            if row.id not in visited
+        ]

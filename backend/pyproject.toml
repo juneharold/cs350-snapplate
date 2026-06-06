@@ -18,8 +18,8 @@ dependencies = [
     "loguru>=0.7",
     "python-dotenv>=1.0",
     "python-multipart>=0.0.9",
-    # Algorithm package, imported in-process. Path dependency on the sibling repo dir.
-    "snapplate",
+    # Algorithm package, imported in-process. Path dependency on the sibling project dir.
+    "algorithm",
 ]
 
 [dependency-groups]
@@ -31,7 +31,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-snapplate = { path = "..", editable = true }
+algorithm = { path = "../algorithm", editable = true }
 
 [tool.ruff]
 line-length = 100

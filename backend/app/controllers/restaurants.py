@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
 
 from app.config.auth import UserContext, get_optional_user_context
 from app.config.lifespan import Context, get_context
@@ -8,7 +8,6 @@ from app.dto.restaurant import (
     NearbyResponse,
     NearbyResponseCore,
     RecommendedResponse,
-    RecommendedResponseCore,
     RestaurantDetailResponse,
     SearchResponse,
     SearchResponseCore,
@@ -25,6 +24,8 @@ def _uid(user: UserContext | None) -> str | None:
 
 @api.get("/restaurants/nearby", response_model=NearbyResponse)
 async def nearby(
+    background_tasks: BackgroundTasks,
+    request: Request,
     lat: float = Query(...),
     lng: float = Query(...),
     radius_m: int = Query(default=1500, ge=200, le=10000),
@@ -35,9 +36,11 @@ async def nearby(
     ctx: Context = Depends(get_context),
     user: UserContext | None = Depends(get_optional_user_context),
 ) -> NearbyResponse:
-    items = await RestaurantService(ctx).nearby(
-        lat, lng, radius_m, sort, category, min_rating, limit, _uid(user)
-    )
+    items = await RestaurantService(
+        ctx,
+        background_tasks,
+        request.state.context,
+    ).nearby(lat, lng, radius_m, sort, category, min_rating, limit, _uid(user))
     return NearbyResponse(
         response=NearbyResponseCore(items=items, next_cursor=None, has_more=False)
     )

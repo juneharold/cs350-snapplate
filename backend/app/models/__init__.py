@@ -1,3 +1,8 @@
+from app.models.algorithm_artifact import (
+    EntryProfileArtifactModel,
+    RestaurantProfileArtifactModel,
+    UserProfileArtifactModel,
+)
 from app.models.base import SQLModelBase
 from app.models.bookmark import BookmarkModel
 from app.models.draft import DraftMediaModel, DraftModel
@@ -13,6 +18,9 @@ from app.models.user import UserModel
 
 __all__ = [
     "SQLModelBase",
+    "EntryProfileArtifactModel",
+    "UserProfileArtifactModel",
+    "RestaurantProfileArtifactModel",
     "UserModel",
     "SettingsModel",
     "MagicLinkModel",

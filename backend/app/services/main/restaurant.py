@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from algorithm.taxonomy import UnknownRestaurantCategoryError
+from fastapi import BackgroundTasks
+
 from app.config.http_errors import AppError, NotFoundError
-from app.config.lifespan import Context
+from app.config.lifespan import Context, InternalContext
 from app.models.restaurant import RestaurantModel
 from app.repositories.bookmark import BookmarkRepository
 from app.repositories.restaurant import RestaurantRepository
@@ -13,6 +16,7 @@ from app.schemas.restaurant import (
     RestaurantSummaryInfo,
     SearchResultInfo,
 )
+from app.services.algorithm.restaurants import profile_restaurants
 from app.services.kakao.client import KakaoService
 from app.utils.geo import haversine_m
 
@@ -22,10 +26,17 @@ _REFRESH_BELOW = 10
 
 
 class RestaurantService:
-    def __init__(self, ctx: Context):
+    def __init__(
+        self,
+        ctx: Context,
+        background_tasks: BackgroundTasks | None = None,
+        internal: InternalContext | None = None,
+    ):
         self.repo = RestaurantRepository(ctx.db_session)
         self.bookmarks = BookmarkRepository(ctx.db_session)
         self.kakao = KakaoService(ctx.http_client)
+        self.background_tasks = background_tasks
+        self.internal = internal
 
     async def nearby(
         self,
@@ -46,6 +57,7 @@ class RestaurantService:
         if len(rows) < max(_REFRESH_BELOW, limit):
             rows = await self._refresh_from_kakao(lat, lng, radius_m, category, min_rating)
 
+        self._schedule_profile_refresh(rows)
         bookmarked = await self._bookmarked(user_id)
         items = [self._summary(r, lat, lng, bookmarked) for r in rows]
         # The cache (list_active) is not geo-bounded, so drop anything outside the
@@ -96,6 +108,8 @@ class RestaurantService:
     ) -> list[RestaurantModel]:
         try:
             kakao_rows = await self.kakao.category_search(lat, lng, radius_m)
+        except UnknownRestaurantCategoryError:
+            raise
         except Exception:
             # Kakao down + empty cache → nothing to serve.
             return []
@@ -107,6 +121,15 @@ class RestaurantService:
             k.neighborhood = neighborhood
         await self.repo.upsert_many(kakao_rows)
         return list(await self.repo.list_active(category, min_rating, limit=200))
+
+    def _schedule_profile_refresh(self, rows: Sequence[RestaurantModel]) -> None:
+        if self.background_tasks is None or self.internal is None:
+            return
+        self.background_tasks.add_task(
+            profile_restaurants,
+            self.internal,
+            [restaurant.id for restaurant in rows],
+        )
 
     async def _bookmarked(self, user_id: str | None) -> set[str]:
         if not user_id:

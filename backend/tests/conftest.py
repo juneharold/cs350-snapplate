@@ -2,7 +2,6 @@ import os
 import re
 import socket
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -11,6 +10,7 @@ import pytest
 
 _ROOT = Path(__file__).resolve().parent.parent
 _REPO = _ROOT.parent
+_ALGORITHM_ROOT = _REPO / "algorithm"
 _LOG = Path("/tmp/snapplate_test_server.log")
 
 
@@ -25,14 +25,29 @@ def _free_port() -> int:
 @pytest.fixture(scope="session")
 def server() -> str:
     port = _free_port()
-    env = {**os.environ, "PYTHONPATH": str(_REPO)}
+    env = {
+        **os.environ,
+        "PYTHONPATH": str(_ALGORITHM_ROOT),
+        "ALGORITHM_PROVIDER": "deterministic",
+    }
     log = _LOG.open("w")
     proc = subprocess.Popen(
         [
-            str(_ROOT / ".venv/bin/python"), "-m", "uvicorn", "app.main:app",
-            "--host", "127.0.0.1", "--port", str(port), "--log-level", "info",
+            str(_ROOT / ".venv/bin/python"),
+            "-m",
+            "uvicorn",
+            "app.main:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--log-level",
+            "info",
         ],
-        cwd=str(_ROOT), env=env, stdout=log, stderr=subprocess.STDOUT,
+        cwd=str(_ROOT),
+        env=env,
+        stdout=log,
+        stderr=subprocess.STDOUT,
     )
     base = f"http://127.0.0.1:{port}"
     for _ in range(40):

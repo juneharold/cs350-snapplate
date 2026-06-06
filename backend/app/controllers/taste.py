@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 
 from app.config.auth import UserContext, get_user_context
 from app.config.lifespan import Context, get_context
-from app.dto.base import BaseResponse
+from app.dto.taste import (
+    TasteProfileResponse,
+    TasteProfileResponseCore,
+    TasteRefreshResponse,
+    TasteRefreshResponseCore,
+)
+from app.services.algorithm.taste_jobs import refresh_taste_for_user
 from app.services.main.taste import TasteService
-
-
-TasteProfileResponse = BaseResponse[dict]
+from app.utils.ids import make_id
 
 api = APIRouter()
 
@@ -19,13 +23,17 @@ async def get_profile(
     user: UserContext = Depends(get_user_context),
 ) -> TasteProfileResponse:
     payload = await TasteService(ctx).get_profile(user.user_id)
-    return TasteProfileResponse(response=payload)
+    return TasteProfileResponse(response=TasteProfileResponseCore.model_validate(payload))
 
 
-@api.post("/taste/refresh", response_model=TasteProfileResponse)
+@api.post("/taste/refresh", response_model=TasteRefreshResponse, status_code=202)
 async def refresh(
-    ctx: Context = Depends(get_context),
+    background_tasks: BackgroundTasks,
+    request: Request,
     user: UserContext = Depends(get_user_context),
-) -> TasteProfileResponse:
-    payload = await TasteService(ctx).refresh(user.user_id)
-    return TasteProfileResponse(response=payload)
+) -> TasteRefreshResponse:
+    job_id = make_id("tj")
+    background_tasks.add_task(refresh_taste_for_user, request.state.context, user.user_id)
+    return TasteRefreshResponse(
+        response=TasteRefreshResponseCore(job_id=job_id),
+    )
