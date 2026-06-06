@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import DateTime
 from sqlmodel import Field
 
-from app.models.base import OptionalTimestampField, SQLModelBase, TimestampField
+from app.models.base import OptionalTimestampField, SQLModelBase
 
 
 class MagicLinkModel(SQLModelBase, table=True):

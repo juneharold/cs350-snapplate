@@ -63,9 +63,9 @@ class UserService:
         ).scalar()
         bookmarks_count = (
             await db.execute(
-                select(func.count()).select_from(BookmarkModel).where(
-                    BookmarkModel.user_id == user_id
-                )
+                select(func.count())
+                .select_from(BookmarkModel)
+                .where(BookmarkModel.user_id == user_id)
             )
         ).scalar() or 0
 

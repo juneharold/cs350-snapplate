@@ -33,4 +33,3 @@ def test_repeat_exposure_rate_measures_recently_seen_recommendations() -> None:
 def test_evaluation_metrics_reject_non_positive_k() -> None:
     with pytest.raises(ValueError, match="k"):
         precision_at_k(["r1"], {"r1"}, 0)
-

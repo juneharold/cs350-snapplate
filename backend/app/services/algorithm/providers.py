@@ -324,7 +324,9 @@ def _deterministic_image_profile(image_reference: str) -> ProfileExtractionResul
             _add_deterministic_term(profile, confidence, evidence, "cuisine", term, score, keyword)
     for keyword, term, score in DETERMINISTIC_IMAGE_FOOD_TYPES:
         if keyword in normalized:
-            _add_deterministic_term(profile, confidence, evidence, "food_type", term, score, keyword)
+            _add_deterministic_term(
+                profile, confidence, evidence, "food_type", term, score, keyword
+            )
     return ProfileExtractionResult(profile=profile, confidence=confidence, evidence=evidence)
 
 
@@ -340,7 +342,9 @@ def _add_deterministic_term(
     terms = profile.setdefault(field_name, {})
     terms[term] = max(terms.get(term, 0.0), score)
     confidence[field_name] = max(confidence.get(field_name, 0.0), score)
-    source = f"note: {keyword}" if field_name in {"taste", "context", "emotion"} else f"image: {keyword}"
+    source = (
+        f"note: {keyword}" if field_name in {"taste", "context", "emotion"} else f"image: {keyword}"
+    )
     sources = evidence.setdefault(field_name, [])
     if source not in sources:
         sources.append(source)
@@ -371,8 +375,7 @@ def _validated_embedding(embedding: object, expected_dimensions: int) -> list[fl
         raise ValueError("embedding response did not contain a list embedding")
     if len(embedding) != expected_dimensions:
         raise ValueError(
-            f"embedding response had {len(embedding)} dimensions; "
-            f"expected {expected_dimensions}"
+            f"embedding response had {len(embedding)} dimensions; expected {expected_dimensions}"
         )
     values: list[float] = []
     for value in embedding:

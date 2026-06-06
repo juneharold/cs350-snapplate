@@ -170,12 +170,7 @@ def normalize_public_restaurant_category(
     raw_path: str | None = None,
 ) -> str:
     values = [value.strip() for value in (raw_category, raw_path) if value and value.strip()]
-    path_parts = [
-        part.strip()
-        for value in values
-        for part in value.split(">")
-        if part.strip()
-    ]
+    path_parts = [part.strip() for value in values for part in value.split(">") if part.strip()]
 
     for candidate in [*values, *reversed(path_parts)]:
         normalized = _normalize_category_candidate(candidate)

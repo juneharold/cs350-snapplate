@@ -3,9 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from sqlalchemy import DateTime
+from sqlalchemy import DateTime, text
 from sqlalchemy import ForeignKey as SAForeignKey
-from sqlalchemy import text
 from sqlmodel import Field, SQLModel
 
 from app.utils.time import utcnow

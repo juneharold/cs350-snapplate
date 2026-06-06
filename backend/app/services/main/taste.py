@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from app.services.algorithm import generate_taste_report
 from sqlalchemy import desc, select
 
 from app.config.lifespan import Context
@@ -8,6 +7,7 @@ from app.dto.auth import UpdateUserData
 from app.models.taste_report import TasteReportModel
 from app.repositories.algorithm_artifact import AlgorithmArtifactRepository
 from app.repositories.user import UserRepository
+from app.services.algorithm import generate_taste_report
 from app.services.algorithm.taste import build_taste_refresh_artifacts
 from app.services.main.diary_inputs import DiaryInputService
 from app.utils.time import utcnow

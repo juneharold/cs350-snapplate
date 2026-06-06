@@ -115,10 +115,7 @@ def test_aggregate_user_profile_weights_recency_richness_and_confidence() -> Non
     )
 
     assert profile.source_entry_count == 2
-    assert (
-        profile.long_term_profile["taste"]["spicy"]
-        > profile.long_term_profile["taste"]["sweet"]
-    )
+    assert profile.long_term_profile["taste"]["spicy"] > profile.long_term_profile["taste"]["sweet"]
     assert "sweet" not in profile.short_term_profile["taste"]
     assert profile.category_rating_vector == {"Bakery": 5.0, "Korean BBQ": 4.5}
     assert profile.confidence["taste"] < profile.confidence["temporal_feature"]

@@ -22,7 +22,7 @@ class MeInfo(BaseSchema):
     created_at: str
 
     @classmethod
-    def from_model(cls, m: UserModel, stats: UserStatsInfo) -> "MeInfo":
+    def from_model(cls, m: UserModel, stats: UserStatsInfo) -> MeInfo:
         return cls(
             id=m.id,
             email=m.email,

@@ -36,8 +36,7 @@ USER_ID = "u_eval"
 
 def test_evaluation_threshold_gates_taste_and_recommendations() -> None:
     entries = [
-        entry(index, USER_ID, restaurant(f"r_history_{index}", "Noodles"))
-        for index in range(3)
+        entry(index, USER_ID, restaurant(f"r_history_{index}", "Noodles")) for index in range(3)
     ]
     context = RecommendationContext(
         diary_entries=entries,
@@ -235,9 +234,7 @@ def test_evaluation_inactive_collaborative_score_logs_once(
         for record in caplog.records
         if "collaborative score inactive" in record.message
     ]
-    assert messages == [
-        "collaborative score inactive for request: no peer diary entries"
-    ]
+    assert messages == ["collaborative score inactive for request: no peer diary entries"]
 
 
 def test_evaluation_repeated_exposure_penalty_prioritizes_fresh_equivalent_items() -> None:
@@ -338,8 +335,7 @@ def test_evaluation_explanations_are_grounded_in_visible_signals() -> None:
 
     assert "noodle" in reasons_by_category["Noodles"]
     assert any(
-        signal in reasons_by_category["Chinese"]
-        for signal in ("rated", "variety", "chinese")
+        signal in reasons_by_category["Chinese"] for signal in ("rated", "variety", "chinese")
     )
     assert all(reason.strip() for reason in reasons_by_category.values())
 

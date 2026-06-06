@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlmodel import Column, Field
 from sqlmodel import JSON as SAJSON
-from sqlmodel import BigInteger
+from sqlmodel import BigInteger, Column, Field
 
-from app.models.base import ForeignKeyField, OptionalTimestampField, SQLModelBase, TimestampField
+from app.models.base import ForeignKeyField, SQLModelBase, TimestampField
 
 
 class TasteReportModel(SQLModelBase, table=True):

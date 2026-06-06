@@ -117,9 +117,7 @@ def test_profile_diary_entry_extracts_metadata_time_location_and_rating() -> Non
     assert profile.context == {}
     assert_all_profile_fields_have_confidence_and_evidence(profile)
     assert profile.confidence["temporal_feature"] == 1.0
-    assert profile.evidence["temporal_feature"] == [
-        "captured_at: 2026-05-24T12:43:00+00:00"
-    ]
+    assert profile.evidence["temporal_feature"] == ["captured_at: 2026-05-24T12:43:00+00:00"]
     assert "restaurant.category: Korean BBQ" in profile.evidence["cuisine"]
     assert "restaurant.distance_m: 320" in profile.evidence["location_feature"]
     assert "rating: 4.5" in profile.evidence["emotion"]

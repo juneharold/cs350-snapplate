@@ -16,7 +16,7 @@ class UpdateSettingsRequest(BaseRequest):
     notifications: NotificationPatch | None = None
     appearance: AppearancePref | None = None
 
-    def to_data(self) -> "UpdateSettingsData":
+    def to_data(self) -> UpdateSettingsData:
         """Convert this nested API DTO into the flat domain update schema.
 
         Lives on the DTO (not the service) so the request shape never crosses

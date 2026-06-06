@@ -14,7 +14,7 @@ class AuthUserInfo(BaseSchema):
     is_new: bool = False
 
     @classmethod
-    def from_model(cls, m: UserModel, *, is_new: bool = False) -> "AuthUserInfo":
+    def from_model(cls, m: UserModel, *, is_new: bool = False) -> AuthUserInfo:
         return cls(
             id=m.id,
             email=m.email,

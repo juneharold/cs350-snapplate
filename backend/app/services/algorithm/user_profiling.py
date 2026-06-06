@@ -185,13 +185,9 @@ def _aggregate_terms(
     for field_name, terms in term_totals.items():
         denominator = denominators[field_name]
         normalized = {
-            term: round(value / denominator, 4)
-            for term, value in terms.items()
-            if denominator > 0
+            term: round(value / denominator, 4) for term, value in terms.items() if denominator > 0
         }
-        profile[field_name] = dict(
-            sorted(normalized.items(), key=lambda item: (-item[1], item[0]))
-        )
+        profile[field_name] = dict(sorted(normalized.items(), key=lambda item: (-item[1], item[0])))
         confidence[field_name] = round(min(1.0, denominator / total_weight), 4)
 
     return profile, confidence, dict(evidence)
@@ -240,7 +236,4 @@ def _profile_text(
 
 
 def _term_text(terms: dict[str, float]) -> str:
-    return ", ".join(
-        f"{term} {score:.2f}"
-        for term, score in list(terms.items())[:4]
-    )
+    return ", ".join(f"{term} {score:.2f}" for term, score in list(terms.items())[:4])

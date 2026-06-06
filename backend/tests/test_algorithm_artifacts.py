@@ -51,7 +51,9 @@ def test_algorithm_artifact_models_declare_vector_columns_and_unique_constraints
     )
 
     assert UserProfileArtifactModel.__table__.c.long_term_embedding.type.dim == EMBEDDING_DIMENSIONS
-    assert UserProfileArtifactModel.__table__.c.short_term_embedding.type.dim == EMBEDDING_DIMENSIONS
+    assert (
+        UserProfileArtifactModel.__table__.c.short_term_embedding.type.dim == EMBEDDING_DIMENSIONS
+    )
     assert RestaurantProfileArtifactModel.__table__.c.embedding.type.dim == EMBEDDING_DIMENSIONS
 
     assert _unique_columns(EntryProfileArtifactModel) == {("entry_id",)}

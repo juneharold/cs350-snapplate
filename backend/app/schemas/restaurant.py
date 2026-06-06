@@ -26,7 +26,7 @@ class RestaurantSummaryInfo(BaseSchema):
     @classmethod
     def from_model(
         cls, m: RestaurantModel, *, distance_m: int = 0, is_bookmarked: bool = False
-    ) -> "RestaurantSummaryInfo":
+    ) -> RestaurantSummaryInfo:
         return cls(
             id=m.id,
             name=m.name,
@@ -78,7 +78,7 @@ class RestaurantDetailInfo(RestaurantSummaryInfo):
         distance_m: int = 0,
         is_bookmarked: bool = False,
         personalization: PersonalizationInfo | None = None,
-    ) -> "RestaurantDetailInfo":
+    ) -> RestaurantDetailInfo:
         base = RestaurantSummaryInfo.from_model(
             m, distance_m=distance_m, is_bookmarked=is_bookmarked
         ).model_dump()

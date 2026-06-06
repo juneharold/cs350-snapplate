@@ -3,10 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import CheckConstraint, DateTime
-from sqlmodel import Column, Field
 from sqlmodel import JSON as SAJSON
+from sqlmodel import Column, Field
 
-from app.models.base import ForeignKeyField, OptionalTimestampField, SQLModelBase, TimestampField
+from app.models.base import ForeignKeyField, OptionalTimestampField, SQLModelBase
 from app.utils.ids import entry_id
 
 

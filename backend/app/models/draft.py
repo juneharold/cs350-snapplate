@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import CheckConstraint, DateTime
 from sqlmodel import Field
 
-from app.models.base import ForeignKeyField, OptionalTimestampField, SQLModelBase, TimestampField
+from app.models.base import ForeignKeyField, OptionalTimestampField, SQLModelBase
 from app.types.draft import DraftStatus
 from app.utils.ids import draft_id
 

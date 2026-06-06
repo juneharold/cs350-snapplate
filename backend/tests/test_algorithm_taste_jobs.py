@@ -68,9 +68,9 @@ async def test_repository_creates_new_row_after_finished_job(monkeypatch) -> Non
     monkeypatch.setattr(taste_job_repo, "make_id", lambda prefix: f"{prefix}_new")
     db = _TasteJobDb([job])
 
-    returned, newly_queued = await taste_job_repo.TasteJobRepository(
-        db
-    ).get_or_create_for_user("u_1")
+    returned, newly_queued = await taste_job_repo.TasteJobRepository(db).get_or_create_for_user(
+        "u_1"
+    )
 
     assert returned is not job
     assert newly_queued is True
@@ -117,9 +117,9 @@ async def test_repository_returns_active_job_after_duplicate_insert_conflict(
     monkeypatch.setattr(taste_job_repo, "make_id", lambda prefix: f"{prefix}_attempt")
     db = _InsertConflictDb(active)
 
-    returned, newly_queued = await taste_job_repo.TasteJobRepository(
-        db
-    ).get_or_create_for_user("u_1")
+    returned, newly_queued = await taste_job_repo.TasteJobRepository(db).get_or_create_for_user(
+        "u_1"
+    )
 
     assert returned is active
     assert newly_queued is False

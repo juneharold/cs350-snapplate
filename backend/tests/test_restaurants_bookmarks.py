@@ -9,7 +9,9 @@ KAIST = {"lat": 36.3504, "lng": 127.3845}
 def warm_restaurant(client):
     """Ensure the cache has restaurants; return one restaurant id."""
     h = auth_headers(client, "t-rest-seed@snapplate.app")
-    r = client.get("/v1/restaurants/nearby", params={**KAIST, "radius_m": 1000, "limit": 10}, headers=h)
+    r = client.get(
+        "/v1/restaurants/nearby", params={**KAIST, "radius_m": 1000, "limit": 10}, headers=h
+    )
     items = r.json()["response"]["items"]
     assert items, "Kakao should return restaurants near KAIST"
     return items[0]["id"]
@@ -17,7 +19,9 @@ def warm_restaurant(client):
 
 def test_nearby_returns_restaurants(client):
     h = auth_headers(client, "t-nearby@snapplate.app")
-    r = client.get("/v1/restaurants/nearby", params={**KAIST, "radius_m": 1000, "limit": 5}, headers=h)
+    r = client.get(
+        "/v1/restaurants/nearby", params={**KAIST, "radius_m": 1000, "limit": 5}, headers=h
+    )
     assert r.status_code == 200
     items = r.json()["response"]["items"]
     assert len(items) > 0

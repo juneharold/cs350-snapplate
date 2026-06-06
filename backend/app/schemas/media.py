@@ -28,7 +28,7 @@ class MediaInfo(BaseSchema):
     @classmethod
     def from_model(
         cls, m: MediaModel, url: str | None = None, thumbnail_url: str | None = None
-    ) -> "MediaInfo":
+    ) -> MediaInfo:
         """url/thumbnail_url are freshly-signed URLs minted at serialize time.
 
         We no longer read m.url/m.thumbnail_url (those frozen columns are unused).

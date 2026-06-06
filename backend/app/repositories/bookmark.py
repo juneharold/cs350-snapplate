@@ -7,9 +7,7 @@ from app.models.bookmark import BookmarkModel
 from app.repositories.base import BaseRepository
 
 
-class BookmarkRepository(
-    BaseRepository[BookmarkModel, CreateBookmarkData, UpdateBookmarkData]
-):
+class BookmarkRepository(BaseRepository[BookmarkModel, CreateBookmarkData, UpdateBookmarkData]):
     model = BookmarkModel
 
     async def bookmarked_restaurant_ids(self, user_id: str) -> set[str]:

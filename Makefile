@@ -66,10 +66,10 @@ db-rollback:  ## Roll back the last migration
 
 # Quality + tests
 lint:  ## ruff check + format check
-	cd $(BACKEND_DIR) && ruff check app && ruff format --check app
+	cd $(BACKEND_DIR) && $(PY) -m ruff check app && $(PY) -m ruff format --check app
 
 format:  ## ruff format + autofix
-	cd $(BACKEND_DIR) && ruff format app && ruff check --fix app
+	cd $(BACKEND_DIR) && $(PY) -m ruff format app && $(PY) -m ruff check --fix app
 
 typecheck:  ## pyright
 	cd $(BACKEND_DIR) && pyright app

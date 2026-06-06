@@ -187,10 +187,9 @@ def _recommendation_scores(
             if key != "collaborative"
         }
     weight_total = sum(active_weights.values())
-    final_score = sum(
-        active_weights[key] * score_values[key]
-        for key in active_weights
-    ) / weight_total
+    final_score = (
+        sum(active_weights[key] * score_values[key] for key in active_weights) / weight_total
+    )
     return RecommendationScoreBreakdown(
         content_score=round(content_score, 6),
         collaborative_score=round(collaborative_score, 6),
@@ -251,18 +250,17 @@ def _meal_period_category_score(
 def _quality_score(candidate: RestaurantInput) -> float:
     rating_score = candidate.rating / 5.0
     rating_count_score = min(1.0, candidate.rating_count / 100)
-    metadata_score = sum(
-        (
-            1 if candidate.signature_dish else 0,
-            1 if candidate.tags else 0,
-            1 if candidate.thumbnail_url else 0,
+    metadata_score = (
+        sum(
+            (
+                1 if candidate.signature_dish else 0,
+                1 if candidate.tags else 0,
+                1 if candidate.thumbnail_url else 0,
+            )
         )
-    ) / 3
-    return (
-        0.55 * rating_score
-        + 0.25 * rating_count_score
-        + 0.20 * metadata_score
+        / 3
     )
+    return 0.55 * rating_score + 0.25 * rating_count_score + 0.20 * metadata_score
 
 
 def _novelty_score(candidate: RestaurantInput, active_exposure_history: set[str]) -> float:
@@ -529,8 +527,7 @@ def _validate_user_profile_embeddings(user_profile: UserProfileArtifact) -> None
 def _validate_embedding(embedding: Sequence[float], label: str) -> None:
     if len(embedding) != EMBEDDING_DIMENSIONS:
         raise ValueError(
-            f"{label} must have {EMBEDDING_DIMENSIONS} embedding values; "
-            f"got {len(embedding)}"
+            f"{label} must have {EMBEDDING_DIMENSIONS} embedding values; got {len(embedding)}"
         )
     if not any(value != 0 for value in embedding):
         raise ValueError(f"{label} embedding must not be all zeros")

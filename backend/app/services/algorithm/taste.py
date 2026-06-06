@@ -42,7 +42,9 @@ def build_taste_refresh_artifacts(
         )
         return TasteRefreshArtifacts(report=report, entry_profiles=[], user_profile=None)
 
-    entry_profiles = [profile_diary_entry(entry, profile_provider=profile_provider) for entry in entries]
+    entry_profiles = [
+        profile_diary_entry(entry, profile_provider=profile_provider) for entry in entries
+    ]
     weighted_entries = build_weighted_entry_profiles(
         user_id,
         entries,

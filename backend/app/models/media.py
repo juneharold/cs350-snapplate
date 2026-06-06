@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlmodel import Column, Field
 from sqlmodel import JSON as SAJSON
+from sqlmodel import Column, Field
 
-from app.models.base import ForeignKeyField, OptionalTimestampField, SQLModelBase, TimestampField
+from app.models.base import ForeignKeyField, OptionalTimestampField, SQLModelBase
 from app.types.restaurant import FoodTone
 from app.utils.ids import media_id
 

@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field
 
-from app.models.base import ForeignKeyField, OptionalTimestampField, SQLModelBase, TimestampField
+from app.models.base import ForeignKeyField, SQLModelBase, TimestampField
 from app.utils.ids import bookmark_id
 
 

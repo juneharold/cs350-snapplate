@@ -5,9 +5,7 @@ from app.models.settings import SettingsModel
 from app.repositories.base import BaseRepository
 
 
-class SettingsRepository(
-    BaseRepository[SettingsModel, CreateSettingsData, UpdateSettingsData]
-):
+class SettingsRepository(BaseRepository[SettingsModel, CreateSettingsData, UpdateSettingsData]):
     model = SettingsModel
 
     async def get_or_create(self, user_id: str) -> SettingsModel:

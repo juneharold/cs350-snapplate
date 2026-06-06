@@ -27,9 +27,7 @@ async def list_entries(
     ctx: Context = Depends(get_context),
     user: UserContext = Depends(get_user_context),
 ) -> EntryListResponse:
-    items, stats = await EntryService(ctx).list(
-        user.user_id, sort, q, date_from, date_to, limit
-    )
+    items, stats = await EntryService(ctx).list(user.user_id, sort, q, date_from, date_to, limit)
     return EntryListResponse(
         response=EntryListResponseCore(
             items=items, next_cursor=None, has_more=False, total=stats.entries_total, stats=stats

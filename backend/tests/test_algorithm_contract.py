@@ -171,8 +171,7 @@ def test_taste_report_matches_frontend_profile_payload() -> None:
     assert sum(payload["rating_distribution"].values()) == len(entries)
     assert len(payload["time_heatmap"]["data"]) == len(payload["time_heatmap"]["rows"])
     assert all(
-        len(row) == len(payload["time_heatmap"]["cols"])
-        for row in payload["time_heatmap"]["data"]
+        len(row) == len(payload["time_heatmap"]["cols"]) for row in payload["time_heatmap"]["data"]
     )
     assert set(payload["flavor_lean"]) == {"umami", "sweet", "salty", "sour", "spicy", "bitter"}
     assert all(0 <= value <= 1 for value in payload["flavor_lean"].values())
@@ -223,8 +222,7 @@ def test_taste_report_accepts_precomputed_profile_artifacts() -> None:
     entries = enough_entries()
     deterministic = DeterministicProvider()
     entry_profiles = [
-        profile_diary_entry(entry, profile_provider=deterministic)
-        for entry in entries
+        profile_diary_entry(entry, profile_provider=deterministic) for entry in entries
     ]
     user_profile = aggregate_user_profile(
         USER_ID,

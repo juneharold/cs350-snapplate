@@ -3,20 +3,18 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from app.config.algorithm import EMBEDDING_DIMENSIONS
 from pgvector.sqlalchemy import VECTOR
 from sqlalchemy import UniqueConstraint
 from sqlmodel import JSON as SAJSON
 from sqlmodel import BigInteger, Column, Field
 
+from app.config.algorithm import EMBEDDING_DIMENSIONS
 from app.models.base import ForeignKeyField, SQLModelBase, TimestampField
 
 
 class EntryProfileArtifactModel(SQLModelBase, table=True):
     __tablename__ = "entry_profile_artifacts"  # type: ignore[reportAssignmentType]
-    __table_args__ = (
-        UniqueConstraint("entry_id", name="uq_entry_profile_artifacts_entry_id"),
-    )
+    __table_args__ = (UniqueConstraint("entry_id", name="uq_entry_profile_artifacts_entry_id"),)
 
     id: int | None = Field(
         default=None, sa_column=Column(BigInteger, primary_key=True, autoincrement=True)
@@ -30,9 +28,7 @@ class EntryProfileArtifactModel(SQLModelBase, table=True):
 
 class UserProfileArtifactModel(SQLModelBase, table=True):
     __tablename__ = "user_profile_artifacts"  # type: ignore[reportAssignmentType]
-    __table_args__ = (
-        UniqueConstraint("user_id", name="uq_user_profile_artifacts_user_id"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", name="uq_user_profile_artifacts_user_id"),)
 
     id: int | None = Field(
         default=None, sa_column=Column(BigInteger, primary_key=True, autoincrement=True)

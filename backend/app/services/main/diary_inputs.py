@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from app.schemas.algorithm import DiaryEntryInput
 from sqlalchemy import select
 
 from app.config.lifespan import Context
 from app.models.entry import EntryModel
 from app.models.restaurant import RestaurantModel
+from app.schemas.algorithm import DiaryEntryInput
 from app.services.algorithm.inputs import diary_entry_input_from_models
 
 

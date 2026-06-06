@@ -16,8 +16,7 @@ def precision_at_k(recommended_ids: Sequence[str], relevant_ids: Set[str], k: in
 def ndcg_at_k(recommended_ids: Sequence[str], relevant_ids: Set[str], k: int) -> float:
     _require_positive_k(k)
     dcg = _discounted_gain(
-        1.0 if restaurant_id in relevant_ids else 0.0
-        for restaurant_id in recommended_ids[:k]
+        1.0 if restaurant_id in relevant_ids else 0.0 for restaurant_id in recommended_ids[:k]
     )
     ideal_hits = min(len(relevant_ids), k)
     ideal_dcg = _discounted_gain(1.0 for _ in range(ideal_hits))

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 
@@ -20,7 +20,7 @@ def _expiry_hours() -> int:
 def issue_token(user_id: str) -> tuple[str, int]:
     """Return (jwt, expires_in_seconds). sub = user_id."""
     expires_in = _expiry_hours() * 3600
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "sub": user_id,
         "iat": now,

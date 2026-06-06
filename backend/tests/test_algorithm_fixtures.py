@@ -43,9 +43,7 @@ def test_synthetic_fixture_set_is_deterministic_and_complete() -> None:
 
     categories_by_user = {
         user.id: {
-            entry.restaurant.category
-            for entry in first.diary_entries
-            if entry.user_id == user.id
+            entry.restaurant.category for entry in first.diary_entries if entry.user_id == user.id
         }
         for user in first.users
     }

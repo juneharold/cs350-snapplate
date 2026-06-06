@@ -5,9 +5,7 @@ from app.models.magic_link import MagicLinkModel
 from app.repositories.base import BaseRepository
 
 
-class MagicLinkRepository(
-    BaseRepository[MagicLinkModel, CreateMagicLinkData, UpdateMagicLinkData]
-):
+class MagicLinkRepository(BaseRepository[MagicLinkModel, CreateMagicLinkData, UpdateMagicLinkData]):
     model = MagicLinkModel
 
     async def find_by_token(self, token_hash: str) -> MagicLinkModel | None:

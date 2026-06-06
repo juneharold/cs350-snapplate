@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from app.dto.base import BaseResponse, BaseResponseCore, BaseRequest
+from app.dto.base import BaseRequest, BaseResponse, BaseResponseCore
 from app.schemas.media import MediaInfo
 from app.types.restaurant import FoodTone
 

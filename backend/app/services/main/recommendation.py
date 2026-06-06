@@ -2,16 +2,15 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from app.services.algorithm import generate_recommendations
 from app.config.algorithm import RECOMMENDATION_COOLDOWN_REQUESTS
-from app.schemas.algorithm import DiaryEntryInput, RestaurantInput
-
 from app.config.http_errors import AppError
 from app.config.lifespan import Context
 from app.repositories.algorithm_artifact import AlgorithmArtifactRepository
 from app.repositories.bookmark import BookmarkRepository
 from app.repositories.recommendation_exposure import RecommendationExposureRepository
 from app.repositories.restaurant import RestaurantRepository
+from app.schemas.algorithm import DiaryEntryInput, RestaurantInput
+from app.services.algorithm import generate_recommendations
 from app.services.algorithm.inputs import restaurant_input_from_model
 from app.services.algorithm.recommendations import recommendation_context_from_artifacts
 from app.services.main.diary_inputs import DiaryInputService

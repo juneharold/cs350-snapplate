@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import io
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from PIL import Image, ImageOps
 from PIL.ExifTags import GPSTAGS, TAGS
@@ -63,7 +63,7 @@ class ImageService:
         try:
             # EXIF format: "YYYY:MM:DD HH:MM:SS"
             dt = datetime.strptime(str(val), "%Y:%m:%d %H:%M:%S")
-            return dt.replace(tzinfo=timezone.utc)
+            return dt.replace(tzinfo=UTC)
         except ValueError:
             return None
 
