@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from app.config.algorithm_taxonomy import normalize_public_restaurant_category
 from app.models.entry import EntryModel
 from app.models.restaurant import RestaurantModel
 from app.schemas.algorithm import DiaryEntryInput, RestaurantInput
-from app.services.algorithm.taxonomy import normalize_public_restaurant_category
 from app.utils.geo import haversine_m
 from app.utils.time import as_utc
 

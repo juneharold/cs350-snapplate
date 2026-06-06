@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 from datetime import UTC, datetime
 
 import pytest
@@ -28,6 +30,23 @@ from app.services.algorithm import (
 )
 from app.services.algorithm.providers import DeterministicProvider
 from tests.helpers.demo_fixtures import DEMO_USER_ID, load_demo_recommendation_context
+
+
+def test_algorithm_schema_and_service_import_order_is_stable() -> None:
+    commands = [
+        "import app.schemas.algorithm; import app.services.algorithm",
+        "import app.services.algorithm; import app.schemas.algorithm",
+    ]
+
+    for command in commands:
+        result = subprocess.run(
+            [sys.executable, "-c", command],
+            check=False,
+            cwd=".",
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
 
 
 def test_public_imports_expose_stable_scaffold_metadata() -> None:

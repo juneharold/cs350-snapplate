@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from app.services.algorithm.taxonomy import UnknownRestaurantCategoryError
 from fastapi import BackgroundTasks
 
+from app.config.algorithm_taxonomy import UnknownRestaurantCategoryError
 from app.config.http_errors import AppError, NotFoundError
 from app.config.lifespan import Context, InternalContext
 from app.models.restaurant import RestaurantModel

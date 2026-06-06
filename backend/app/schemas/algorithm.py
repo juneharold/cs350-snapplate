@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.config.algorithm import ALGORITHM_VERSION
-from app.services.algorithm.taxonomy import INTERNAL_PROFILE_TAXONOMY, PUBLIC_RESTAURANT_CATEGORIES
+from app.config.algorithm_taxonomy import INTERNAL_PROFILE_TAXONOMY, PUBLIC_RESTAURANT_CATEGORIES
 from app.types.restaurant import FoodTone
 
 Score = Annotated[float, Field(ge=0.0, le=1.0)]

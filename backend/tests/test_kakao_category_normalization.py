@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.algorithm.taxonomy import UnknownRestaurantCategoryError
+from app.config.algorithm_taxonomy import UnknownRestaurantCategoryError
 
 
 def _doc(category_name: str) -> dict:

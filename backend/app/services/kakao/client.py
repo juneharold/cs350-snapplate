@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 
 import httpx
-from app.services.algorithm.taxonomy import normalize_public_restaurant_category
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -11,6 +10,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from app.config.algorithm_taxonomy import normalize_public_restaurant_category
 from app.config.env import Env
 from app.config.logger import create_logger
 from app.dto.restaurant import KakaoRestaurantData
