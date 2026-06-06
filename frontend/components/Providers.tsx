@@ -42,7 +42,13 @@ export function Providers({ children }: { children: ReactNode }) {
     (async () => {
       const { worker } = await import("@/lib/mocks/browser");
       await worker.start({
-        onUnhandledRequest: "bypass",
+        // Bypass third-party noise silently, but loudly flag any of OUR
+        // own `/v1` API calls that slipped through without a mock handler —
+        // those are the ones that would otherwise fail with "Failed to
+        // fetch" against the (absent) real backend.
+        onUnhandledRequest(request, print) {
+          if (new URL(request.url).pathname.startsWith("/v1")) print.warning();
+        },
         serviceWorker: { url: "/mockServiceWorker.js" },
       });
       if (!cancelled) setReady(true);

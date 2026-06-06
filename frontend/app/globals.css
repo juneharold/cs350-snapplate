@@ -360,12 +360,32 @@ input[type="search"]::-ms-clear {
   overscroll-behavior-x: contain;
   touch-action: pan-x;
 }
+.onboard-stage {
+  width: 100%;
+  /* Grows to fill leftover space on tall screens; allowed to shrink on
+     short ones so the text block + buttons below always stay on screen.
+     The art inside is centered, so a short stage just crops it slightly. */
+  flex: 1 1 auto;
+  min-height: 200px;
+}
 .onboard-scroll::-webkit-scrollbar {
   display: none;
 }
 .onboard-slide {
   scroll-snap-align: start;
   scroll-snap-stop: always;
+  flex: 0 0 100%;
+  min-width: 0;
+}
+
+.onboard-message {
+  /* Fixed so every slide reserves the same text area — keeps the art stage
+     above it an identical height page to page. flex:none + min-height:0 stop
+     a flex item's default min-height:auto from letting long text (slide 3)
+     expand the box and push the buttons down. */
+  height: 176px;
+  flex: none;
+  min-height: 0;
 }
 
 @keyframes timeLetterIn {
