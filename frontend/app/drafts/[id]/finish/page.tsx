@@ -443,25 +443,6 @@ export default function FinishDraftPage({ params }: { params: Promise<{ id: stri
           </div>
         </section>
 
-        <div
-          className="flex items-center gap-2.5"
-          style={{ fontSize: 11.5, color: "var(--color-muted)" }}
-        >
-          <span
-            className="flex items-center justify-center"
-            style={{
-              width: 16,
-              height: 16,
-              borderRadius: 4,
-              background: "var(--color-olive-700)",
-              color: "var(--color-cream)",
-            }}
-          >
-            <Check size={11} strokeWidth={2.4} />
-          </span>
-          Private to you — never shared.
-        </div>
-
         {formState.errors.root && (
           <div
             className="mt-4"
