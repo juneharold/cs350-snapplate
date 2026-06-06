@@ -26,6 +26,7 @@ _KAKAO_CATEGORY_ALIASES: Final[dict[str, str]] = {
     "한식": "Korean",
     "백반": "Diner / Set meal",
     "정식": "Diner / Set meal",
+    "구내식당": "Diner / Set meal",
     "찌개": "Comfort Korean",
     "국밥": "Comfort Korean",
     "육류,고기": "Korean BBQ",

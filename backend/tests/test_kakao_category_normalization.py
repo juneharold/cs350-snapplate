@@ -22,6 +22,14 @@ def test_kakao_restaurant_data_uses_public_category() -> None:
     assert result.category == "Cafe"
 
 
+def test_kakao_cafeteria_category_maps_to_set_meal() -> None:
+    from app.services.kakao.client import KakaoService
+
+    result = KakaoService._to_data(_doc("음식점 > 구내식당"))
+
+    assert result.category == "Diner / Set meal"
+
+
 def test_kakao_restaurant_data_rejects_unknown_category() -> None:
     from app.services.kakao.client import KakaoService
 

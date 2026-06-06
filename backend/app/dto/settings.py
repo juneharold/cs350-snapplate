@@ -23,18 +23,18 @@ class UpdateSettingsRequest(BaseRequest):
         into the service layer — only its flattened domain form does. Carries
         only the fields the client actually sent (exclude_unset semantics).
         """
-        fields: dict[str, object] = {}
+        data = UpdateSettingsData()
         if self.notifications is not None:
             n = self.notifications
             if n.meal_reminders is not None:
-                fields["notif_meal_reminders"] = n.meal_reminders
+                data.notif_meal_reminders = n.meal_reminders
             if n.taste_analysis_complete is not None:
-                fields["notif_taste_analysis_complete"] = n.taste_analysis_complete
+                data.notif_taste_analysis_complete = n.taste_analysis_complete
             if n.weekly_picks is not None:
-                fields["notif_weekly_picks"] = n.weekly_picks
+                data.notif_weekly_picks = n.weekly_picks
         if self.appearance is not None:
-            fields["appearance"] = self.appearance
-        return UpdateSettingsData(**fields)
+            data.appearance = self.appearance
+        return data
 
 
 # ── Repository data schemas (flat, map 1:1 to columns) ────────────────────────

@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import TypedDict
+from typing import Any, TypedDict, cast
 
 import aioboto3
 import httpx
@@ -59,13 +59,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[State]:  # noqa: ARG001
         s3 = aioboto3.Session()
 
         # Create the MinIO bucket once if it doesn't exist (dev convenience).
-        async with s3.client(
+        s3_client = cast(Any, s3.client)(
             "s3",
             endpoint_url=Env.get(Env.S3_ENDPOINT),
             aws_access_key_id=Env.get(Env.S3_ACCESS_KEY),
             aws_secret_access_key=Env.get(Env.S3_SECRET_KEY),
             region_name=Env.get(Env.S3_REGION),
-        ) as client:
+        )
+        async with s3_client as client:
             with contextlib.suppress(Exception):
                 await client.create_bucket(Bucket=Env.get(Env.S3_BUCKET))
 

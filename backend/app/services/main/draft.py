@@ -51,6 +51,10 @@ class DraftService:
         restaurant_id: str | None,
         restaurant_suggested: bool | None,
     ) -> DraftDetailInfo:
+        captured = as_utc(captured_at) if captured_at else utcnow()
+        if captured > utcnow():
+            raise AppError(400, "invalid_captured_at", "Capture time can't be in the future.")
+
         if not media_ids:
             raise AppError(400, "media_required", "At least one photo is required.", "media_ids")
         # Every linked media must belong to the caller. Otherwise a guessed id
@@ -63,9 +67,6 @@ class DraftService:
         if cover_media_id is not None and cover_media_id not in owned:
             raise AppError(404, "media_not_found", "Media not found.", "cover_media_id")
         cover = cover_media_id or media_ids[0]
-        captured = as_utc(captured_at) if captured_at else utcnow()
-        if captured > utcnow():
-            raise AppError(400, "invalid_captured_at", "Capture time can't be in the future.")
 
         suggested = bool(restaurant_suggested)
         # GPS → restaurant suggestion when none provided.
