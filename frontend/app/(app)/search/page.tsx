@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, Search, SlidersHorizontal, X } from "lucide-react";
-import { FoodPlaceholder } from "@/components/ui/FoodPlaceholder";
-import { StarRow } from "@/components/ui/StarRating";
 import { useSearchRestaurants } from "@/lib/api/restaurants";
 import { useAuth, FALLBACK_LOCATION } from "@/lib/store/auth";
 
@@ -220,59 +218,34 @@ export default function SearchPage() {
         {items.length > 0 && (
           <div className="list-group mt-1">
           {items.map((r) => (
-            <Link
-              key={r.id}
-              href={`/restaurants/${r.id}`}
-              className="flex gap-3 p-3 items-center"
-            >
-              <FoodPlaceholder
-                tone={r.thumbnail_tone}
-                label={r.signature_dish ?? r.thumbnail_label}
-                width={68}
-                height={68}
-                radius={12}
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline justify-between gap-2">
-                  <div
-                    className="truncate"
-                    style={{
-                      fontFamily: "var(--font-serif)",
-                      fontSize: 16,
-                      fontWeight: 500,
-                    }}
-                  >
-                    {r.name}
-                  </div>
-                  <div
-                    className="shrink-0"
-                    style={{
-                      fontSize: 10.5,
-                      fontFamily: "var(--font-mono)",
-                      color: "var(--color-muted)",
-                    }}
-                  >
-                    {r.distance_m}m
-                  </div>
+            <Link key={r.id} href={`/restaurants/${r.id}`} className="block p-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <div
+                  className="truncate"
+                  style={{
+                    fontFamily: "var(--font-serif)",
+                    fontSize: 16,
+                    fontWeight: 500,
+                  }}
+                >
+                  {r.name}
                 </div>
                 <div
-                  className="truncate mt-0.5"
-                  style={{ fontSize: 12, color: "var(--color-muted)" }}
+                  className="shrink-0"
+                  style={{
+                    fontSize: 10.5,
+                    fontFamily: "var(--font-mono)",
+                    color: "var(--color-muted)",
+                  }}
                 >
-                  {r.signature_dish ?? r.category} · {r.neighborhood}
+                  {r.distance_m}m
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <StarRow value={r.rating} size={12} />
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 10.5,
-                      color: "var(--color-muted)",
-                    }}
-                  >
-                    {r.rating.toFixed(1)} · {r.rating_count}
-                  </span>
-                </div>
+              </div>
+              <div
+                className="truncate mt-0.5"
+                style={{ fontSize: 12, color: "var(--color-muted)" }}
+              >
+                {r.category} · {r.neighborhood}
               </div>
             </Link>
           ))}

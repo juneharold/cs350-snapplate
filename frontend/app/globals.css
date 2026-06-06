@@ -264,6 +264,10 @@ input[type="search"]::-ms-clear {
     border-radius: 10px;
     overflow: hidden;
   }
+  /* Hairline divider between adjacent rows in a grouped list. */
+  .list-group > * + * {
+    border-top: 1px solid var(--color-border-soft);
+  }
 
   .chip {
     display: inline-flex;
