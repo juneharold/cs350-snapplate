@@ -15,7 +15,6 @@ from algorithm.config import (
 from algorithm.providers import (
     DeterministicMLProvider,
     OpenAIProvider,
-    get_configured_ml_provider,
 )
 from algorithm.schemas import ProfileExtractionResult, ProfileSummaryResult
 
@@ -87,11 +86,13 @@ def test_deterministic_provider_generates_stable_profile_summary() -> None:
     assert summary.insights
 
 
-def test_configured_provider_requires_openai_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+def test_openai_provider_requires_explicit_client_even_with_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key-must-not-be-used")
 
-    with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
-        get_configured_ml_provider()
+    with pytest.raises(TypeError, match="client"):
+        OpenAIProvider()
 
 
 def test_openai_provider_sends_embedding_request_shape() -> None:

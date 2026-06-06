@@ -11,15 +11,15 @@ from algorithm.entry_profiling import (
     TEXT_CONTEXTS,
     TEXT_TASTES,
 )
-from algorithm.providers import MLProvider, get_configured_ml_provider
+from algorithm.providers import MLProvider
 from algorithm.schemas import KakaoRestaurantMetadata, RestaurantProfileArtifact
 
 
 def profile_kakao_restaurant(
     restaurant: KakaoRestaurantMetadata,
     *,
+    ml_provider: MLProvider,
     generated_at: datetime | None = None,
-    ml_provider: MLProvider | None = None,
 ) -> RestaurantProfileArtifact:
     values: dict[str, dict[str, float]] = defaultdict(dict)
     confidence: dict[str, float] = {}
@@ -37,7 +37,6 @@ def profile_kakao_restaurant(
     }
     generated = generated_at or datetime.now(timezone.utc)
     profile_text = _profile_text(restaurant, profile)
-    provider = ml_provider or get_configured_ml_provider()
 
     return RestaurantProfileArtifact(
         restaurant_id=restaurant.id,
@@ -46,7 +45,7 @@ def profile_kakao_restaurant(
         confidence=confidence,
         evidence=dict(evidence),
         profile_text=profile_text,
-        embedding=provider.embed_text(profile_text),
+        embedding=ml_provider.embed_text(profile_text),
     )
 
 

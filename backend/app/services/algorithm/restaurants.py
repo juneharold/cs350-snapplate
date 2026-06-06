@@ -13,7 +13,6 @@ from app.config.logger import create_logger
 from app.models.algorithm_artifact import RestaurantProfileArtifactModel
 from app.models.restaurant import RestaurantModel
 from app.repositories.restaurant import RestaurantRepository
-from app.services.algorithm.provider import configured_algorithm_provider
 from app.utils.time import utcnow
 
 logger = create_logger(__name__)
@@ -68,7 +67,6 @@ async def profile_restaurants(
         return
     async with internal.db_sessionmaker() as db:
         repo = RestaurantRepository(db)
-        provider = configured_algorithm_provider()
         generated_at = utcnow()
         for restaurant_id in dict.fromkeys(restaurant_ids):
             restaurant = await repo.find(restaurant_id)
@@ -77,7 +75,7 @@ async def profile_restaurants(
             profile = build_restaurant_profile_artifact(
                 restaurant,
                 generated_at=generated_at,
-                ml_provider=provider,
+                ml_provider=internal.profile_provider,
             )
             db.add(
                 RestaurantProfileArtifactModel(

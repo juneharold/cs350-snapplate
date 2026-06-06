@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import re
 from typing import Protocol, TypeVar
 
@@ -8,7 +7,6 @@ from algorithm.config import (
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
     IMAGE_PROFILE_MODEL,
-    ML_PROVIDER,
     SUMMARY_MODEL,
     TEXT_PROFILE_MODEL,
 )
@@ -83,7 +81,7 @@ class OpenAIProvider:
     def __init__(
         self,
         *,
-        client: object | None = None,
+        client: object,
         model: str | None = None,
         text_model: str = TEXT_PROFILE_MODEL,
         image_model: str = IMAGE_PROFILE_MODEL,
@@ -92,7 +90,9 @@ class OpenAIProvider:
         dimensions: int = EMBEDDING_DIMENSIONS,
         timeout_seconds: float = OPENAI_TIMEOUT_SECONDS,
     ) -> None:
-        self._client = client or _build_openai_client()
+        if client is None:
+            raise ValueError("client is required")
+        self._client = client
         self._text_model = text_model
         self._image_model = image_model
         self._summary_model = summary_model
@@ -165,23 +165,6 @@ class OpenAIProvider:
             encoding_format="float",
         )
         return _validated_embedding(_response_embedding(response), self._dimensions)
-
-
-def get_configured_ml_provider() -> MLProvider:
-    if ML_PROVIDER == "openai":
-        return OpenAIProvider()
-    raise RuntimeError(f"unsupported ML_PROVIDER: {ML_PROVIDER}")
-
-
-def _build_openai_client() -> object:
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is required to use the OpenAI ML provider")
-    try:
-        from openai import OpenAI
-    except ModuleNotFoundError as exc:
-        raise RuntimeError("openai package is required to use the OpenAI ML provider") from exc
-    return OpenAI(api_key=api_key)
 
 
 def _require_embedding_text(text: str) -> None:

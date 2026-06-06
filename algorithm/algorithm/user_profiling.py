@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from algorithm.config import SHORT_TERM_ENTRY_COUNT
 from algorithm.entry_profiling import FIELD_NAMES, profile_diary_entry
-from algorithm.providers import MLProvider, get_configured_ml_provider
+from algorithm.providers import MLProvider
 from algorithm.schemas import DiaryEntryInput, EntryProfileArtifact, UserProfileArtifact
 
 
@@ -22,8 +22,8 @@ def build_weighted_entry_profiles(
     user_id: str,
     diary_entries: Sequence[DiaryEntryInput],
     *,
+    ml_provider: MLProvider,
     entry_profiles: Sequence[EntryProfileArtifact] | None = None,
-    ml_provider: MLProvider | None = None,
 ) -> list[WeightedEntryProfile]:
     entries = _entries_for_user(user_id, diary_entries)
     profiles = _entry_profiles_for_entries(
@@ -47,11 +47,11 @@ def aggregate_user_profile(
     user_id: str,
     diary_entries: Sequence[DiaryEntryInput],
     *,
+    ml_provider: MLProvider,
     generated_at: datetime | None = None,
     short_term_entry_count: int = SHORT_TERM_ENTRY_COUNT,
     entry_profiles: Sequence[EntryProfileArtifact] | None = None,
     weighted_entries: Sequence[WeightedEntryProfile] | None = None,
-    ml_provider: MLProvider | None = None,
 ) -> UserProfileArtifact:
     if entry_profiles is not None and weighted_entries is not None:
         raise ValueError("pass either entry_profiles or weighted_entries, not both")
@@ -59,8 +59,8 @@ def aggregate_user_profile(
         weighted = build_weighted_entry_profiles(
             user_id,
             diary_entries,
-            entry_profiles=entry_profiles,
             ml_provider=ml_provider,
+            entry_profiles=entry_profiles,
         )
     else:
         weighted = list(weighted_entries)
@@ -76,8 +76,6 @@ def aggregate_user_profile(
     category_rating_vector = _category_rating_vector(weighted)
     profile_text = _profile_text(user_id, len(entries), long_term_profile, category_rating_vector)
     short_term_text = _profile_text(user_id, len(short_term), short_term_profile, {})
-    provider = ml_provider or get_configured_ml_provider()
-
     return UserProfileArtifact(
         user_id=user_id,
         generated_at=generated,
@@ -87,8 +85,8 @@ def aggregate_user_profile(
         confidence=confidence,
         evidence=evidence,
         profile_text=profile_text,
-        long_term_embedding=provider.embed_text(profile_text),
-        short_term_embedding=provider.embed_text(short_term_text),
+        long_term_embedding=ml_provider.embed_text(profile_text),
+        short_term_embedding=ml_provider.embed_text(short_term_text),
         category_rating_vector=category_rating_vector,
     )
 
@@ -108,7 +106,7 @@ def _entry_profiles_for_entries(
     user_id: str,
     entries: Sequence[DiaryEntryInput],
     entry_profiles: Sequence[EntryProfileArtifact] | None,
-    ml_provider: MLProvider | None,
+    ml_provider: MLProvider,
 ) -> list[EntryProfileArtifact]:
     if entry_profiles is None:
         return [profile_diary_entry(entry, ml_provider=ml_provider) for entry in entries]

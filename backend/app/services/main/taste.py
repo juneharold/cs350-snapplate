@@ -4,7 +4,6 @@ from algorithm import generate_taste_report
 from algorithm.version import ALGORITHM_VERSION
 from sqlalchemy import desc, select
 
-from app.config.http_errors import AppError
 from app.config.lifespan import Context
 from app.dto.auth import UpdateUserData
 from app.models.algorithm_artifact import (
@@ -13,7 +12,6 @@ from app.models.algorithm_artifact import (
 )
 from app.models.taste_report import TasteReportModel
 from app.repositories.user import UserRepository
-from app.services.algorithm.provider import configured_algorithm_provider
 from app.services.algorithm.taste import build_taste_refresh_artifacts
 from app.services.main.diary_inputs import DiaryInputService
 from app.utils.time import utcnow
@@ -28,8 +26,7 @@ class TasteService:
         self.users = UserRepository(self.db)
 
     async def get_profile(self, user_id: str) -> dict:
-        """Return the latest stored TasteProfileResponse payload (dict). If none
-        stored yet, compute the insufficient-data shape on the fly."""
+        """Return the latest stored TasteProfileResponse payload, or compute it."""
         stmt = (
             select(TasteReportModel)
             .where(TasteReportModel.user_id == user_id)  # type: ignore[reportArgumentType]
@@ -39,13 +36,6 @@ class TasteService:
         latest = (await self.db.execute(stmt)).scalars().first()
         if latest is not None:
             return latest.payload_json
-        entries = await DiaryInputService(self.ctx).for_user(user_id)
-        if len(entries) >= _MIN_ENTRIES:
-            raise AppError(
-                503,
-                "taste_profile_unavailable",
-                "Taste profile is not ready. Start a refresh and try again.",
-            )
         return await self._compute_payload(user_id)
 
     async def refresh(self, user_id: str) -> dict:
@@ -58,7 +48,7 @@ class TasteService:
             user_id,
             entries,
             generated_at=generated_at,
-            ml_provider=configured_algorithm_provider(),
+            ml_provider=self.ctx.profile_provider,
             min_entries_required=_MIN_ENTRIES,
         )
         report = artifacts.report
@@ -110,6 +100,7 @@ class TasteService:
         report = generate_taste_report(
             user_id,
             entries,
+            ml_provider=self.ctx.profile_provider,
             min_entries_required=_MIN_ENTRIES,
         )
         return report.model_dump(mode="json")

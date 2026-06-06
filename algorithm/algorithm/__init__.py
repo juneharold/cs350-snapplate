@@ -23,7 +23,6 @@ from algorithm.providers import (
     DeterministicMLProvider,
     MLProvider,
     OpenAIProvider,
-    get_configured_ml_provider,
 )
 from algorithm.restaurant_profiling import profile_kakao_restaurant
 from algorithm.schemas import (
@@ -94,7 +93,6 @@ __all__ = [
     "generate_recommendation_artifact",
     "generate_recommendations",
     "generate_taste_report",
-    "get_configured_ml_provider",
     "profile_diary_entry",
     "profile_kakao_restaurant",
 ]

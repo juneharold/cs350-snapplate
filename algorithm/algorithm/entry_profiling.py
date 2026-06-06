@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from algorithm.providers import MLProvider, get_configured_ml_provider
+from algorithm.providers import MLProvider
 from algorithm.schemas import DiaryEntryInput, EntryProfileArtifact
 from algorithm.taxonomy import PROFILE_FIELD_NAMES
 
@@ -142,7 +142,7 @@ IMAGE_FOOD_TYPES = (
 def profile_diary_entry(
     entry: DiaryEntryInput,
     *,
-    ml_provider: MLProvider | None = None,
+    ml_provider: MLProvider,
 ) -> EntryProfileArtifact:
     values: dict[str, dict[str, float]] = {field_name: {} for field_name in FIELD_NAMES}
     confidence: dict[str, float] = {}
@@ -341,14 +341,13 @@ def _extract_text_signal(
     values: dict[str, dict[str, float]],
     confidence: dict[str, float],
     evidence: dict[str, list[str]],
-    ml_provider: MLProvider | None,
+    ml_provider: MLProvider,
 ) -> None:
     note = entry.note.strip()
     if not note:
         return
 
-    provider = ml_provider or get_configured_ml_provider()
-    result = provider.extract_text_profile(_text_profile_input(entry))
+    result = ml_provider.extract_text_profile(_text_profile_input(entry))
     _merge_profile_result(values, confidence, evidence, result)
 
 
@@ -357,14 +356,13 @@ def _extract_image_references(
     values: dict[str, dict[str, float]],
     confidence: dict[str, float],
     evidence: dict[str, list[str]],
-    ml_provider: MLProvider | None,
+    ml_provider: MLProvider,
 ) -> None:
     if not entry.image_references:
         return
 
-    provider = ml_provider or get_configured_ml_provider()
     for image_reference in entry.image_references:
-        result = provider.extract_image_profile(image_reference)
+        result = ml_provider.extract_image_profile(image_reference)
         _merge_profile_result(values, confidence, evidence, result)
 
 

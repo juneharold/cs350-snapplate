@@ -13,6 +13,7 @@ async def refresh_taste_for_user(internal: InternalContext, user_id: str) -> Non
             db_session=db,
             http_client=internal.http_client,
             s3=internal.s3,
+            profile_provider=internal.profile_provider,
         )
         try:
             await TasteService(ctx).recompute_and_store(user_id)

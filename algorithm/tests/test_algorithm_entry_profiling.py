@@ -99,7 +99,8 @@ def test_profile_diary_entry_extracts_metadata_time_location_and_rating() -> Non
                 category="Korean BBQ",
                 signature_dish="Marinated short rib",
             )
-        )
+        ),
+        ml_provider=DeterministicMLProvider(),
     )
 
     assert isinstance(profile, EntryProfileArtifact)
@@ -135,7 +136,8 @@ def test_profile_diary_entry_leaves_unknown_optional_fields_empty() -> None:
                 neighborhood="",
             ),
             rating=None,
-        )
+        ),
+        ml_provider=DeterministicMLProvider(),
     )
 
     assert profile.cuisine == {"western": 0.85}
@@ -179,7 +181,8 @@ def test_profile_diary_entry_extracts_supported_image_labels() -> None:
             restaurant(category="Snacks", signature_dish=None),
             rating=None,
             image_labels=["korean stew", "rice bowl"],
-        )
+        ),
+        ml_provider=DeterministicMLProvider(),
     )
 
     assert "korean" in profile.cuisine
@@ -219,12 +222,8 @@ def test_profile_diary_entry_merges_ml_text_and_image_signals() -> None:
     assert_all_profile_fields_have_confidence_and_evidence(profile)
 
 
-def test_profile_diary_entry_with_ml_input_uses_configured_provider_by_default(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-
-    with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
+def test_profile_diary_entry_requires_provider_argument() -> None:
+    with pytest.raises(TypeError, match="ml_provider"):
         profile_diary_entry(
             entry(
                 restaurant(
