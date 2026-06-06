@@ -371,6 +371,34 @@ export const handlers = [
     });
   }),
 
+  /* ─── POST /v1/me/avatar ─── */
+  http.post(`${BASE}/me/avatar`, async ({ request }) => {
+    const user = userFromAuthHeader(request);
+    if (!user) return err(401, "UNAUTHORIZED", "Sign in to continue.");
+    await delay(600);
+
+    const formData = await request.formData();
+    const file = formData.get("file") as File;
+    if (!file) return err(400, "VALIDATION_ERROR", "No file uploaded.", "file");
+
+    // Convert file to data URL for mock persistence
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]!);
+    }
+    const base64 = btoa(binary);
+    const dataUrl = `data:${file.type};base64,${base64}`;
+
+    db.update((d) => {
+      const u = d.users[user.id]!;
+      u.profile_image_url = dataUrl;
+    });
+
+    return HttpResponse.json({ profile_image_url: dataUrl });
+  }),
+
   /* ───────────────────────────────────────────────────────────
      GET /v1/restaurants/nearby
      ─────────────────────────────────────────────────────────── */

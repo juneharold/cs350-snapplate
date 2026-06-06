@@ -1,4 +1,14 @@
 from tests.conftest import auth_headers
+import io
+from urllib.parse import urlparse
+from PIL import Image
+
+
+def _jpeg() -> bytes:
+    img = Image.new("RGB", (100, 100), (200, 90, 60))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    return buf.getvalue()
 
 
 def test_me_returns_stats(client):
@@ -40,3 +50,51 @@ def test_settings_bad_appearance(client):
     h = auth_headers(client, "t-appearance@snapplate.app")
     r = client.patch("/v1/settings", json={"appearance": "neon"}, headers=h)
     assert r.status_code == 422
+
+
+def test_upload_avatar_success(client):
+    h = auth_headers(client, "t-avatar@snapplate.app")
+    
+    # 1. Upload avatar
+    r = client.post(
+        "/v1/me/avatar",
+        files={"file": ("avatar.jpg", _jpeg(), "image/jpeg")},
+        headers=h,
+    )
+    assert r.status_code == 200
+    res = r.json()["response"]
+    assert "profile_image_url" in res
+    assert "http://localhost:9000/media/avatars/" in res["profile_image_url"]
+
+    # 2. Check /me endpoint returns the signed profile image url. Presigned URLs
+    #    carry a per-call signature/expiry in the query string, so compare only
+    #    the object path rather than string-equating two independent signings.
+    me_res = client.get("/v1/me", headers=h)
+    assert me_res.status_code == 200
+    me_data = me_res.json()["response"]
+    assert urlparse(me_data["profile_image_url"]).path == urlparse(res["profile_image_url"]).path
+
+
+def test_upload_avatar_invalid_type(client):
+    h = auth_headers(client, "t-avatar-bad@snapplate.app")
+
+    r = client.post(
+        "/v1/me/avatar",
+        files={"file": ("avatar.txt", b"not-an-image", "text/plain")},
+        headers=h,
+    )
+    assert r.status_code == 400
+    assert r.json()["error"]["code"] == "unsupported_format"
+
+
+def test_upload_avatar_rejects_fake_image(client):
+    # Bytes that claim to be a JPEG but aren't a decodable image must be
+    # rejected before anything is written to S3.
+    h = auth_headers(client, "t-avatar-fake@snapplate.app")
+    r = client.post(
+        "/v1/me/avatar",
+        files={"file": ("avatar.jpg", b"not-really-a-jpeg", "image/jpeg")},
+        headers=h,
+    )
+    assert r.status_code == 400
+    assert r.json()["error"]["code"] == "unsupported_format"
