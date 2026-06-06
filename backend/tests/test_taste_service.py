@@ -73,4 +73,4 @@ async def test_compute_payload_passes_context_provider_to_taste_report(monkeypat
     payload = await TasteService(ctx)._compute_payload("u_provider")
 
     assert payload == {"has_enough_data": False}
-    assert captured["ml_provider"] is provider
+    assert captured["profile_provider"] is provider

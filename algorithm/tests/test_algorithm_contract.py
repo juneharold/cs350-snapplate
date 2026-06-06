@@ -5,7 +5,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from algorithm import aggregate_user_profile, generate_recommendations, generate_taste_report
 from algorithm.entry_profiling import profile_diary_entry
-from algorithm.providers import DeterministicMLProvider
+from algorithm.providers import DeterministicProvider
 from algorithm.schemas import (
     DiaryEntryInput,
     EntryProfileArtifact,
@@ -23,20 +23,20 @@ NOW = datetime(2026, 5, 24, 12, 43, tzinfo=timezone.utc)
 USER_ID = "u_contract"
 
 
-class SummaryProvider(DeterministicMLProvider):
+class SummaryProvider(DeterministicProvider):
     def __init__(self) -> None:
         self.summary_inputs: list[str] = []
 
     def generate_profile_summary(self, profile_text: str) -> ProfileSummaryResult:
         self.summary_inputs.append(profile_text)
         return ProfileSummaryResult(
-            label="The ML Taste Profile",
-            blurb="ML-generated profile text grounded in structured signals.",
-            insights=["ML-generated insight."],
+            label="The Provider Taste Profile",
+            blurb="Provider-generated profile text grounded in structured signals.",
+            insights=["Provider-generated insight."],
         )
 
 
-class ArtifactOnlyProvider(DeterministicMLProvider):
+class ArtifactOnlyProvider(DeterministicProvider):
     def extract_text_profile(self, text: str):
         raise AssertionError("stored entry profiles should skip text extraction")
 
@@ -115,7 +115,7 @@ def test_taste_report_matches_frontend_profile_payload() -> None:
         entries,
         min_entries_required=len(entries),
         generated_at=NOW,
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
 
     assert isinstance(report, TasteProfileReady)
@@ -184,7 +184,7 @@ def test_taste_report_insufficient_data_shape_is_minimal() -> None:
         entries,
         min_entries_required=len(entries) + 1,
         generated_at=NOW,
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
 
     assert isinstance(report, TasteProfileInsufficient)
@@ -204,21 +204,21 @@ def test_taste_report_uses_provider_summary_when_available() -> None:
         entries,
         min_entries_required=len(entries),
         generated_at=NOW,
-        ml_provider=provider,
+        profile_provider=provider,
     )
 
     assert isinstance(report, TasteProfileReady)
     assert provider.summary_inputs
-    assert report.type.label == "The ML Taste Profile"
-    assert report.type.blurb == "ML-generated profile text grounded in structured signals."
-    assert report.insights == ["ML-generated insight."]
+    assert report.type.label == "The Provider Taste Profile"
+    assert report.type.blurb == "Provider-generated profile text grounded in structured signals."
+    assert report.insights == ["Provider-generated insight."]
 
 
 def test_taste_report_accepts_precomputed_profile_artifacts() -> None:
     entries = enough_entries()
-    deterministic = DeterministicMLProvider()
+    deterministic = DeterministicProvider()
     entry_profiles = [
-        profile_diary_entry(entry, ml_provider=deterministic)
+        profile_diary_entry(entry, profile_provider=deterministic)
         for entry in entries
     ]
     user_profile = aggregate_user_profile(
@@ -226,7 +226,7 @@ def test_taste_report_accepts_precomputed_profile_artifacts() -> None:
         entries,
         generated_at=NOW,
         entry_profiles=entry_profiles,
-        ml_provider=deterministic,
+        profile_provider=deterministic,
     )
 
     report = generate_taste_report(
@@ -234,7 +234,7 @@ def test_taste_report_accepts_precomputed_profile_artifacts() -> None:
         entries,
         min_entries_required=len(entries),
         generated_at=NOW,
-        ml_provider=ArtifactOnlyProvider(),
+        profile_provider=ArtifactOnlyProvider(),
         entry_profiles=entry_profiles,
         user_profile=user_profile,
     )

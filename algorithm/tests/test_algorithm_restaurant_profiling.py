@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from algorithm import profile_kakao_restaurant
 from algorithm.config import EMBEDDING_DIMENSIONS
-from algorithm.providers import DeterministicMLProvider
+from algorithm.providers import DeterministicProvider
 from algorithm.schemas import KakaoRestaurantMetadata, RestaurantProfileArtifact
 
 
@@ -29,12 +29,12 @@ def test_profile_kakao_restaurant_normalizes_supported_metadata() -> None:
     profile = profile_kakao_restaurant(
         restaurant,
         generated_at=NOW,
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
     repeat = profile_kakao_restaurant(
         restaurant,
         generated_at=NOW,
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
 
     assert isinstance(profile, RestaurantProfileArtifact)
@@ -65,7 +65,7 @@ def test_profile_kakao_restaurant_keeps_sparse_metadata_low_confidence() -> None
     profile = profile_kakao_restaurant(
         restaurant,
         generated_at=NOW,
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
 
     assert profile.profile.get("taste", {}) == {}

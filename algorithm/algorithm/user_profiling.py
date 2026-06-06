@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from algorithm.config import SHORT_TERM_ENTRY_COUNT
 from algorithm.entry_profiling import FIELD_NAMES, profile_diary_entry
-from algorithm.providers import MLProvider
+from algorithm.providers import ProfileProvider
 from algorithm.schemas import DiaryEntryInput, EntryProfileArtifact, UserProfileArtifact
 
 
@@ -22,7 +22,7 @@ def build_weighted_entry_profiles(
     user_id: str,
     diary_entries: Sequence[DiaryEntryInput],
     *,
-    ml_provider: MLProvider,
+    profile_provider: ProfileProvider,
     entry_profiles: Sequence[EntryProfileArtifact] | None = None,
 ) -> list[WeightedEntryProfile]:
     entries = _entries_for_user(user_id, diary_entries)
@@ -30,7 +30,7 @@ def build_weighted_entry_profiles(
         user_id,
         entries,
         entry_profiles,
-        ml_provider,
+        profile_provider,
     )
     newest = max((entry.captured_at for entry in entries), default=None)
     return [
@@ -47,7 +47,7 @@ def aggregate_user_profile(
     user_id: str,
     diary_entries: Sequence[DiaryEntryInput],
     *,
-    ml_provider: MLProvider,
+    profile_provider: ProfileProvider,
     generated_at: datetime | None = None,
     short_term_entry_count: int = SHORT_TERM_ENTRY_COUNT,
     entry_profiles: Sequence[EntryProfileArtifact] | None = None,
@@ -59,7 +59,7 @@ def aggregate_user_profile(
         weighted = build_weighted_entry_profiles(
             user_id,
             diary_entries,
-            ml_provider=ml_provider,
+            profile_provider=profile_provider,
             entry_profiles=entry_profiles,
         )
     else:
@@ -85,8 +85,8 @@ def aggregate_user_profile(
         confidence=confidence,
         evidence=evidence,
         profile_text=profile_text,
-        long_term_embedding=ml_provider.embed_text(profile_text),
-        short_term_embedding=ml_provider.embed_text(short_term_text),
+        long_term_embedding=profile_provider.embed_text(profile_text),
+        short_term_embedding=profile_provider.embed_text(short_term_text),
         category_rating_vector=category_rating_vector,
     )
 
@@ -106,10 +106,10 @@ def _entry_profiles_for_entries(
     user_id: str,
     entries: Sequence[DiaryEntryInput],
     entry_profiles: Sequence[EntryProfileArtifact] | None,
-    ml_provider: MLProvider,
+    profile_provider: ProfileProvider,
 ) -> list[EntryProfileArtifact]:
     if entry_profiles is None:
-        return [profile_diary_entry(entry, ml_provider=ml_provider) for entry in entries]
+        return [profile_diary_entry(entry, profile_provider=profile_provider) for entry in entries]
 
     profiles = list(entry_profiles)
     if len(profiles) != len(entries):

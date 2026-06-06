@@ -37,7 +37,7 @@ class _OpenAIProfileSummaryResult(ProfileSummaryResult):
     pass
 
 
-class MLProvider(Protocol):
+class ProfileProvider(Protocol):
     def extract_text_profile(self, text: str) -> ProfileExtractionResult:
         raise NotImplementedError
 
@@ -51,7 +51,7 @@ class MLProvider(Protocol):
         raise NotImplementedError
 
 
-class DeterministicMLProvider:
+class DeterministicProvider:
     def extract_text_profile(self, text: str) -> ProfileExtractionResult:
         _require_text(text, "diary text")
         return _deterministic_text_profile(text)

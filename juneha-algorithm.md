@@ -10,7 +10,7 @@ References:
 
 ## 1. Goal
 
-Build the ML-backed algorithm package for SnapPlate.
+Build the profile and recommendation algorithm package for SnapPlate.
 
 The algorithm package supports two user-facing features:
 
@@ -29,20 +29,20 @@ The frontend and backend are owned by teammates. This plan defines the algorithm
 ## 2. Current Decisions
 
 - Build the whole algorithm package, not only a minimal statistics-only version.
-- Use ML for text understanding, image understanding, profile generation, and embeddings.
+- Use provider-backed extraction for text understanding, image understanding, profile generation, and embeddings.
 - Use Kakao Map as the official restaurant metadata source.
 - Keep the minimum-entry threshold as a configurable constant.
-- Freeze taxonomy v0 for the first ML integration; future taxonomy changes should be intentional and test-backed.
+- Freeze taxonomy v0 for the first provider integration; future taxonomy changes should be intentional and test-backed.
 - Use synthetic dummy users and diaries to test collaborative filtering if real user data is too small.
-- External ML APIs are allowed. OpenAI is the selected provider for the first ML-backed implementation.
+- External profile APIs are allowed. OpenAI is the selected provider for the first API-backed implementation.
 - Do not expose recommendation scores to users (REQ-BIZ-008).
 
 Resolved client decision:
 
-- Team 6 confirmed that external APIs, including OpenAI, may be used for ML capabilities.
+- Team 6 confirmed that external APIs, including OpenAI, may be used for profile extraction capabilities.
 - Exact provider and model IDs are configuration values, not hardcoded into algorithm logic.
 - The first quality-focused model set is:
-  - `ML_PROVIDER = "openai"`
+  - `ALGORITHM_PROVIDER = "openai"`
   - `TEXT_PROFILE_MODEL = "gpt-5.4-mini"`
   - `IMAGE_PROFILE_MODEL = "gpt-5.4-mini"`
   - `SUMMARY_MODEL = "gpt-5.4-mini"`
@@ -69,7 +69,7 @@ The following values should be defined once in configuration instead of being ha
 | `MIN_SIMILAR_USERS` | `3` | Minimum similar users before collaborative score is active |
 | `RECOMMENDATION_LIMIT` | `10` | Default number of recommendations returned |
 | `RECOMMENDATION_COOLDOWN_REQUESTS` | `20` | Number of recent recommendation requests used to avoid repeated exposure |
-| `ML_PROVIDER` | `openai` | External ML provider |
+| `ALGORITHM_PROVIDER` | `openai` | External profile provider |
 | `TEXT_PROFILE_MODEL` | `gpt-5.4-mini` | Model used for diary text profile extraction |
 | `IMAGE_PROFILE_MODEL` | `gpt-5.4-mini` | Model used for food image profile extraction |
 | `SUMMARY_MODEL` | `gpt-5.4-mini` | Model used for profile labels, blurbs, and explanation text |
@@ -214,8 +214,8 @@ Metadata parser:
 
 Provider behavior:
 
-- Entry profiling calls the configured ML provider by default when diary note text or image references are present.
-- Local deterministic tests should pass `DeterministicMLProvider` explicitly.
+- Entry profiling uses the injected profile provider when diary note text or image references are present.
+- Local deterministic tests should pass `DeterministicProvider` explicitly.
 - If the configured provider is unavailable, the algorithm fails loudly instead of silently falling back to keyword extraction.
 
 Missing optional inputs are allowed, but the algorithm must not silently invent values. If a field cannot be extracted, leave it empty or assign low confidence with explicit evidence.
@@ -395,7 +395,7 @@ flowchart TD
     G --> H[Store Latest Report]
 ```
 
-Statistics should be deterministic. ML should be used for profile extraction and profile explanation, but visible report numbers should come from traceable entry/profile data.
+Statistics should be deterministic. Provider calls should be used for profile extraction and profile explanation, but visible report numbers should come from traceable entry/profile data.
 
 ### Update Behavior
 
@@ -587,19 +587,19 @@ The shared Python contract lives in `algorithm`.
 
 Public functions:
 
-- `generate_taste_report(user_id, diary_entries) -> TasteProfileResponse`
+- `generate_taste_report(user_id, diary_entries, profile_provider) -> TasteProfileResponse`
 - `generate_recommendations(user_id, context) -> RecommendedResponse`
 - `generate_recommendation_artifact(user_id, context) -> RecommendationArtifact`
-- `profile_diary_entry(entry, ml_provider=None) -> EntryProfileArtifact`
-- `aggregate_user_profile(user_id, diary_entries, entry_profiles=None) -> UserProfileArtifact`
-- `profile_kakao_restaurant(restaurant_metadata) -> RestaurantProfileArtifact`
+- `profile_diary_entry(entry, profile_provider) -> EntryProfileArtifact`
+- `aggregate_user_profile(user_id, diary_entries, profile_provider, entry_profiles=None) -> UserProfileArtifact`
+- `profile_kakao_restaurant(restaurant_metadata, profile_provider) -> RestaurantProfileArtifact`
 
 Shared Pydantic schemas live in `algorithm.schemas`. The client-facing response
 models intentionally match the current frontend payloads for `GET /taste/profile` and
 `GET /restaurants/recommended`; internal artifacts carry `algorithm_version`, confidence,
 evidence, profile text, provider embeddings, and scoring fields that are stored by the
 backend but not returned to users. User aggregation can consume stored entry artifacts so
-profile refreshes do not need to re-run entry extraction. External ML-generated labels and
+profile refreshes do not need to re-run entry extraction. External provider-generated labels and
 blurbs should remain grounded in the structured user and restaurant profiles.
 
 ## 11. Development and Evaluation Data

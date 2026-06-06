@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 
 from algorithm import profile_diary_entry
-from algorithm.providers import DeterministicMLProvider
+from algorithm.providers import DeterministicProvider
 from algorithm.schemas import (
     DiaryEntryInput,
     EntryProfileArtifact,
@@ -100,7 +100,7 @@ def test_profile_diary_entry_extracts_metadata_time_location_and_rating() -> Non
                 signature_dish="Marinated short rib",
             )
         ),
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
 
     assert isinstance(profile, EntryProfileArtifact)
@@ -137,7 +137,7 @@ def test_profile_diary_entry_leaves_unknown_optional_fields_empty() -> None:
             ),
             rating=None,
         ),
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
 
     assert profile.cuisine == {"western": 0.85}
@@ -162,7 +162,7 @@ def test_profile_diary_entry_extracts_supported_text_signals() -> None:
             rating=4.0,
             note="The kimchi stew was spicy, savory, and satisfying. Quick lunch after lab.",
         ),
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
 
     assert {"spicy", "savory"} <= set(profile.taste)
@@ -182,7 +182,7 @@ def test_profile_diary_entry_extracts_supported_image_labels() -> None:
             rating=None,
             image_labels=["korean stew", "rice bowl"],
         ),
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
 
     assert "korean" in profile.cuisine
@@ -206,7 +206,7 @@ def test_profile_diary_entry_merges_ml_text_and_image_signals() -> None:
             note="Spicy broth during a solo dinner.",
             image_references=["file-entry-image-1"],
         ),
-        ml_provider=provider,
+        profile_provider=provider,
     )
 
     assert len(provider.text_inputs) == 1
@@ -223,7 +223,7 @@ def test_profile_diary_entry_merges_ml_text_and_image_signals() -> None:
 
 
 def test_profile_diary_entry_requires_provider_argument() -> None:
-    with pytest.raises(TypeError, match="ml_provider"):
+    with pytest.raises(TypeError, match="profile_provider"):
         profile_diary_entry(
             entry(
                 restaurant(

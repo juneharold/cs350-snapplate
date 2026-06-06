@@ -7,7 +7,7 @@ from typing import TypedDict
 
 import aioboto3
 import httpx
-from algorithm.providers import MLProvider
+from algorithm.providers import ProfileProvider
 from fastapi import FastAPI, Request
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import (
 
 from app.config.env import Env, db_dsn
 from app.config.http_client import create_httpx_client
-from app.services.algorithm.provider import build_algorithm_provider
+from app.services.algorithm.provider import build_profile_provider
 
 
 @dataclass
@@ -29,7 +29,7 @@ class InternalContext:
     db_sessionmaker: async_sessionmaker[AsyncSession]
     http_client: httpx.AsyncClient
     s3: aioboto3.Session
-    profile_provider: MLProvider
+    profile_provider: ProfileProvider
 
 
 @dataclass
@@ -39,7 +39,7 @@ class Context:
     db_session: AsyncSession
     http_client: httpx.AsyncClient
     s3: aioboto3.Session
-    profile_provider: MLProvider
+    profile_provider: ProfileProvider
 
 
 class State(TypedDict):
@@ -49,7 +49,7 @@ class State(TypedDict):
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[State]:  # noqa: ARG001
     Env.load_defaults()
-    profile_provider = build_algorithm_provider()
+    profile_provider = build_profile_provider()
 
     db_engine = create_async_engine(db_dsn(), echo=False, pool_pre_ping=True)
     # expire_on_commit=False so ORM objects stay usable after commit (serialization).

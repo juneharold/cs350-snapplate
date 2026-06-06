@@ -20,7 +20,7 @@ from algorithm.config import (
     MIN_SIMILAR_USERS,
     RECOMMENDATION_SCORE_WEIGHTS,
 )
-from algorithm.providers import DeterministicMLProvider
+from algorithm.providers import DeterministicProvider
 from algorithm.schemas import (
     DiaryEntryInput,
     KakaoRestaurantMetadata,
@@ -50,7 +50,7 @@ def test_evaluation_threshold_gates_taste_and_recommendations() -> None:
         entries,
         min_entries_required=len(entries) + 1,
         generated_at=NOW,
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
     recommendations = generate_recommendations(
         USER_ID,
@@ -79,13 +79,13 @@ def test_evaluation_profiles_keep_evidence_for_observed_signals() -> None:
     )
     entry_profile = profile_diary_entry(
         profiled_entry,
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
     user_profile = aggregate_user_profile(
         USER_ID,
         [profiled_entry],
         generated_at=NOW,
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
     restaurant_profile = profile_kakao_restaurant(
         KakaoRestaurantMetadata(
@@ -97,7 +97,7 @@ def test_evaluation_profiles_keep_evidence_for_observed_signals() -> None:
             tags=["smoky grill", "reserve ahead"],
         ),
         generated_at=NOW,
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
 
     assert_profile_fields_have_evidence(entry_profile.model_dump(), field_names=ENTRY_FIELDS)

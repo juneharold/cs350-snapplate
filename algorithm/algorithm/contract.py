@@ -20,7 +20,7 @@ from algorithm.config import (
     RECOMMENDATION_SCORE_WEIGHTS,
     SIMILAR_USER_THRESHOLD,
 )
-from algorithm.providers import MLProvider
+from algorithm.providers import ProfileProvider
 from algorithm.schemas import (
     DiaryEntryInput,
     EntryProfileArtifact,
@@ -84,7 +84,7 @@ def generate_taste_report(
     user_id: str,
     diary_entries: Sequence[DiaryEntryInput],
     *,
-    ml_provider: MLProvider,
+    profile_provider: ProfileProvider,
     min_entries_required: int = MIN_ENTRIES_FOR_PERSONALIZATION,
     generated_at: datetime | None = None,
     entry_profiles: Sequence[EntryProfileArtifact] | None = None,
@@ -102,20 +102,20 @@ def generate_taste_report(
     weighted_entries = build_weighted_entry_profiles(
         user_id,
         entries,
-        ml_provider=ml_provider,
+        profile_provider=profile_provider,
         entry_profiles=entry_profiles,
     )
     if user_profile is None:
         user_profile = aggregate_user_profile(
             user_id,
             entries,
-            ml_provider=ml_provider,
+            profile_provider=profile_provider,
             generated_at=computed_at,
             weighted_entries=weighted_entries,
         )
     else:
         _validate_user_profile_artifact(user_id, len(entries), user_profile)
-    profile_summary = ml_provider.generate_profile_summary(user_profile.profile_text)
+    profile_summary = profile_provider.generate_profile_summary(user_profile.profile_text)
     category_stats = _weighted_category_stats(weighted_entries)
     categories = _taste_categories(category_stats)
 

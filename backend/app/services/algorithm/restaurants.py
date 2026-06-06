@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime
 
-from algorithm.providers import MLProvider
+from algorithm.providers import ProfileProvider
 from algorithm.restaurant_profiling import profile_kakao_restaurant
 from algorithm.schemas import KakaoRestaurantMetadata, RestaurantProfileArtifact
 from algorithm.taxonomy import normalize_public_restaurant_category
@@ -50,12 +50,12 @@ def build_restaurant_profile_artifact(
     restaurant: RestaurantModel,
     *,
     generated_at: datetime,
-    ml_provider: MLProvider,
+    profile_provider: ProfileProvider,
 ) -> RestaurantProfileArtifact:
     return profile_kakao_restaurant(
         metadata_from_restaurant_model(restaurant),
         generated_at=generated_at,
-        ml_provider=ml_provider,
+        profile_provider=profile_provider,
     )
 
 
@@ -75,7 +75,7 @@ async def profile_restaurants(
             profile = build_restaurant_profile_artifact(
                 restaurant,
                 generated_at=generated_at,
-                ml_provider=internal.profile_provider,
+                profile_provider=internal.profile_provider,
             )
             db.add(
                 RestaurantProfileArtifactModel(

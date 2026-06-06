@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from algorithm.providers import DeterministicMLProvider
+from algorithm.providers import DeterministicProvider
 
 from app.models.restaurant import RestaurantModel
 from app.types.restaurant import FoodTone
@@ -46,7 +46,7 @@ def test_build_restaurant_profile_artifact() -> None:
     profile = build_restaurant_profile_artifact(
         _restaurant(),
         generated_at=NOW,
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
 
     assert profile.restaurant_id == "r_profile"

@@ -13,7 +13,7 @@ from algorithm.config import (
     TEXT_PROFILE_MODEL,
 )
 from algorithm.providers import (
-    DeterministicMLProvider,
+    DeterministicProvider,
     OpenAIProvider,
 )
 from algorithm.schemas import ProfileExtractionResult, ProfileSummaryResult
@@ -66,7 +66,7 @@ class FakeOpenAIClient:
 
 
 def test_deterministic_provider_returns_stable_configured_embeddings() -> None:
-    provider = DeterministicMLProvider()
+    provider = DeterministicProvider()
 
     first = provider.embed_text("Savory noodle profile.")
     second = provider.embed_text("Savory noodle profile.")
@@ -77,7 +77,7 @@ def test_deterministic_provider_returns_stable_configured_embeddings() -> None:
 
 
 def test_deterministic_provider_generates_stable_profile_summary() -> None:
-    provider = DeterministicMLProvider()
+    provider = DeterministicProvider()
 
     summary = provider.generate_profile_summary("taste: spicy 0.80, savory 0.70.")
 

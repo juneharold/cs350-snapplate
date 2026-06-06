@@ -19,12 +19,11 @@ from algorithm import (
 from algorithm.config import (
     EMBEDDING_MODEL,
     IMAGE_PROFILE_MODEL,
-    ML_PROVIDER,
     RECOMMENDATION_SCORE_WEIGHTS,
     TEXT_PROFILE_MODEL,
 )
 from algorithm.fixtures import DEMO_USER_ID, load_demo_recommendation_context
-from algorithm.providers import DeterministicMLProvider
+from algorithm.providers import DeterministicProvider
 from algorithm.schemas import (
     RecommendationContext,
     RecommendationScoreBreakdown,
@@ -43,7 +42,6 @@ def test_public_imports_expose_stable_scaffold_metadata() -> None:
     assert algorithm.RECOMMENDATION_LIMIT == RECOMMENDATION_LIMIT
     assert algorithm.generate_recommendation_artifact == generate_recommendation_artifact
     assert algorithm.RecommendationScoreBreakdown == RecommendationScoreBreakdown
-    assert algorithm.ML_PROVIDER == ML_PROVIDER == "openai"
     assert algorithm.TEXT_PROFILE_MODEL == TEXT_PROFILE_MODEL == "gpt-5.4-mini"
     assert algorithm.IMAGE_PROFILE_MODEL == IMAGE_PROFILE_MODEL == "gpt-5.4-mini"
     assert algorithm.SUMMARY_MODEL == SUMMARY_MODEL == "gpt-5.4-mini"
@@ -76,7 +74,7 @@ def test_demo_fixture_data_validates_and_drives_public_entrypoints() -> None:
         context.diary_entries,
         min_entries_required=min_entries_required,
         generated_at=datetime(2026, 5, 24, 12, 43, tzinfo=timezone.utc),
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
     recommendations = generate_recommendations(
         DEMO_USER_ID,

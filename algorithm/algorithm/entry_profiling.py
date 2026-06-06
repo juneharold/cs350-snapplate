@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from algorithm.providers import MLProvider
+from algorithm.providers import ProfileProvider
 from algorithm.schemas import DiaryEntryInput, EntryProfileArtifact
 from algorithm.taxonomy import PROFILE_FIELD_NAMES
 
@@ -142,7 +142,7 @@ IMAGE_FOOD_TYPES = (
 def profile_diary_entry(
     entry: DiaryEntryInput,
     *,
-    ml_provider: MLProvider,
+    profile_provider: ProfileProvider,
 ) -> EntryProfileArtifact:
     values: dict[str, dict[str, float]] = {field_name: {} for field_name in FIELD_NAMES}
     confidence: dict[str, float] = {}
@@ -152,8 +152,8 @@ def profile_diary_entry(
     _extract_location_features(entry, values, confidence, evidence)
     _extract_restaurant_metadata(entry, values, confidence, evidence)
     _extract_rating_signal(entry, values, confidence, evidence)
-    _extract_text_signal(entry, values, confidence, evidence, ml_provider)
-    _extract_image_references(entry, values, confidence, evidence, ml_provider)
+    _extract_text_signal(entry, values, confidence, evidence, profile_provider)
+    _extract_image_references(entry, values, confidence, evidence, profile_provider)
     _extract_image_labels(entry, values, confidence, evidence)
 
     return EntryProfileArtifact(
@@ -341,13 +341,13 @@ def _extract_text_signal(
     values: dict[str, dict[str, float]],
     confidence: dict[str, float],
     evidence: dict[str, list[str]],
-    ml_provider: MLProvider,
+    profile_provider: ProfileProvider,
 ) -> None:
     note = entry.note.strip()
     if not note:
         return
 
-    result = ml_provider.extract_text_profile(_text_profile_input(entry))
+    result = profile_provider.extract_text_profile(_text_profile_input(entry))
     _merge_profile_result(values, confidence, evidence, result)
 
 
@@ -356,13 +356,13 @@ def _extract_image_references(
     values: dict[str, dict[str, float]],
     confidence: dict[str, float],
     evidence: dict[str, list[str]],
-    ml_provider: MLProvider,
+    profile_provider: ProfileProvider,
 ) -> None:
     if not entry.image_references:
         return
 
     for image_reference in entry.image_references:
-        result = ml_provider.extract_image_profile(image_reference)
+        result = profile_provider.extract_image_profile(image_reference)
         _merge_profile_result(values, confidence, evidence, result)
 
 

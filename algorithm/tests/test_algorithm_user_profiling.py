@@ -6,7 +6,7 @@ import pytest
 
 from algorithm import aggregate_user_profile, generate_taste_report
 from algorithm.config import EMBEDDING_DIMENSIONS
-from algorithm.providers import DeterministicMLProvider
+from algorithm.providers import DeterministicProvider
 from algorithm.schemas import (
     DiaryEntryInput,
     EntryProfileArtifact,
@@ -20,7 +20,7 @@ NOW = datetime(2026, 5, 24, 12, 43, tzinfo=timezone.utc)
 USER_ID = "u_user_profile"
 
 
-class NoExtractionProvider(DeterministicMLProvider):
+class NoExtractionProvider(DeterministicProvider):
     def extract_text_profile(self, text: str) -> ProfileExtractionResult:
         raise AssertionError("precomputed entry profiles should not run text extraction")
 
@@ -105,14 +105,14 @@ def test_aggregate_user_profile_weights_recency_richness_and_confidence() -> Non
         [old_sparse_sweet, recent_rich_spicy],
         generated_at=NOW,
         short_term_entry_count=1,
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
     repeat = aggregate_user_profile(
         USER_ID,
         [old_sparse_sweet, recent_rich_spicy],
         generated_at=NOW,
         short_term_entry_count=1,
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
 
     assert profile.source_entry_count == 2
@@ -155,7 +155,7 @@ def test_aggregate_user_profile_accepts_precomputed_entry_profiles() -> None:
         [logged_entry],
         generated_at=NOW,
         entry_profiles=[entry_profile],
-        ml_provider=NoExtractionProvider(),
+        profile_provider=NoExtractionProvider(),
     )
 
     assert profile.long_term_profile["taste"] == {"sweet": 0.88}
@@ -189,7 +189,7 @@ def test_aggregate_user_profile_rejects_mismatched_precomputed_entry_profiles() 
             [logged_entry],
             generated_at=NOW,
             entry_profiles=[mismatched_profile],
-            ml_provider=NoExtractionProvider(),
+            profile_provider=NoExtractionProvider(),
         )
 
 
@@ -229,7 +229,7 @@ def test_taste_report_uses_deterministic_profile_stats() -> None:
         entries,
         min_entries_required=len(entries),
         generated_at=NOW,
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
     )
 
     assert isinstance(report, TasteProfileReady)

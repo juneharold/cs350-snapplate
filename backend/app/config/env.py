@@ -38,7 +38,7 @@ class Env(StrEnum):
     # Email provider for magic links
     SMTP_URL = auto()
 
-    # Algorithm ML provider. Defaults to OpenAI; tests/dev can opt into deterministic.
+    # Algorithm profile provider. Defaults to OpenAI; tests/dev can opt into deterministic.
     ALGORITHM_PROVIDER = auto()
     OPENAI_API_KEY = auto()
 

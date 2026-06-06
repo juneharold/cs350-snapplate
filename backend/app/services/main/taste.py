@@ -48,7 +48,7 @@ class TasteService:
             user_id,
             entries,
             generated_at=generated_at,
-            ml_provider=self.ctx.profile_provider,
+            profile_provider=self.ctx.profile_provider,
             min_entries_required=_MIN_ENTRIES,
         )
         report = artifacts.report
@@ -100,7 +100,7 @@ class TasteService:
         report = generate_taste_report(
             user_id,
             entries,
-            ml_provider=self.ctx.profile_provider,
+            profile_provider=self.ctx.profile_provider,
             min_entries_required=_MIN_ENTRIES,
         )
         return report.model_dump(mode="json")

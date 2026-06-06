@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from algorithm.providers import DeterministicMLProvider
+from algorithm.providers import DeterministicProvider
 from algorithm.schemas import DiaryEntryInput, RestaurantInput
 
 NOW = datetime(2026, 5, 24, 12, 43, tzinfo=UTC)
@@ -46,7 +46,7 @@ def test_build_taste_refresh_artifacts_for_ready_profile() -> None:
         USER_ID,
         [_entry(i) for i in range(10)],
         generated_at=NOW,
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
         min_entries_required=10,
     )
 
@@ -63,7 +63,7 @@ def test_build_taste_refresh_artifacts_for_insufficient_profile() -> None:
         USER_ID,
         [_entry(i) for i in range(3)],
         generated_at=NOW,
-        ml_provider=DeterministicMLProvider(),
+        profile_provider=DeterministicProvider(),
         min_entries_required=10,
     )
 

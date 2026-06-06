@@ -4,7 +4,6 @@ from algorithm.config import (
     IMAGE_PROFILE_MODEL,
     MIN_ENTRIES_FOR_PERSONALIZATION,
     MIN_SIMILAR_USERS,
-    ML_PROVIDER,
     RECOMMENDATION_COOLDOWN_REQUESTS,
     RECOMMENDATION_LIMIT,
     RECOMMENDATION_SCORE_WEIGHTS,
@@ -20,9 +19,9 @@ from algorithm.contract import (
 )
 from algorithm.entry_profiling import profile_diary_entry
 from algorithm.providers import (
-    DeterministicMLProvider,
-    MLProvider,
+    DeterministicProvider,
     OpenAIProvider,
+    ProfileProvider,
 )
 from algorithm.restaurant_profiling import profile_kakao_restaurant
 from algorithm.schemas import (
@@ -52,19 +51,18 @@ from algorithm.version import ALGORITHM_VERSION, __version__
 
 __all__ = [
     "ALGORITHM_VERSION",
-    "DeterministicMLProvider",
+    "DeterministicProvider",
     "DiaryEntryInput",
     "EMBEDDING_DIMENSIONS",
     "EMBEDDING_MODEL",
     "EntryProfileArtifact",
     "IMAGE_PROFILE_MODEL",
     "KakaoRestaurantMetadata",
-    "MLProvider",
     "MIN_ENTRIES_FOR_PERSONALIZATION",
     "MIN_SIMILAR_USERS",
-    "ML_PROVIDER",
     "OpenAIProvider",
     "ProfileExtractionResult",
+    "ProfileProvider",
     "ProfileSummaryResult",
     "RecommendationArtifact",
     "RecommendationContext",

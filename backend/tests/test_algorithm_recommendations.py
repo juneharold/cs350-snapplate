@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 from algorithm import aggregate_user_profile
-from algorithm.providers import DeterministicMLProvider
+from algorithm.providers import DeterministicProvider
 from algorithm.restaurant_profiling import profile_kakao_restaurant
 from algorithm.schemas import DiaryEntryInput, KakaoRestaurantMetadata, RestaurantInput
 
@@ -44,13 +44,13 @@ def _entry(index: int, user_id: str = USER_ID) -> DiaryEntryInput:
 def test_recommendation_context_from_stored_artifacts() -> None:
     from app.services.algorithm.recommendations import recommendation_context_from_artifacts
 
-    provider = DeterministicMLProvider()
+    provider = DeterministicProvider()
     entries = [_entry(index) for index in range(10)]
     user_profile = aggregate_user_profile(
         USER_ID,
         entries,
         generated_at=NOW,
-        ml_provider=provider,
+        profile_provider=provider,
     )
     candidate = _restaurant("r_candidate", "Noodles")
     restaurant_profile = profile_kakao_restaurant(
@@ -61,7 +61,7 @@ def test_recommendation_context_from_stored_artifacts() -> None:
             signature_dish=candidate.signature_dish,
         ),
         generated_at=NOW,
-        ml_provider=provider,
+        profile_provider=provider,
     )
 
     context = recommendation_context_from_artifacts(
