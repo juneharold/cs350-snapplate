@@ -1,12 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Bell, BookOpen, Camera, ChevronLeft, ChevronRight, Compass, Image as ImageIcon, MapPin, Send, Sparkles, Sun, User } from "lucide-react";
+import { useState, useRef } from "react";
+import { Bell, BookOpen, Camera, ChevronLeft, ChevronRight, Compass, Image as ImageIcon, MapPin, Send, Sparkles, Sun, User, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/store/auth";
-import { useLogout, useMe } from "@/lib/api/auth";
+import { useLogout, useMe, useUploadAvatar } from "@/lib/api/auth";
 import { useSettings, useUpdateSettings } from "@/lib/api/settings";
+import { useToast } from "@/lib/store/toast";
+import { ApiException } from "@/lib/api/client";
 import type { SettingsResponse } from "@/lib/types";
+
+const AVATAR_MAX_BYTES = 10 * 1024 * 1024;
+const AVATAR_TYPES = ["image/jpeg", "image/png"];
 
 /**
  * Settings screen — list-of-rows pattern, grouped by section.
@@ -19,9 +24,12 @@ export default function SettingsPage() {
   const { data: me } = useMe();
   const { data: settings } = useSettings();
   const update = useUpdateSettings();
+  const upload = useUploadAvatar();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const localUser = useAuth((s) => s.user);
   const logout = useLogout();
   const accessToken = useAuth((s) => s.accessToken);
+  const showToast = useToast((s) => s.show);
   const [confirming, setConfirming] = useState<"logout" | "delete" | null>(null);
 
   const nickname = me?.nickname ?? localUser?.nickname ?? "—";
@@ -38,8 +46,36 @@ export default function SettingsPage() {
     return v === "light" ? "Light" : v === "dark" ? "Dark" : "System";
   }
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file after an error
+    if (!file) return;
+    if (file.type && !AVATAR_TYPES.includes(file.type)) {
+      showToast("Please choose a JPEG or PNG image.");
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      showToast("That image is over 10MB — pick a smaller one.");
+      return;
+    }
+    try {
+      await upload.mutateAsync(file);
+    } catch (err) {
+      showToast(err instanceof ApiException ? err.message : "Couldn't upload that photo.");
+    }
+  };
+
   return (
     <div className="pb-12">
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/jpeg,image/png"
+        style={{ display: "none" }}
+      />
+
       <header
         className="px-4 flex items-center gap-2"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 24px)" }}
@@ -61,7 +97,13 @@ export default function SettingsPage() {
       <Group>
         <Row Icon={User} label="Nickname" value={nickname} />
         <Row Icon={Send} label="Email" value={email} last />
-        <Row Icon={ImageIcon} label="Profile photo" right="chev" last />
+        <Row
+          Icon={upload.isPending ? Loader2 : ImageIcon}
+          label={upload.isPending ? "Uploading..." : "Profile photo"}
+          right="chev"
+          onClick={() => fileInputRef.current?.click()}
+          last
+        />
       </Group>
 
       <SectionLabel>NOTIFICATIONS</SectionLabel>

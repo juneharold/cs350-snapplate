@@ -1,0 +1,122 @@
+from __future__ import annotations
+
+from typing import Final
+
+
+PUBLIC_RESTAURANT_CATEGORIES: Final[tuple[str, ...]] = (
+    "Korean",
+    "Korean BBQ",
+    "Noodles",
+    "Diner / Set meal",
+    "Comfort Korean",
+    "Cafe",
+    "Bakery",
+    "Snacks",
+    "Chinese",
+    "Japanese",
+    "Western",
+    "Bar",
+    "Dessert",
+)
+
+FLAVOR_LEAN_FIELDS: Final[tuple[str, ...]] = (
+    "umami",
+    "sweet",
+    "salty",
+    "sour",
+    "spicy",
+    "bitter",
+)
+
+INTERNAL_PROFILE_TAXONOMY: Final[dict[str, tuple[str, ...]]] = {
+    "cuisine": (
+        "korean",
+        "japanese",
+        "chinese",
+        "western",
+        "italian",
+        "asian_fusion",
+        "cafe_bakery",
+    ),
+    "food_type": (
+        "noodle",
+        "rice_bowl",
+        "soup",
+        "stew",
+        "bbq",
+        "fried",
+        "set_meal",
+        "bread",
+        "pastry",
+        "coffee",
+        "dessert",
+        "snack",
+        "drink",
+    ),
+    "taste": (
+        "savory",
+        "umami",
+        "spicy",
+        "sweet",
+        "salty",
+        "sour",
+        "bitter",
+        "smoky",
+        "buttery",
+        "crisp",
+        "rich",
+        "light",
+        "fresh",
+        "creamy",
+        "chewy",
+    ),
+    "context": (
+        "quick_meal",
+        "solo_meal",
+        "group_meal",
+        "casual",
+        "date",
+        "study_work",
+        "takeout",
+        "late_night",
+        "comfort_meal",
+        "special_occasion",
+    ),
+    "venue": (
+        "casual",
+        "cafe",
+        "bakery",
+        "bar",
+        "diner",
+        "bbq_place",
+        "dessert_shop",
+        "fast_casual",
+        "sit_down",
+    ),
+    "emotion": (
+        "satisfied",
+        "delighted",
+        "neutral",
+        "disappointed",
+        "reliable",
+        "craving",
+    ),
+    "location_feature": (
+        "nearby",
+        "near_campus",
+        "neighborhood_repeat",
+        "destination",
+        "commute_area",
+    ),
+    "temporal_feature": (
+        "breakfast",
+        "lunch",
+        "afternoon",
+        "dinner",
+        "late_night",
+        "weekday",
+        "weekend",
+    ),
+}
+
+PROFILE_FIELD_NAMES: Final[tuple[str, ...]] = tuple(INTERNAL_PROFILE_TAXONOMY)

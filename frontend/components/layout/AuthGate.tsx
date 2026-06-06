@@ -11,16 +11,20 @@ import { useAuth } from "@/lib/store/auth";
  * - Authed but `is_new` and no nickname → bounce to /onboarding
  *   so first-timers can't skip onboarding by deep-linking to /diary.
  *
- * We intentionally render `null` while redirecting instead of a spinner;
- * the redirect happens on first paint and a spinner would just flash.
+ * IMPORTANT: we wait for the persisted auth store to rehydrate (`hasHydrated`)
+ * before deciding. On a hard navigation / refresh, the store starts empty and
+ * only fills from localStorage a tick later — acting before then would bounce a
+ * logged-in user to /login. While not hydrated we render nothing (no flash).
  */
 export function AuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const hasHydrated = useAuth((s) => s.hasHydrated);
   const accessToken = useAuth((s) => s.accessToken);
   const user = useAuth((s) => s.user);
   const hasSeenOnboarding = useAuth((s) => s.hasSeenOnboarding);
 
   useEffect(() => {
+    if (!hasHydrated) return; // wait for localStorage rehydration
     if (!accessToken) {
       router.replace("/login");
       return;
@@ -28,8 +32,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
     if (!hasSeenOnboarding || !user?.nickname) {
       router.replace("/onboarding");
     }
-  }, [accessToken, hasSeenOnboarding, user?.nickname, router]);
+  }, [hasHydrated, accessToken, hasSeenOnboarding, user?.nickname, router]);
 
+  if (!hasHydrated) return null;
   if (!accessToken) return null;
   if (!hasSeenOnboarding || !user?.nickname) return null;
   return <>{children}</>;

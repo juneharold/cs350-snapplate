@@ -3,8 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from algorithm.taxonomy import INTERNAL_PROFILE_TAXONOMY, PUBLIC_RESTAURANT_CATEGORIES
 from algorithm.version import ALGORITHM_VERSION
 
 
@@ -51,6 +52,13 @@ class RestaurantInput(ContractModel):
     neighborhood: str
     is_bookmarked: bool = False
 
+    @field_validator("category")
+    @classmethod
+    def require_public_category(cls, value: str) -> str:
+        if value not in PUBLIC_RESTAURANT_CATEGORIES:
+            raise ValueError(f"unsupported public restaurant category: {value}")
+        return value
+
 
 class DiaryEntryInput(ContractModel):
     id: str
@@ -60,6 +68,7 @@ class DiaryEntryInput(ContractModel):
     rating: Rating | None = None
     note: str = ""
     image_labels: list[str] = Field(default_factory=list)
+    image_references: list[str] = Field(default_factory=list)
 
 
 class SyntheticUser(ContractModel):
@@ -96,6 +105,13 @@ class TasteCategory(ContractModel):
     visits: PositiveInt
     tone: FoodTone
 
+    @field_validator("name")
+    @classmethod
+    def require_public_category(cls, value: str) -> str:
+        if value not in PUBLIC_RESTAURANT_CATEGORIES:
+            raise ValueError(f"unsupported public restaurant category: {value}")
+        return value
+
 
 class TimeHeatmap(ContractModel):
     rows: list[str]
@@ -119,6 +135,33 @@ class TopDish(ContractModel):
     tone: FoodTone
 
 
+RatingDistribution = dict[str, PositiveInt]
+
+
+class ProfileExtractionResult(ContractModel):
+    profile: dict[str, WeightedTerms] = Field(default_factory=dict)
+    confidence: dict[str, Score] = Field(default_factory=dict)
+    evidence: dict[str, list[str]] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def require_supported_terms_confidence_and_evidence(self) -> "ProfileExtractionResult":
+        _validate_profile_map("profile", self.profile)
+        for field_name, terms in self.profile.items():
+            if not terms:
+                continue
+            if field_name not in self.confidence:
+                raise ValueError(f"{field_name} requires confidence")
+            if not self.evidence.get(field_name):
+                raise ValueError(f"{field_name} requires evidence")
+        return self
+
+
+class ProfileSummaryResult(ContractModel):
+    label: str
+    blurb: str
+    insights: list[str] = Field(default_factory=list)
+
+
 class TasteProfileReady(ContractModel):
     has_enough_data: Literal[True]
     min_entries_required: PositiveInt
@@ -127,6 +170,7 @@ class TasteProfileReady(ContractModel):
     type: TasteType
     summary: TasteSummary
     categories: list[TasteCategory]
+    rating_distribution: RatingDistribution
     time_heatmap: TimeHeatmap
     flavor_lean: FlavorLean
     top_dishes: list[TopDish]
@@ -154,10 +198,25 @@ class RecommendedResponse(ContractModel):
 
 class RecommendationContext(ContractModel):
     diary_entries: list[DiaryEntryInput]
+    peer_diary_entries: list[DiaryEntryInput] = Field(default_factory=list)
     candidate_restaurants: list[RestaurantInput]
+    user_profile: UserProfileArtifact | None = None
+    restaurant_profiles: list[RestaurantProfileArtifact] = Field(default_factory=list)
     lat: float | None = None
     lng: float | None = None
     exposure_history: list[str] = Field(default_factory=list)
+    requested_at: datetime | None = None
+    category_filters: list[str] = Field(default_factory=list)
+    neighborhood_filters: list[str] = Field(default_factory=list)
+    max_distance_m: PositiveInt | None = None
+
+    @field_validator("category_filters")
+    @classmethod
+    def require_public_category_filters(cls, value: list[str]) -> list[str]:
+        unsupported = sorted(set(value) - set(PUBLIC_RESTAURANT_CATEGORIES))
+        if unsupported:
+            raise ValueError(f"unsupported public restaurant categories: {unsupported}")
+        return value
 
 
 class EntryProfileArtifact(ContractModel):
@@ -178,23 +237,37 @@ class EntryProfileArtifact(ContractModel):
 
     @model_validator(mode="after")
     def require_confidence_and_evidence(self) -> "EntryProfileArtifact":
-        for field_name in (
-            "cuisine",
-            "food_type",
-            "taste",
-            "context",
-            "venue",
-            "emotion",
-            "location_feature",
-            "temporal_feature",
-        ):
-            if not getattr(self, field_name):
+        for field_name in INTERNAL_PROFILE_TAXONOMY:
+            terms = getattr(self, field_name)
+            if not terms:
                 continue
+            _validate_profile_terms(field_name, terms)
             if field_name not in self.confidence:
                 raise ValueError(f"{field_name} requires confidence")
             if not self.evidence.get(field_name):
                 raise ValueError(f"{field_name} requires evidence")
         return self
+
+
+class KakaoRestaurantMetadata(ContractModel):
+    id: str
+    place_name: str | None = None
+    name: str | None = None
+    category_name: str | None = None
+    category: str | None = None
+    category_group_name: str | None = None
+    address_name: str | None = None
+    road_address_name: str | None = None
+    x: str | float | None = None
+    y: str | float | None = None
+    place_url: str | None = None
+    phone: str | None = None
+    distance: str | int | None = None
+    signature_dish: str | None = None
+    popular_dishes: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    rating: Rating | None = None
+    rating_count: PositiveInt | None = None
 
 
 class UserProfileArtifact(ContractModel):
@@ -203,20 +276,35 @@ class UserProfileArtifact(ContractModel):
     source_entry_count: PositiveInt
     long_term_profile: dict[str, WeightedTerms] = Field(default_factory=dict)
     short_term_profile: dict[str, WeightedTerms] = Field(default_factory=dict)
+    confidence: dict[str, Score] = Field(default_factory=dict)
+    evidence: dict[str, list[str]] = Field(default_factory=dict)
     profile_text: str
     long_term_embedding: list[float] = Field(default_factory=list)
     short_term_embedding: list[float] = Field(default_factory=list)
     category_rating_vector: dict[str, float] = Field(default_factory=dict)
     algorithm_version: str = ALGORITHM_VERSION
 
+    @model_validator(mode="after")
+    def require_supported_profile_terms(self) -> "UserProfileArtifact":
+        _validate_profile_map("long_term_profile", self.long_term_profile)
+        _validate_profile_map("short_term_profile", self.short_term_profile)
+        return self
+
 
 class RestaurantProfileArtifact(ContractModel):
     restaurant_id: str
     generated_at: datetime
     profile: dict[str, WeightedTerms] = Field(default_factory=dict)
+    confidence: dict[str, Score] = Field(default_factory=dict)
+    evidence: dict[str, list[str]] = Field(default_factory=dict)
     profile_text: str
     embedding: list[float] = Field(default_factory=list)
     algorithm_version: str = ALGORITHM_VERSION
+
+    @model_validator(mode="after")
+    def require_supported_profile_terms(self) -> "RestaurantProfileArtifact":
+        _validate_profile_map("profile", self.profile)
+        return self
 
 
 class RecommendationScoreBreakdown(ContractModel):
@@ -231,6 +319,7 @@ class RecommendationScoreBreakdown(ContractModel):
 class ScoredRecommendationArtifact(ContractModel):
     restaurant_id: str
     reason: str
+    reason_category: Literal["content", "collaborative", "context", "quality", "novelty"]
     scores: RecommendationScoreBreakdown
 
 
@@ -241,3 +330,25 @@ class RecommendationArtifact(ContractModel):
     has_enough_data: bool
     ranked_items: list[ScoredRecommendationArtifact] = Field(default_factory=list)
     algorithm_version: str = ALGORITHM_VERSION
+
+
+def _validate_profile_map(
+    map_name: str,
+    profile: dict[str, WeightedTerms],
+) -> None:
+    for field_name, terms in profile.items():
+        if field_name not in INTERNAL_PROFILE_TAXONOMY:
+            raise ValueError(f"{map_name} contains unsupported profile field: {field_name}")
+        _validate_profile_terms(f"{map_name}.{field_name}", terms, field_name)
+
+
+def _validate_profile_terms(
+    label: str,
+    terms: WeightedTerms,
+    taxonomy_field_name: str | None = None,
+) -> None:
+    field_name = taxonomy_field_name or label
+    allowed = set(INTERNAL_PROFILE_TAXONOMY[field_name])
+    unsupported = sorted(set(terms) - allowed)
+    if unsupported:
+        raise ValueError(f"{label} contains unsupported terms: {unsupported}")

@@ -19,6 +19,7 @@ export function readFileAsPendingPhoto(file: File): Promise<PendingPhoto> {
       img.onload = () => {
         resolve({
           key: `${file.name}-${file.size}-${file.lastModified}`,
+          file,
           dataUrl,
           name: file.name || "photo.jpg",
           bytes: file.size,
@@ -34,6 +35,7 @@ export function readFileAsPendingPhoto(file: File): Promise<PendingPhoto> {
       img.onerror = () =>
         resolve({
           key: `${file.name}-${file.size}-${file.lastModified}`,
+          file,
           dataUrl,
           name: file.name || "photo.jpg",
           bytes: file.size,
@@ -60,9 +62,10 @@ export async function readManyFiles(files: FileList | File[]): Promise<PendingPh
  * Build a `PendingPhoto` from a freshly captured camera frame.
  *
  * Mirrors `readFileAsPendingPhoto`'s shape so the preview/upload path is
- * identical — there's just no `File`, so we estimate `bytes` from the
- * base64 payload and synthesize a unique key. JPEG at 0.85 keeps a 1080p
- * frame well under 1 MB, consistent with the existing data-URL contract.
+ * identical. We decode the JPEG data URL into a real `File` so the multipart
+ * upload (`/media/upload`) gets the same File bytes as the gallery path. JPEG
+ * at 0.85 keeps a 1080p frame well under 1 MB, consistent with the existing
+ * data-URL contract.
  */
 export function pendingPhotoFromCanvas(
   canvas: HTMLCanvasElement,
@@ -70,15 +73,20 @@ export function pendingPhotoFromCanvas(
 ): PendingPhoto {
   const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
   const base64 = dataUrl.split(",")[1] ?? "";
-  const bytes = Math.round((base64.length * 3) / 4);
+  const binary = atob(base64);
+  const buf = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i);
   const stamp = Date.now();
+  const name = `snap-${stamp}.jpg`;
+  const file = new File([buf], name, { type: "image/jpeg", lastModified: stamp });
   return {
-    // No File to derive the usual `name-size-lastModified` key from; this
-    // only needs to be unique within `pending[]` (and identify the cover).
+    // No source File to derive the usual `name-size-lastModified` key from;
+    // this only needs to be unique within `pending[]` (and identify the cover).
     key: `cam-${stamp}-${Math.random().toString(36).slice(2, 8)}`,
+    file,
     dataUrl,
-    name: `snap-${stamp}.jpg`,
-    bytes,
+    name,
+    bytes: file.size,
     width: canvas.width,
     height: canvas.height,
     captured_at: new Date(stamp).toISOString(),

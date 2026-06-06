@@ -38,13 +38,22 @@ export default function DiaryDetailPage({ params }: { params: Promise<{ id: stri
   return (
     <div className="pb-12">
       <div className="relative">
-        <FoodPlaceholder
-          tone={cover?.tone}
-          label={entry.restaurant.signature_dish ?? cover?.label}
-          width="100%"
-          height={320}
-          radius={0}
-        />
+        {cover?.url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={cover.url}
+            alt={entry.restaurant.name}
+            style={{ width: "100%", height: 320, objectFit: "cover", display: "block" }}
+          />
+        ) : (
+          <FoodPlaceholder
+            tone={cover?.tone}
+            label={entry.restaurant.signature_dish ?? cover?.label}
+            width="100%"
+            height={320}
+            radius={0}
+          />
+        )}
         <div
           className="absolute left-4 right-4 flex justify-between"
           style={{ top: "calc(env(safe-area-inset-top, 0px) + 24px)" }}

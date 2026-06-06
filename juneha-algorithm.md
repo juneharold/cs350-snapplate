@@ -32,15 +32,22 @@ The frontend and backend are owned by teammates. This plan defines the algorithm
 - Use ML for text understanding, image understanding, profile generation, and embeddings.
 - Use Kakao Map as the official restaurant metadata source.
 - Keep the minimum-entry threshold as a configurable constant.
-- Keep taxonomy fields adjustable during development.
+- Freeze taxonomy v0 for the first ML integration; future taxonomy changes should be intentional and test-backed.
 - Use synthetic dummy users and diaries to test collaborative filtering if real user data is too small.
-- External ML APIs are allowed. OpenAI is an acceptable provider candidate.
+- External ML APIs are allowed. OpenAI is the selected provider for the first ML-backed implementation.
 - Do not expose recommendation scores to users (REQ-BIZ-008).
 
 Resolved client decision:
 
 - Team 6 confirmed that external APIs, including OpenAI, may be used for ML capabilities.
-- Exact provider and model IDs should still be configuration values, not hardcoded into algorithm logic.
+- Exact provider and model IDs are configuration values, not hardcoded into algorithm logic.
+- The first quality-focused model set is:
+  - `ML_PROVIDER = "openai"`
+  - `TEXT_PROFILE_MODEL = "gpt-5.4-mini"`
+  - `IMAGE_PROFILE_MODEL = "gpt-5.4-mini"`
+  - `SUMMARY_MODEL = "gpt-5.4-mini"`
+  - `EMBEDDING_MODEL = "text-embedding-3-large"`
+  - `EMBEDDING_DIMENSIONS = 1024`
 
 Required capabilities for the selected provider:
 
@@ -61,13 +68,80 @@ The following values should be defined once in configuration instead of being ha
 | `SIMILAR_USER_THRESHOLD` | `0.70` | Minimum cosine similarity for collaborative filtering |
 | `MIN_SIMILAR_USERS` | `3` | Minimum similar users before collaborative score is active |
 | `RECOMMENDATION_LIMIT` | `10` | Default number of recommendations returned |
-| `RECOMMENDATION_COOLDOWN_REQUESTS` | TBD | Number of recent recommendation requests used to avoid repeated exposure |
-| `ML_PROVIDER` | TBD | External ML provider, for example OpenAI |
-| `TEXT_PROFILE_MODEL` | TBD | Model used for diary text profile extraction |
-| `IMAGE_PROFILE_MODEL` | TBD | Model used for food image profile extraction |
-| `EMBEDDING_MODEL` | TBD | Model used for user and restaurant embeddings |
+| `RECOMMENDATION_COOLDOWN_REQUESTS` | `20` | Number of recent recommendation requests used to avoid repeated exposure |
+| `ML_PROVIDER` | `openai` | External ML provider |
+| `TEXT_PROFILE_MODEL` | `gpt-5.4-mini` | Model used for diary text profile extraction |
+| `IMAGE_PROFILE_MODEL` | `gpt-5.4-mini` | Model used for food image profile extraction |
+| `SUMMARY_MODEL` | `gpt-5.4-mini` | Model used for profile labels, blurbs, and explanation text |
+| `EMBEDDING_MODEL` | `text-embedding-3-large` | Model used for user and restaurant embeddings |
+| `EMBEDDING_DIMENSIONS` | `1024` | Stored embedding vector dimensions |
 
 Internal profiles may be generated before the minimum entry count. User-facing taste analysis and personalized recommendations should return `has_enough_data: false` until the threshold is met (REQ-4.8-015, REQ-4.9-011, REQ-BIZ-002).
+
+### Taxonomy V0
+
+Public frontend-facing restaurant categories are frozen as:
+
+```text
+Korean
+Korean BBQ
+Noodles
+Diner / Set meal
+Comfort Korean
+Cafe
+Bakery
+Snacks
+Chinese
+Japanese
+Western
+Bar
+Dessert
+```
+
+Public `flavor_lean` fields are frozen as:
+
+```text
+umami
+sweet
+salty
+sour
+spicy
+bitter
+```
+
+Internal profile terms are frozen as:
+
+```text
+cuisine:
+korean, japanese, chinese, western, italian, asian_fusion, cafe_bakery
+
+food_type:
+noodle, rice_bowl, soup, stew, bbq, fried, set_meal, bread, pastry,
+coffee, dessert, snack, drink
+
+taste:
+savory, umami, spicy, sweet, salty, sour, bitter, smoky, buttery,
+crisp, rich, light, fresh, creamy, chewy
+
+context:
+quick_meal, solo_meal, group_meal, casual, date, study_work,
+takeout, late_night, comfort_meal, special_occasion
+
+venue:
+casual, cafe, bakery, bar, diner, bbq_place, dessert_shop,
+fast_casual, sit_down
+
+emotion:
+satisfied, delighted, neutral, disappointed, reliable, craving
+
+location_feature:
+nearby, near_campus, neighborhood_repeat, destination, commute_area
+
+temporal_feature:
+breakfast, lunch, afternoon, dinner, late_night, weekday, weekend
+```
+
+If extraction cannot map evidence to one of these terms, omit the term. Do not emit `unknown`, `other`, or free-form slugs.
 
 ## 4. High-Level Flow
 
@@ -112,7 +186,8 @@ Related reference:
 - `entry_id`
 - `user_id`
 - diary text or note, if present
-- food images, if present
+- food image references, if present
+- deterministic image labels, if present, for local fixtures and tests
 - rating
 - captured timestamp
 - restaurant id or restaurant name
@@ -130,12 +205,18 @@ Text model:
 Image model:
 
 - Extracts `food_type` and `cuisine`.
-- Uses food images and optional restaurant category as context.
+- Uses provider-ready image references, currently OpenAI `file-...` ids.
 
 Metadata parser:
 
 - Extracts `location_feature`, `venue`, and `temporal_feature`.
 - Uses timestamp, coordinates, address, category, and distance-related metadata.
+
+Provider behavior:
+
+- Entry profiling calls the configured ML provider by default when diary note text or image references are present.
+- Local deterministic tests should pass `DeterministicMLProvider` explicitly.
+- If the configured provider is unavailable, the algorithm fails loudly instead of silently falling back to keyword extraction.
 
 Missing optional inputs are allowed, but the algorithm must not silently invent values. If a field cannot be extracted, leave it empty or assign low confidence with explicit evidence.
 
@@ -340,17 +421,18 @@ Recommend restaurants that match the user's taste profile, current context, and 
 - user diary history,
 - bookmarks if available,
 - current location if available,
-- active filters if available,
+- request timestamp, active category/neighborhood filters, and max-distance context if available,
 - restaurant profiles,
 - restaurant embeddings,
 - restaurant quality metadata,
-- previous recommendation exposure history.
+- previous recommendation exposure history as newest-first restaurant ids.
 
 ### Outputs
 
 - ranked restaurant ids (REQ-4.9-007),
 - recommendation reason for each restaurant (REQ-4.9-010),
-- reason category for each restaurant,
+- internal reason category for each restaurant,
+- internal score breakdown artifact for traceability,
 - `based_on_entries`,
 - `has_enough_data`,
 - insufficient-data response when personalization cannot run (REQ-4.9-011),
@@ -362,7 +444,7 @@ Recommend restaurants that match the user's taste profile, current context, and 
 flowchart TD
     A[Recommendation Request] --> B{Enough User Data?}
     B -- No --> C[Return Insufficient Personalized Data]
-    B -- Yes --> D[Generate Candidate Restaurants]
+    B -- Yes --> D[Score Supplied Candidate Restaurants]
     D --> E[Content Signal]
     D --> F[Collaborative Signal]
     D --> G[Context Signal]
@@ -380,13 +462,18 @@ flowchart TD
 
 ### Candidate Generation
 
-Use a union of candidate sources:
+For the pre-integration algorithm package, `generate_recommendations` ranks caller-supplied
+candidate restaurants from `RecommendationContext`. Broad candidate retrieval remains outside
+the algorithm package until backend/search integration. Active category and neighborhood
+filters gate the supplied candidates before scoring.
+
+Future candidate sources may include:
 
 - content candidates from user embedding vs restaurant embedding similarity,
 - collaborative candidates from similar users,
 - context candidates from nearby restaurants, time, distance, and active filters.
 
-This avoids scoring every restaurant on every request.
+This avoids baking backend retrieval policy into the pure algorithm contract.
 
 ### Scoring
 
@@ -402,35 +489,38 @@ S(u, r) =
 ```
 
 All component scores must be normalized to `[0, 1]`.
+If collaborative scoring is inactive for a request, the remaining score weights are
+renormalized to sum to `1.0`.
 
 Content score:
 
 - Compare user long-term and short-term embeddings with the restaurant embedding.
-- Use configurable weights for long-term vs short-term similarity.
+- Use configurable weights for long-term vs short-term similarity; current default is `0.70` long-term and `0.30` short-term.
 - Prefer restaurants whose structured profile also matches high-confidence user profile fields.
+- Current contract uses embedding content scoring when `RecommendationContext` includes `user_profile` and `restaurant_profiles`.
+- If only one side of the artifact input is present, or if an embedding is missing or dimension-invalid, recommendation scoring fails loudly instead of silently falling back.
+- If recommendation artifacts are absent, content scoring keeps the current category-frequency path for local fixtures and legacy tests.
 
 Collaborative score:
 
 - Build category-rating vectors from users' diary histories.
 - Similar users have cosine similarity at or above `SIMILAR_USER_THRESHOLD`.
 - Use similar users' ratings, visits, or bookmarks for the candidate restaurant or its category.
-- If fewer than `MIN_SIMILAR_USERS` exist, set collaborative score inactive for that request and log why.
+- If fewer than `MIN_SIMILAR_USERS` exist, set collaborative score inactive for that request, log why, and renormalize the other scoring weights.
 
 Context score:
 
-- Distance from current user location.
-- Active filters.
-- Meal time or day-of-week relevance.
-- Location feature match.
+- Distance from the candidate metadata.
+- Optional max-distance context.
+- Optional request timestamp compared with the user's meal-period category history.
 
 Quality score:
 
-- Restaurant rating, review count, metadata completeness, and available photo/menu quality if provided by backend.
+- Restaurant rating, rating count, signature dish/menu presence, tags, and thumbnail availability.
 
 Novelty score:
 
-- Penalize restaurants recently recommended to the same user.
-- Penalize too many near-duplicate restaurants in the same category or area.
+- Penalize exact restaurants in the newest `RECOMMENDATION_COOLDOWN_REQUESTS` exposure ids.
 - Increase exposure for relevant restaurants the user has not seen before.
 
 ### Re-Ranking
@@ -438,12 +528,11 @@ Novelty score:
 After scoring:
 
 - sort by score internally,
-- remove repeated restaurant exposure according to cooldown configuration,
-- enforce category diversity in the final list (REQ-4.9-008),
+- penalize repeated category and neighborhood concentration in score-aware final re-ranking,
 - attach reason text based on the strongest real signals,
 - store exposure history for future requests.
 
-Scores are for internal ranking only and must not be returned to the client.
+Scores and `reason_category` are for internal artifacts only and must not be returned to the client.
 
 ### Insufficient Data and Failure Behavior
 
@@ -500,11 +589,18 @@ Public functions:
 
 - `generate_taste_report(user_id, diary_entries) -> TasteProfileResponse`
 - `generate_recommendations(user_id, context) -> RecommendedResponse`
+- `generate_recommendation_artifact(user_id, context) -> RecommendationArtifact`
+- `profile_diary_entry(entry, ml_provider=None) -> EntryProfileArtifact`
+- `aggregate_user_profile(user_id, diary_entries, entry_profiles=None) -> UserProfileArtifact`
+- `profile_kakao_restaurant(restaurant_metadata) -> RestaurantProfileArtifact`
 
 Shared Pydantic schemas live in `algorithm.schemas`. The client-facing response
 models intentionally match the current frontend payloads for `GET /taste/profile` and
 `GET /restaurants/recommended`; internal artifacts carry `algorithm_version`, confidence,
-evidence, and scoring fields that are stored by the backend but not returned to users.
+evidence, profile text, provider embeddings, and scoring fields that are stored by the
+backend but not returned to users. User aggregation can consume stored entry artifacts so
+profile refreshes do not need to re-run entry extraction. External ML-generated labels and
+blurbs should remain grounded in the structured user and restaurant profiles.
 
 ## 11. Development and Evaluation Data
 
@@ -528,21 +624,28 @@ Evaluation checks:
 - recommendations include content, collaborative, context, quality, and novelty signals,
 - repeated restaurants are penalized,
 - final responses hide raw scores,
-- explanations match actual strongest signals.
+- explanations match actual strongest signals,
+- offline metrics include precision@K, NDCG@K, category diversity, repeat exposure rate, and latency.
 
 ## 12. Build Order
 
-1. Select exact external API provider and model IDs for text, image, and embedding tasks.
-2. Define shared schema, taxonomy starter fields, and global constants with backend.
-3. Implement entry-level profile extraction for text, image, metadata, confidence, and evidence.
-4. Implement user profile aggregation, long-term/short-term profiles, and embeddings.
-5. Implement Kakao Map restaurant profiling and restaurant embeddings.
-6. Implement taste analysis report generation from structured profile and statistics.
-7. Generate synthetic users, restaurants, and diary data for collaborative filtering tests.
-8. Implement candidate generation and hybrid scoring.
-9. Implement diversity, novelty, repeated-exposure handling, and explanation generation.
-10. Integrate async jobs, persistence, and API payloads with backend.
-11. Add tests and evaluation scripts for extraction, aggregation, scoring, and response shape.
+1. Select exact external API provider and model IDs for text, image, and embedding tasks. Done for current OpenAI configuration.
+2. Define shared schema, taxonomy starter fields, and global constants with backend. Done for the current algorithm contract.
+3. Implement entry-level profile extraction for text, image, metadata, confidence, and evidence. Current state: metadata, deterministic labels, and provider-backed text/image references are implemented.
+4. Implement user profile aggregation, long-term/short-term profiles, and embeddings. Current state: aggregation supports precomputed entry artifacts and provider embeddings.
+5. Implement Kakao Map restaurant profiling and restaurant embeddings. Current state: Kakao metadata normalization and provider embeddings are implemented.
+6. Implement taste analysis report generation from structured profile and statistics. Current state: implemented in `generate_taste_report` with insufficient-data gating, deterministic chart-ready statistics, weighted category preferences, flavor lean, top dishes, and provider-generated profile label, blurb, and insights.
+7. Generate synthetic users, restaurants, and diary data for collaborative filtering tests. Current state: deterministic synthetic fixture data exists with multiple users, diary histories, restaurant candidates, and exposure history.
+8. Implement candidate generation and hybrid scoring. Current state: `generate_recommendations` ranks caller-supplied candidate restaurants after category/neighborhood filter gates. Hybrid scoring has content, collaborative, context, quality, and novelty components. Artifact mode uses user and restaurant embeddings and fails loudly when required artifacts or embeddings are missing. Non-artifact mode keeps the category-frequency content path for local fixtures and legacy tests. Broad candidate retrieval remains a backend/search responsibility for pre-integration work.
+9. Implement diversity, novelty, repeated-exposure handling, and explanation generation. Current state: score-aware category/neighborhood diversity, exact restaurant cooldown-window novelty, internal `reason_category`, and reason text selected from scoring signals are implemented.
+10. Integrate async jobs, persistence, and API payloads with backend. Current state: intentionally deferred from algorithm-only work. The algorithm contract exposes the functions and schemas backend integration needs.
+11. Add tests and evaluation scripts for extraction, aggregation, scoring, and response shape. Current state: tests cover taxonomy, contracts, fixtures, provider behavior, entry profiling, user aggregation, restaurant profiling, score hiding, collaborative boost and inactive renormalization, exposure cooldown, category and neighborhood filtering/diversity, embedding artifact mode, fail-loud artifact validation, scoring artifacts/traces, richer context and quality scoring, explanation categories, evaluation metrics, and the SRS recommendation latency target.
+
+Current algorithm-only next order:
+
+1. Use the evaluation harness to compare future scoring changes against the current baseline.
+2. Add real-data or semi-real-data evaluation cases when diary data is available.
+3. Integrate backend persistence, async refresh, and frontend payload wiring.
 
 ## 13. Success Criteria
 

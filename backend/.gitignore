@@ -1,0 +1,51 @@
+# Env
+.env
+.env.local
+.env*.local
+!.env.example
+
+## Python / FastAPI
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE - Python
+.idea/
+.vscode/
+*.swp
+*.swo
+.spyproject/
+.ropeproject/
+
+# Logs
+*.log
+pip-log.txt
+
+# Local data volumes (Docker bind-mounts)
+pg-volume/
+minio-volume/
+
+# Misc
+.DS_Store
+*.pem

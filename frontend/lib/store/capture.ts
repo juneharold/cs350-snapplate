@@ -16,6 +16,8 @@ export const MAX_PHOTOS = 5;
 export type PendingPhoto = {
   /** Stable per-file id used to identify the cover. */
   key: string;
+  /** The raw File — sent as multipart to the real backend's /media/upload. */
+  file: File;
   /** Data URL — preview only, never persisted. */
   dataUrl: string;
   /** Original filename, used by MSW to deterministically pick a tone. */

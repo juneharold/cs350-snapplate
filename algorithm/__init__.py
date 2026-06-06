@@ -1,4 +1,5 @@
 from algorithm.config import (
+    EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
     IMAGE_PROFILE_MODEL,
     MIN_ENTRIES_FOR_PERSONALIZATION,
@@ -9,15 +10,31 @@ from algorithm.config import (
     RECOMMENDATION_SCORE_WEIGHTS,
     SHORT_TERM_ENTRY_COUNT,
     SIMILAR_USER_THRESHOLD,
+    SUMMARY_MODEL,
     TEXT_PROFILE_MODEL,
 )
-from algorithm.contract import generate_recommendations, generate_taste_report
+from algorithm.contract import (
+    generate_recommendation_artifact,
+    generate_recommendations,
+    generate_taste_report,
+)
 from algorithm.entry_profiling import profile_diary_entry
+from algorithm.providers import (
+    DeterministicMLProvider,
+    MLProvider,
+    OpenAIProvider,
+    get_configured_ml_provider,
+)
+from algorithm.restaurant_profiling import profile_kakao_restaurant
 from algorithm.schemas import (
     DiaryEntryInput,
     EntryProfileArtifact,
+    KakaoRestaurantMetadata,
+    ProfileExtractionResult,
+    ProfileSummaryResult,
     RecommendationArtifact,
     RecommendationContext,
+    RecommendationScoreBreakdown,
     RecommendedResponse,
     RecommendedRestaurant,
     RestaurantInput,
@@ -30,20 +47,29 @@ from algorithm.schemas import (
     TasteProfileResponse,
     UserProfileArtifact,
 )
+from algorithm.user_profiling import aggregate_user_profile, build_weighted_entry_profiles
 from algorithm.version import ALGORITHM_VERSION, __version__
 
 
 __all__ = [
     "ALGORITHM_VERSION",
+    "DeterministicMLProvider",
     "DiaryEntryInput",
+    "EMBEDDING_DIMENSIONS",
     "EMBEDDING_MODEL",
     "EntryProfileArtifact",
     "IMAGE_PROFILE_MODEL",
+    "KakaoRestaurantMetadata",
+    "MLProvider",
     "MIN_ENTRIES_FOR_PERSONALIZATION",
     "MIN_SIMILAR_USERS",
     "ML_PROVIDER",
+    "OpenAIProvider",
+    "ProfileExtractionResult",
+    "ProfileSummaryResult",
     "RecommendationArtifact",
     "RecommendationContext",
+    "RecommendationScoreBreakdown",
     "RECOMMENDATION_COOLDOWN_REQUESTS",
     "RECOMMENDATION_LIMIT",
     "RECOMMENDATION_SCORE_WEIGHTS",
@@ -53,6 +79,7 @@ __all__ = [
     "RestaurantProfileArtifact",
     "SHORT_TERM_ENTRY_COUNT",
     "SIMILAR_USER_THRESHOLD",
+    "SUMMARY_MODEL",
     "ScoredRecommendationArtifact",
     "SyntheticFixtureSet",
     "SyntheticUser",
@@ -62,7 +89,12 @@ __all__ = [
     "TEXT_PROFILE_MODEL",
     "UserProfileArtifact",
     "__version__",
+    "aggregate_user_profile",
+    "build_weighted_entry_profiles",
+    "generate_recommendation_artifact",
     "generate_recommendations",
     "generate_taste_report",
+    "get_configured_ml_provider",
     "profile_diary_entry",
+    "profile_kakao_restaurant",
 ]

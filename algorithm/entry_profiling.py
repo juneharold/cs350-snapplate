@@ -1,36 +1,52 @@
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 
+from algorithm.providers import MLProvider, get_configured_ml_provider
 from algorithm.schemas import DiaryEntryInput, EntryProfileArtifact
+from algorithm.taxonomy import PROFILE_FIELD_NAMES
 
 
-FIELD_NAMES = (
-    "cuisine",
-    "food_type",
-    "taste",
-    "context",
-    "venue",
-    "emotion",
-    "location_feature",
-    "temporal_feature",
-)
+FIELD_NAMES = PROFILE_FIELD_NAMES
 
 CATEGORY_CUISINES = (
     ("korean", "korean"),
     ("chinese", "chinese"),
     ("japanese", "japanese"),
     ("soba", "japanese"),
+    ("western", "western"),
+    ("italian", "italian"),
+    ("cafe", "cafe_bakery"),
+    ("bakery", "cafe_bakery"),
 )
 
 CATEGORY_FOOD_TYPES = (
     ("bbq", "bbq"),
     ("noodles", "noodle"),
-    ("bakery", "bakery"),
-    ("cafe", "cafe"),
+    ("bakery", "pastry"),
+    ("cafe", "coffee"),
     ("set meal", "set_meal"),
     ("diner", "set_meal"),
+    ("snacks", "snack"),
+    ("dessert", "dessert"),
+    ("bar", "drink"),
+)
+
+CATEGORY_VENUES = (
+    ("korean bbq", "bbq_place"),
+    ("bbq", "bbq_place"),
+    ("diner", "diner"),
+    ("set meal", "diner"),
+    ("cafe", "cafe"),
+    ("bakery", "bakery"),
+    ("bar", "bar"),
+    ("dessert", "dessert_shop"),
+    ("snacks", "fast_casual"),
+    ("noodles", "casual"),
+    ("korean", "sit_down"),
+    ("chinese", "sit_down"),
+    ("japanese", "sit_down"),
+    ("western", "sit_down"),
 )
 
 DISH_FOOD_TYPES = (
@@ -45,32 +61,62 @@ DISH_FOOD_TYPES = (
     ("latte", "coffee"),
     ("coffee", "coffee"),
     ("rib", "bbq"),
+    ("fried", "fried"),
+    ("dessert", "dessert"),
+    ("cake", "dessert"),
+    ("snack", "snack"),
+    ("tea", "drink"),
+    ("juice", "drink"),
 )
 
 TEXT_TASTES = (
     ("spicy", "spicy", 0.76),
     ("savory", "savory", 0.74),
-    ("umami", "savory", 0.74),
+    ("umami", "umami", 0.74),
     ("sweet", "sweet", 0.72),
+    ("salty", "salty", 0.72),
+    ("sour", "sour", 0.72),
+    ("bitter", "bitter", 0.72),
     ("buttery", "buttery", 0.72),
     ("smoky", "smoky", 0.72),
     ("crisp", "crisp", 0.7),
+    ("rich", "rich", 0.7),
+    ("light", "light", 0.7),
+    ("fresh", "fresh", 0.7),
+    ("creamy", "creamy", 0.7),
+    ("chewy", "chewy", 0.7),
 )
 
 TEXT_CONTEXTS = (
     ("quick", "quick_meal", 0.72),
+    ("solo", "solo_meal", 0.72),
+    ("group", "group_meal", 0.72),
+    ("casual", "casual", 0.7),
+    ("date", "date", 0.7),
+    ("study", "study_work", 0.7),
+    ("work", "study_work", 0.7),
+    ("takeout", "takeout", 0.7),
+    ("take-out", "takeout", 0.7),
+    ("late night", "late_night", 0.7),
+    ("comfort", "comfort_meal", 0.7),
+    ("special", "special_occasion", 0.7),
 )
 
 TEXT_EMOTIONS = (
     ("satisfying", "satisfied", 0.78),
     ("satisfied", "satisfied", 0.78),
-    ("reliable", "positive", 0.68),
+    ("delighted", "delighted", 0.78),
+    ("reliable", "reliable", 0.68),
+    ("craving", "craving", 0.68),
+    ("disappointed", "disappointed", 0.72),
 )
 
 IMAGE_CUISINES = (
     ("korean", "korean"),
     ("chinese", "chinese"),
     ("japanese", "japanese"),
+    ("western", "western"),
+    ("italian", "italian"),
 )
 
 IMAGE_FOOD_TYPES = (
@@ -85,10 +131,19 @@ IMAGE_FOOD_TYPES = (
     ("bread", "bread"),
     ("latte", "coffee"),
     ("coffee", "coffee"),
+    ("dessert", "dessert"),
+    ("cake", "dessert"),
+    ("snack", "snack"),
+    ("tea", "drink"),
+    ("juice", "drink"),
 )
 
 
-def profile_diary_entry(entry: DiaryEntryInput) -> EntryProfileArtifact:
+def profile_diary_entry(
+    entry: DiaryEntryInput,
+    *,
+    ml_provider: MLProvider | None = None,
+) -> EntryProfileArtifact:
     values: dict[str, dict[str, float]] = {field_name: {} for field_name in FIELD_NAMES}
     confidence: dict[str, float] = {}
     evidence: dict[str, list[str]] = defaultdict(list)
@@ -97,7 +152,8 @@ def profile_diary_entry(entry: DiaryEntryInput) -> EntryProfileArtifact:
     _extract_location_features(entry, values, confidence, evidence)
     _extract_restaurant_metadata(entry, values, confidence, evidence)
     _extract_rating_signal(entry, values, confidence, evidence)
-    _extract_text_signal(entry, values, confidence, evidence)
+    _extract_text_signal(entry, values, confidence, evidence, ml_provider)
+    _extract_image_references(entry, values, confidence, evidence, ml_provider)
     _extract_image_labels(entry, values, confidence, evidence)
 
     return EntryProfileArtifact(
@@ -149,13 +205,13 @@ def _extract_location_features(
     evidence: dict[str, list[str]],
 ) -> None:
     restaurant = entry.restaurant
-    if restaurant.neighborhood:
+    if _is_near_campus(restaurant.neighborhood):
         _add(
             values,
             confidence,
             evidence,
             "location_feature",
-            _slug(restaurant.neighborhood),
+            "near_campus",
             0.9,
             0.9,
             f"restaurant.neighborhood: {restaurant.neighborhood}",
@@ -222,17 +278,19 @@ def _extract_restaurant_metadata(
                 f"restaurant.signature_dish: {restaurant.signature_dish}",
             )
 
-    if restaurant.category and category != "restaurant":
-        _add(
-            values,
-            confidence,
-            evidence,
-            "venue",
-            _slug(restaurant.category),
-            0.8,
-            0.8,
-            f"restaurant.category: {restaurant.category}",
-        )
+    for keyword, venue in CATEGORY_VENUES:
+        if keyword in category:
+            _add(
+                values,
+                confidence,
+                evidence,
+                "venue",
+                venue,
+                0.8,
+                0.8,
+                f"restaurant.category: {restaurant.category}",
+            )
+            break
 
 
 def _extract_rating_signal(
@@ -249,7 +307,7 @@ def _extract_rating_signal(
             confidence,
             evidence,
             "emotion",
-            "satisfied",
+            "delighted",
             0.8,
             0.8,
             f"rating: {entry.rating}",
@@ -260,7 +318,7 @@ def _extract_rating_signal(
             confidence,
             evidence,
             "emotion",
-            "positive",
+            "satisfied",
             0.65,
             0.65,
             f"rating: {entry.rating}",
@@ -283,20 +341,31 @@ def _extract_text_signal(
     values: dict[str, dict[str, float]],
     confidence: dict[str, float],
     evidence: dict[str, list[str]],
+    ml_provider: MLProvider | None,
 ) -> None:
-    note = entry.note.lower()
+    note = entry.note.strip()
     if not note:
         return
 
-    for keyword, term, score in TEXT_TASTES:
-        if keyword in note:
-            _add(values, confidence, evidence, "taste", term, score, score, f"note: {keyword}")
-    for keyword, term, score in TEXT_CONTEXTS:
-        if keyword in note:
-            _add(values, confidence, evidence, "context", term, score, score, f"note: {keyword}")
-    for keyword, term, score in TEXT_EMOTIONS:
-        if keyword in note:
-            _add(values, confidence, evidence, "emotion", term, score, score, f"note: {keyword}")
+    provider = ml_provider or get_configured_ml_provider()
+    result = provider.extract_text_profile(_text_profile_input(entry))
+    _merge_profile_result(values, confidence, evidence, result)
+
+
+def _extract_image_references(
+    entry: DiaryEntryInput,
+    values: dict[str, dict[str, float]],
+    confidence: dict[str, float],
+    evidence: dict[str, list[str]],
+    ml_provider: MLProvider | None,
+) -> None:
+    if not entry.image_references:
+        return
+
+    provider = ml_provider or get_configured_ml_provider()
+    for image_reference in entry.image_references:
+        result = provider.extract_image_profile(image_reference)
+        _merge_profile_result(values, confidence, evidence, result)
 
 
 def _extract_image_labels(
@@ -350,5 +419,45 @@ def _add(
         evidence[field_name].append(source)
 
 
-def _slug(value: str) -> str:
-    return re.sub(r"_+", "_", re.sub(r"[^a-z0-9]+", "_", value.lower())).strip("_")
+def _merge_profile_result(
+    values: dict[str, dict[str, float]],
+    confidence: dict[str, float],
+    evidence: dict[str, list[str]],
+    result: object,
+) -> None:
+    profile = getattr(result, "profile")
+    field_confidence = getattr(result, "confidence")
+    field_evidence = getattr(result, "evidence")
+    for field_name, terms in profile.items():
+        for term, score in terms.items():
+            sources = field_evidence.get(field_name, [])
+            for source in sources:
+                _add(
+                    values,
+                    confidence,
+                    evidence,
+                    field_name,
+                    term,
+                    score,
+                    field_confidence[field_name],
+                    source,
+                )
+
+
+def _text_profile_input(entry: DiaryEntryInput) -> str:
+    restaurant = entry.restaurant
+    context = [
+        f"diary.note: {entry.note.strip()}",
+        f"rating: {entry.rating}" if entry.rating is not None else "",
+        f"restaurant.name: {restaurant.name}",
+        f"restaurant.category: {restaurant.category}",
+        f"restaurant.signature_dish: {restaurant.signature_dish}"
+        if restaurant.signature_dish
+        else "",
+    ]
+    return "\n".join(item for item in context if item)
+
+
+def _is_near_campus(value: str) -> bool:
+    normalized = value.lower()
+    return any(token in normalized for token in ("eoeun", "kaist", "campus"))

@@ -49,8 +49,17 @@ export default function ProfilePage() {
       </header>
 
       <div className="flex gap-4 items-center px-4 mt-4">
-        <div className="avatar" style={{ width: 80, height: 80, fontSize: 32 }}>
-          {(nickname ?? "?").charAt(0).toUpperCase()}
+        <div className="avatar" style={{ width: 80, height: 80, fontSize: 32, overflow: "hidden" }}>
+          {user?.profile_image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={user.profile_image_url}
+              alt={nickname}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            (nickname ?? "?").charAt(0).toUpperCase()
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <h1
@@ -155,13 +164,24 @@ export default function ProfilePage() {
                 href={`/diary/${e.id}`}
                 style={{ width: 102, flexShrink: 0 }}
               >
-                <FoodPlaceholder
-                  tone={e.cover_media_tone}
-                  label={e.restaurant.signature_dish ?? e.cover_media_label}
-                  width={102}
-                  height={102}
-                  radius={12}
-                />
+                {e.cover_media_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={e.cover_media_url}
+                    alt={e.restaurant.name}
+                    width={102}
+                    height={102}
+                    style={{ width: 102, height: 102, borderRadius: 12, objectFit: "cover" }}
+                  />
+                ) : (
+                  <FoodPlaceholder
+                    tone={e.cover_media_tone}
+                    label={e.restaurant.signature_dish ?? e.cover_media_label}
+                    width={102}
+                    height={102}
+                    radius={12}
+                  />
+                )}
                 <div
                   className="truncate mt-1.5"
                   style={{

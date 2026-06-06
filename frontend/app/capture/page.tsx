@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Camera, ImagePlus, X, Zap, ZapOff } from "lucide-react";
 import { Screen } from "@/components/layout/Screen";
@@ -50,8 +50,13 @@ function getFreshLocation(): Promise<{ lat: number; lng: number } | null> {
   });
 }
 
-export default function CapturePage() {
+function CapturePageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const restaurantId = searchParams.get("restaurant_id");
+  // Preserve the selected restaurant across the hop to /capture/preview so it
+  // survives the round trip (mirrored by the Back/Retake links on preview).
+  const previewHref = `/capture/preview${restaurantId ? `?restaurant_id=${restaurantId}` : ""}`;
   const setPending = useCapture((s) => s.setPending);
   const addPhotos = useCapture((s) => s.addPhotos);
   const replacePhoto = useCapture((s) => s.replacePhoto);
@@ -125,7 +130,7 @@ export default function CapturePage() {
       const limit = retakeKey ? 1 : MAX_PHOTOS - pendingCount;
       commit(photos.slice(0, limit));
       stop();
-      router.push("/capture/preview");
+      router.push(previewHref);
     } finally {
       setReading(false);
     }
@@ -153,7 +158,7 @@ export default function CapturePage() {
       const photo = pendingPhotoFromCanvas(canvas, loc ?? {});
       commit([photo]);
       stop();
-      router.push("/capture/preview");
+      router.push(previewHref);
     } finally {
       setReading(false);
     }
@@ -345,5 +350,13 @@ export default function CapturePage() {
         </div>
       </div>
     </Screen>
+  );
+}
+
+export default function CapturePage() {
+  return (
+    <Suspense fallback={null}>
+      <CapturePageContent />
+    </Suspense>
   );
 }

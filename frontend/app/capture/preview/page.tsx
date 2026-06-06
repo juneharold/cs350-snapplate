@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, MapPin, Pencil, Plus } from "lucide-react";
 import { Screen } from "@/components/layout/Screen";
@@ -17,8 +17,16 @@ import { useNearbyRestaurants } from "@/lib/api/restaurants";
  *  2. Or, write notes now →        same upload/create, then jump to
  *                                  /drafts/[id]/finish for the entry form
  */
-export default function CapturePreviewPage() {
+function CapturePreviewContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const restaurantId = searchParams.get("restaurant_id");
+  // Carry the restaurant selection back to /capture on every exit (empty-state
+  // redirect, Back, Retake, Add) so it survives the round trip, mirroring the
+  // forward navigation in capture/page.tsx.
+  const captureHref = restaurantId ? `/capture?restaurant_id=${restaurantId}` : "/capture";
+  const withRestaurant = (href: string) =>
+    restaurantId ? `${href}&restaurant_id=${restaurantId}` : href;
   const pending = useCapture((s) => s.pending);
   const coverKey = useCapture((s) => s.coverKey);
   const setCover = useCapture((s) => s.setCover);
@@ -29,13 +37,21 @@ export default function CapturePreviewPage() {
   const create = useCreateDraft();
   const [submitting, setSubmitting] = useState<"draft" | "notes" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Set once we've saved and are navigating onward, so clearing `pending`
-  // doesn't trip the "empty → back to camera" guard below.
-  const leaving = useRef(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (pending.length === 0 && !leaving.current) router.replace("/capture");
-  }, [pending.length, router]);
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && pending.length === 0) {
+      router.replace(captureHref);
+    }
+    // Intentionally omit `pending.length`. If included, submit()'s clear()
+    // would re-fire this effect after upload and race the router.replace()
+    // into /drafts/[id]/finish, bouncing the user back to /capture.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, router]);
 
   const cover = useMemo(
     () => pending.find((p) => p.key === coverKey) ?? pending[0],
@@ -55,17 +71,8 @@ export default function CapturePreviewPage() {
     setSubmitting(path);
     try {
       const meta = deriveDraftMeta(pending, { now: new Date(), location });
-      const { uploads } = await upload.mutateAsync(
-        pending.map((p) => ({
-          name: p.name,
-          bytes: p.bytes,
-          width: p.width,
-          height: p.height,
-          captured_at: p.captured_at,
-          lat: p.lat ?? meta.lat,
-          lng: p.lng ?? meta.lng,
-        })),
-      );
+      // Send the raw File bytes as multipart; the backend reads EXIF + makes variants.
+      const { uploads } = await upload.mutateAsync(pending.map((p) => p.file));
       const coverIdx = pending.findIndex((p) => p.key === cover?.key);
       const coverMediaId = uploads[Math.max(0, coverIdx)]?.id;
       const draft = await create.mutateAsync({
@@ -74,19 +81,20 @@ export default function CapturePreviewPage() {
         captured_at: meta.captured_at,
         lat: meta.lat,
         lng: meta.lng,
+        restaurant_id: restaurantId,
+        restaurant_suggested: false,
       });
-      leaving.current = true;
       clear();
       if (path === "draft") router.replace(`/drafts/saved?id=${draft.id}`);
       else router.replace(`/drafts/${draft.id}/finish`);
     } catch (e) {
-      leaving.current = false;
       setError(e instanceof Error ? e.message : "Couldn't save that just yet.");
     } finally {
       setSubmitting(null);
     }
   }
 
+  if (!mounted) return null;
   if (!cover) return null;
 
   const capturedAt = cover.captured_at ? new Date(cover.captured_at) : new Date();
@@ -102,7 +110,7 @@ export default function CapturePreviewPage() {
           style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 16px)" }}
         >
           <Link
-            href="/capture"
+            href={captureHref}
             aria-label="Back"
             className="flex items-center justify-center rounded-full shrink-0"
             style={{ width: 40, height: 40, background: "rgba(0,0,0,0.5)" }}
@@ -211,7 +219,7 @@ export default function CapturePreviewPage() {
         >
         <div className="flex justify-between items-center">
           <Link
-            href={`/capture?retake=${encodeURIComponent(cover.key)}`}
+            href={withRestaurant(`/capture?retake=${encodeURIComponent(cover.key)}`)}
             style={{ fontSize: 13.5, color: "rgba(244,240,222,0.7)" }}
           >
             ← Retake
@@ -227,7 +235,7 @@ export default function CapturePreviewPage() {
           </div>
           {pending.length < MAX_PHOTOS ? (
             <Link
-              href="/capture?add=1"
+              href={withRestaurant("/capture?add=1")}
               aria-label="Add another photo"
               className="flex items-center gap-1"
               style={{ fontSize: 13.5, color: "var(--color-cream)" }}
@@ -263,5 +271,13 @@ export default function CapturePreviewPage() {
         </div>
       </div>
     </Screen>
+  );
+}
+
+export default function CapturePreviewPage() {
+  return (
+    <Suspense fallback={null}>
+      <CapturePreviewContent />
+    </Suspense>
   );
 }
