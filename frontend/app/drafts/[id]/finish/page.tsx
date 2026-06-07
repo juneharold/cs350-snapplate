@@ -199,11 +199,13 @@ export default function FinishDraftPage({ params }: { params: Promise<{ id: stri
 
         {/* Photo strip */}
         <div className="flex gap-2 overflow-x-auto mb-4">
-          {draft.media.map((m) => (
+          {draft.media.map((m, i) => (
             <div key={m.id} className="relative shrink-0">
               <FoodPlaceholder
+                src={m.thumbnail_url}
                 tone={m.tone}
                 label={m.label}
+                alt={`Photo ${i + 1} of ${draft.media.length}${m.is_cover ? " (cover)" : ""}`}
                 width={104}
                 height={104}
                 radius={14}
@@ -349,10 +351,11 @@ export default function FinishDraftPage({ params }: { params: Promise<{ id: stri
                   className="truncate"
                   style={{ fontSize: 11.5, color: "var(--color-muted)" }}
                 >
-                  {selectedRestaurant.neighborhood}
-                  {draft.restaurant_suggested && draft.restaurant?.id === selectedRestaurant.id
-                    ? " · suggested from GPS"
-                    : ""}
+                  {`${selectedRestaurant.neighborhood}${
+                    draft.restaurant_suggested && draft.restaurant?.id === selectedRestaurant.id
+                      ? " · suggested from GPS"
+                      : ""
+                  }`}
                 </div>
               </div>
               <button
@@ -422,7 +425,7 @@ export default function FinishDraftPage({ params }: { params: Promise<{ id: stri
               <MapPin size={18} style={{ color: "var(--color-muted)" }} />
               <div className="flex-1 min-w-0">
                 <div className="truncate" style={{ fontSize: 13.5 }}>
-                  {selectedRestaurant?.neighborhood ?? "Unknown"} · {selectedRestaurant?.name ?? "—"}
+                  {`${selectedRestaurant?.neighborhood ?? "Unknown"} · ${selectedRestaurant?.name ?? "—"}`}
                 </div>
                 <div
                   style={{
@@ -534,7 +537,7 @@ export default function FinishDraftPage({ params }: { params: Promise<{ id: stri
                         className="truncate"
                         style={{ fontSize: 11.5, color: "var(--color-muted)" }}
                       >
-                        {r.category} · {r.neighborhood} · {r.distance_m}m
+                        {`${r.category} · ${r.neighborhood} · ${r.distance_m}m`}
                       </div>
                     </div>
                     {selected && (

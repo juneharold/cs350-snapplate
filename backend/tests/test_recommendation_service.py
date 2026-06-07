@@ -7,8 +7,12 @@ import pytest
 from app.config.http_errors import AppError
 from app.dto.restaurant import RecommendedResponseCore
 from app.models.recommendation_exposure import RecommendationExposureModel
+from app.models.restaurant import RestaurantModel
+from app.services.algorithm.providers import DeterministicProvider
+from app.services.algorithm.service import AlgorithmService
 from app.services.main import recommendation as recommendation_module
 from app.services.main.recommendation import RecommendationService
+from app.types.restaurant import FoodTone
 
 
 async def test_recommend_returns_plain_data_for_unauthenticated_user() -> None:
@@ -126,6 +130,38 @@ async def test_recommend_missing_restaurant_profiles_has_distinct_error(monkeypa
     assert exc_info.value.code == "restaurant_profiles_not_ready"
 
 
+async def test_candidates_skip_unmappable_restaurant_categories(monkeypatch) -> None:
+    restaurants = _FakeCandidateRestaurantRepository(
+        [
+            _restaurant_model("r_unknown", "퓨전음식", "음식점 > 퓨전음식"),
+            _restaurant_model("r_valid", "국수", "음식점 > 한식 > 국수"),
+        ]
+    )
+    bookmarks = _FakeCandidateBookmarkRepository({"r_valid"})
+    monkeypatch.setattr(
+        recommendation_module,
+        "RestaurantRepository",
+        lambda db_session: restaurants,  # noqa: ARG005
+    )
+    monkeypatch.setattr(
+        recommendation_module,
+        "BookmarkRepository",
+        lambda db_session: bookmarks,  # noqa: ARG005
+    )
+    service = RecommendationService(
+        SimpleNamespace(
+            db_session=object(),
+            algorithm_service=AlgorithmService(DeterministicProvider()),
+        )
+    )
+
+    result = await service._candidates([], "u_1", None, None)
+
+    assert [candidate.id for candidate in result] == ["r_valid"]
+    assert result[0].category == "Noodles"
+    assert result[0].is_bookmarked is True
+
+
 def test_recommendation_exposure_declares_shown_at_index() -> None:
     indexed_columns = {
         tuple(index.columns.keys()) for index in RecommendationExposureModel.__table__.indexes
@@ -142,7 +178,7 @@ def _install_service_fakes(
     entries,
     candidates,
     captured_context: dict[str, object] | None = None,
-) -> "_FakeAlgorithmService":
+) -> _FakeAlgorithmService:
     diary_service = _FakeDiaryInputService(entries)
     algorithm = _FakeAlgorithmService(captured_context=captured_context)
 
@@ -286,3 +322,39 @@ class _FakeAlgorithmService:
 
     def generate_recommendations(self, *args, **kwargs):  # noqa: ARG002
         return _FakeRecommendationResult()
+
+
+def _restaurant_model(restaurant_id: str, category: str, raw_path: str) -> RestaurantModel:
+    return RestaurantModel(
+        id=restaurant_id,
+        kakao_id=f"k_{restaurant_id}",
+        name=f"Restaurant {restaurant_id}",
+        category=category,
+        signature_dish="Signature",
+        rating=4.2,
+        rating_count=12,
+        thumbnail_url=None,
+        thumbnail_tone=FoodTone.BONE,
+        thumbnail_label=restaurant_id,
+        tags=[],
+        lat=36.3504,
+        lng=127.3845,
+        neighborhood="Eoeun-dong",
+        raw_payload={"category_name": raw_path},
+    )
+
+
+class _FakeCandidateRestaurantRepository:
+    def __init__(self, rows):
+        self.rows = rows
+
+    async def list_active(self, category, min_rating, limit):  # noqa: ARG002
+        return self.rows
+
+
+class _FakeCandidateBookmarkRepository:
+    def __init__(self, restaurant_ids: set[str]):
+        self.restaurant_ids = restaurant_ids
+
+    async def bookmarked_restaurant_ids(self, user_id):  # noqa: ARG002
+        return self.restaurant_ids

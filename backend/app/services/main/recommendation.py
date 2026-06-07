@@ -5,15 +5,19 @@ from collections.abc import Sequence
 from app.config.algorithm import RECOMMENDATION_COOLDOWN_REQUESTS
 from app.config.http_errors import AppError
 from app.config.lifespan import Context
+from app.config.logger import create_logger
 from app.repositories.algorithm_artifact import AlgorithmArtifactRepository
 from app.repositories.bookmark import BookmarkRepository
 from app.repositories.recommendation_exposure import RecommendationExposureRepository
 from app.repositories.restaurant import RestaurantRepository
 from app.schemas.algorithm import DiaryEntryInput, RestaurantInput
 from app.services.main.diary_inputs import DiaryInputService
+from app.utils.restaurant_taxonomy import UnknownRestaurantCategoryError
 from app.utils.time import utcnow
 
 _MIN_ENTRIES = 10
+
+logger = create_logger(__name__)
 
 
 class RecommendationService:
@@ -104,13 +108,21 @@ class RecommendationService:
         visited = {e.restaurant.id for e in entries}
         bookmarked = await self.bookmarks.bookmarked_restaurant_ids(user_id)
         rows = await self.restaurants.list_active(None, None, limit=200)
-        return [
-            self.algorithm.restaurant_input_from_model(
-                row,
-                lat=lat,
-                lng=lng,
-                is_bookmarked=row.id in bookmarked,
-            )
-            for row in rows
-            if row.id not in visited
-        ]
+        candidates = []
+        for row in rows:
+            if row.id in visited:
+                continue
+            try:
+                candidates.append(
+                    self.algorithm.restaurant_input_from_model(
+                        row,
+                        lat=lat,
+                        lng=lng,
+                        is_bookmarked=row.id in bookmarked,
+                    )
+                )
+            except UnknownRestaurantCategoryError as exc:
+                logger.warning(
+                    f"skipping recommendation candidate {row.id} with unsupported category: {exc}"
+                )
+        return candidates

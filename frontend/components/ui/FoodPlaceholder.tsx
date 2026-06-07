@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type { CSSProperties } from "react";
 import type { FoodTone } from "@/lib/types";
 
@@ -30,7 +33,13 @@ export function FoodPlaceholder({
   src,
   alt,
 }: Props) {
-  if (src) {
+  // Presigned media URLs expire (15-min TTL) and can 401/403/404. When the
+  // image fails to load, fall back to the tone placeholder instead of the
+  // browser's broken-image glyph. Tracking the failed src (rather than a
+  // boolean) lets a later re-render with a fresh URL retry automatically.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+
+  if (src && src !== failedSrc) {
     return (
       <div
         className={className}
@@ -48,6 +57,8 @@ export function FoodPlaceholder({
         <img
           src={src}
           alt={alt ?? label}
+          loading="lazy"
+          onError={() => setFailedSrc(src)}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
       </div>

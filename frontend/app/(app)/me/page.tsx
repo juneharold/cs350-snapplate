@@ -49,8 +49,17 @@ export default function ProfilePage() {
       </header>
 
       <div className="flex gap-4 items-center px-4 mt-4">
-        <div className="avatar" style={{ width: 80, height: 80, fontSize: 32 }}>
-          {(nickname ?? "?").charAt(0).toUpperCase()}
+        <div className="avatar" style={{ width: 80, height: 80, fontSize: 32, overflow: "hidden" }}>
+          {user?.profile_image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={user.profile_image_url}
+              alt={nickname}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            (nickname ?? "?").charAt(0).toUpperCase()
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <h1

@@ -11,7 +11,10 @@ from app.repositories.restaurant import RestaurantRepository
 from app.schemas.algorithm import KakaoRestaurantMetadata, RestaurantProfileArtifact
 from app.services.algorithm.providers import ProfileProvider
 from app.services.algorithm.restaurant_profiling import profile_kakao_restaurant
-from app.utils.restaurant_taxonomy import normalize_public_restaurant_category
+from app.utils.restaurant_taxonomy import (
+    UnknownRestaurantCategoryError,
+    normalize_public_restaurant_category,
+)
 from app.utils.time import as_utc, utcnow
 
 logger = create_logger(__name__)
@@ -82,11 +85,17 @@ async def profile_restaurants(
             restaurant = await repo.find(restaurant_id)
             if restaurant is None or restaurant.deleted_at is not None:
                 continue
-            profile = build_restaurant_profile_artifact(
-                restaurant,
-                generated_at=generated_at,
-                profile_provider=profile_provider,
-            )
+            try:
+                profile = build_restaurant_profile_artifact(
+                    restaurant,
+                    generated_at=generated_at,
+                    profile_provider=profile_provider,
+                )
+            except UnknownRestaurantCategoryError as exc:
+                logger.warning(
+                    f"skipping restaurant profile {restaurant.id} with unsupported category: {exc}"
+                )
+                continue
             await artifact_repo.add_restaurant_profile(
                 restaurant_id=restaurant.id,
                 payload_json=profile.model_dump(mode="json"),

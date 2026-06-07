@@ -282,8 +282,11 @@ export default function OnboardingPage() {
   const slide = SLIDES[displayIdx] ?? SLIDES[0]!;
   const renderMessage = (messageSlide: Slide) => (
     <>
-      <h1 className="leading-tight mb-2 font-normal" style={{ fontSize: 30 }}>
-        {messageSlide.title}
+      <h1
+        className="leading-tight mb-2 font-normal flex items-end"
+        style={{ fontSize: 30, minHeight: 76 }}
+      >
+        <span>{messageSlide.title}</span>
       </h1>
       <p className="leading-relaxed" style={{ fontSize: 15, color: "var(--color-muted)" }}>
         {messageSlide.body}
@@ -303,7 +306,7 @@ export default function OnboardingPage() {
           padding: "0 28px 36px",
         }}
       >
-        <div className="relative flex-1">
+        <div className="relative onboard-stage">
           <div
             ref={scrollRef}
             onScroll={handleScroll}
@@ -339,11 +342,11 @@ export default function OnboardingPage() {
           ))}
         </div>
 
-        <div className="mb-5">
+        <div className="mb-4 onboard-message">
           {renderMessage(slide)}
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 mt-auto">
           <button onClick={handleSkip} className="btn btn-secondary flex-1">
             Skip
           </button>
@@ -356,12 +359,13 @@ export default function OnboardingPage() {
       <div
         className="absolute"
         style={{
-          top: 56,
+          top: 24,
           right: 28,
           fontFamily: "var(--font-mono)",
           fontSize: 10,
           color: "var(--color-muted-2)",
           letterSpacing: "0.08em",
+          zIndex: 20,
         }}
       >
         0{displayIdx + 1} / 03

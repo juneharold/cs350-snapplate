@@ -3,6 +3,9 @@
 import { create } from "zustand";
 import type { LatLng } from "@/lib/types";
 
+/** Max photos per capture session (a single draft). */
+export const MAX_PHOTOS = 5;
+
 /**
  * In-memory hand-off between the capture picker and the preview screen.
  *
@@ -31,6 +34,10 @@ type CaptureState = {
   pending: PendingPhoto[];
   coverKey: string | null;
   setPending: (photos: PendingPhoto[]) => void;
+  /** Append more shots (capped at MAX_PHOTOS); the latest becomes the cover. */
+  addPhotos: (photos: PendingPhoto[]) => void;
+  /** Swap a single photo (by key) for a freshly retaken one, in place. */
+  replacePhoto: (targetKey: string, photo: PendingPhoto) => void;
   clear: () => void;
   setCover: (key: string) => void;
 };
@@ -42,6 +49,24 @@ export const useCapture = create<CaptureState>((set) => ({
     set({
       pending: photos,
       coverKey: photos[0]?.key ?? null,
+    }),
+  addPhotos: (photos) =>
+    set((s) => {
+      const merged = [...s.pending, ...photos].slice(0, MAX_PHOTOS);
+      // Show the most recent take straight away.
+      return { pending: merged, coverKey: merged[merged.length - 1]?.key ?? s.coverKey };
+    }),
+  replacePhoto: (targetKey, photo) =>
+    set((s) => {
+      const idx = s.pending.findIndex((p) => p.key === targetKey);
+      if (idx === -1) {
+        // Target gone — fall back to appending under the cap.
+        const merged = [...s.pending, photo].slice(0, MAX_PHOTOS);
+        return { pending: merged, coverKey: photo.key };
+      }
+      const next = s.pending.slice();
+      next[idx] = photo;
+      return { pending: next, coverKey: photo.key };
     }),
   clear: () => set({ pending: [], coverKey: null }),
   setCover: (key) => set({ coverKey: key }),

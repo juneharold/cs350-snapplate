@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
+from app.schemas.algorithm import EntryProfileArtifact, RestaurantInput, RestaurantProfileArtifact
 from app.utils.restaurant_taxonomy import (
     FLAVOR_LEAN_FIELDS,
     INTERNAL_PROFILE_TAXONOMY,
@@ -12,7 +13,6 @@ from app.utils.restaurant_taxonomy import (
     UnknownRestaurantCategoryError,
     normalize_public_restaurant_category,
 )
-from app.schemas.algorithm import EntryProfileArtifact, RestaurantInput, RestaurantProfileArtifact
 
 NOW = datetime(2026, 5, 24, 12, 43, tzinfo=UTC)
 

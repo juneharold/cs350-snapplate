@@ -110,6 +110,45 @@ async def test_profile_restaurants_skips_fresh_existing_profiles(monkeypatch) ->
     assert db.commits == 1
 
 
+async def test_profile_restaurants_skips_unmappable_restaurant_categories(monkeypatch) -> None:
+    from app.services.algorithm import restaurants as restaurant_module
+
+    unknown = _restaurant()
+    unknown.id = "r_unknown"
+    unknown.category = "퓨전음식"
+    unknown.raw_payload = {"category_name": "음식점 > 퓨전음식"}
+    valid = _restaurant()
+    valid.id = "r_valid"
+    provider = _CountingProvider()
+    restaurant_repo = _FakeRestaurantRepository({"r_unknown": unknown, "r_valid": valid})
+    artifact_repo = _FakeArtifactRepository({})
+    db = _CommitOnlyDb()
+    internal = _FakeInternal(db, provider)
+
+    monkeypatch.setattr(restaurant_module, "utcnow", lambda: NOW)
+    monkeypatch.setattr(
+        restaurant_module,
+        "RestaurantRepository",
+        lambda db_session: restaurant_repo,  # noqa: ARG005
+    )
+    monkeypatch.setattr(
+        restaurant_module,
+        "AlgorithmArtifactRepository",
+        lambda db_session: artifact_repo,  # noqa: ARG005
+        raising=False,
+    )
+
+    await restaurant_module.profile_restaurants(
+        internal,
+        ["r_unknown", "r_valid"],
+        profile_provider=provider,
+    )
+
+    assert artifact_repo.added_restaurant_ids == ["r_valid"]
+    assert len(provider.embedded_texts) == 1
+    assert db.commits == 1
+
+
 class _CountingProvider:
     def __init__(self):
         self.embedded_texts = []
