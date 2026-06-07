@@ -15,8 +15,12 @@ class AuthUserInfo(BaseSchema):
 
     @classmethod
     def from_model(
-        cls, m: UserModel, *, is_new: bool = False, profile_image_url: str | None = None
-    ) -> "AuthUserInfo":
+        cls,
+        m: UserModel,
+        *,
+        is_new: bool = False,
+        profile_image_url: str | None = None,
+    ) -> AuthUserInfo:
         return cls(
             id=m.id,
             email=m.email,

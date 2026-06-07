@@ -1,5 +1,6 @@
 import asyncio
 from logging.config import fileConfig
+from typing import Any
 
 from alembic import context
 from sqlalchemy import pool
@@ -30,8 +31,12 @@ def do_run_migrations(connection):
 
 
 async def run_async_migrations():
+    configuration = config.get_section(config.config_ini_section)
+    if configuration is None:
+        raise RuntimeError(f"Missing Alembic config section: {config.config_ini_section}")
+    engine_config: dict[str, Any] = dict(configuration)
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section),
+        engine_config,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

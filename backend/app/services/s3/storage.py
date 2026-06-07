@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, cast
+
 import aioboto3
 
 from app.config.env import Env
@@ -26,11 +28,17 @@ class StorageService:
         )
 
     async def put(self, key: str, data: bytes, content_type: str = "image/jpeg") -> None:
-        async with self._client() as c:
+        async with cast(Any, self._client()) as c:
             await c.put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=content_type)
 
+    async def get(self, key: str) -> bytes:
+        async with cast(Any, self._client()) as c:
+            response = await c.get_object(Bucket=self.bucket, Key=key)
+            body = response["Body"]
+            return await body.read()
+
     async def signed_url(self, key: str, ttl: int = _SIGNED_TTL_SEC) -> str:
-        async with self._client() as c:
+        async with cast(Any, self._client()) as c:
             return await c.generate_presigned_url(
                 "get_object",
                 Params={"Bucket": self.bucket, "Key": key},

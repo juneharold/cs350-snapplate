@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false
 from __future__ import annotations
 
 from sqlalchemy import desc, select
@@ -36,9 +37,7 @@ class BookmarkService:
             raise NotFoundError("Bookmark not found.")
         await self.repo.delete(existing.id)
 
-    async def list(
-        self, user_id: str, q: str | None, limit: int
-    ) -> tuple[list[BookmarkInfo], int]:
+    async def list(self, user_id: str, q: str | None, limit: int) -> tuple[list[BookmarkInfo], int]:
         db = self.ctx.db_session
         stmt = (
             select(BookmarkModel)

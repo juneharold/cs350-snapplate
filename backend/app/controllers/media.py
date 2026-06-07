@@ -18,8 +18,7 @@ async def upload(
     user: UserContext = Depends(get_user_context),
 ) -> MediaUploadResponse:
     payload = [
-        (f.filename or "photo.jpg", f.content_type or "image/jpeg", await f.read())
-        for f in files
+        (f.filename or "photo.jpg", f.content_type or "image/jpeg", await f.read()) for f in files
     ]
     uploads = await MediaService(ctx).upload(user.user_id, payload, extract_exif)
     return MediaUploadResponse(response=MediaUploadResponseCore(uploads=uploads))

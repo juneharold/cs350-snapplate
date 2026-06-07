@@ -699,11 +699,45 @@ The "Your gastronomic profile" screen.
 ---
 
 ### `POST /taste/refresh`
-Trigger an async re-analysis. Returns immediately; client polls `/taste/profile` for the updated `computed_at`.
+Trigger an async re-analysis. Active refreshes are idempotent per user: if the
+user already has a queued or running job, this returns that job without
+enqueueing another task.
 
 **Response — 202**
 ```json
-{ "job_id": "j_01H...", "estimated_seconds": 8 }
+{
+  "code": 0,
+  "success": true,
+  "message": "success",
+  "response": {
+    "job_id": "tj_ab12cd34ef56ab78",
+    "status": "queued"
+  }
+}
+```
+
+`status` is one of `queued`, `running`, `done`, or `failed`.
+
+---
+
+### `GET /taste/jobs/:job_id`
+Returns the current user's refresh job state. Jobs are user-scoped; a job owned
+by another user is returned as not found.
+
+**Response — 200**
+```json
+{
+  "code": 0,
+  "success": true,
+  "message": "success",
+  "response": {
+    "job_id": "tj_ab12cd34ef56ab78",
+    "status": "running",
+    "started_at": "2026-05-24T08:00:02Z",
+    "finished_at": null,
+    "error": null
+  }
+}
 ```
 
 ---
@@ -786,7 +820,7 @@ Accept-Language: en
 | Media | `POST /media/upload` | **P0** |
 | Drafts | `POST /drafts`, `GET /drafts`, `GET /drafts/:id`, `PATCH`, `POST /:id/finalize`, `DELETE` | **P0** |
 | Entries | `GET /entries`, `GET /entries/:id`, `PATCH`, `DELETE` | **P0** |
-| Taste | `GET /taste/profile`, `POST /taste/refresh` | P1 (mock response OK for first demo) |
+| Taste | `GET /taste/profile`, `POST /taste/refresh`, `GET /taste/jobs/:job_id` | P1 (mock response OK for first demo) |
 | Settings | `GET /settings`, `PATCH /settings` | P2 |
 | Account | `DELETE /account` | P2 |
 

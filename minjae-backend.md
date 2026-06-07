@@ -26,7 +26,8 @@ To make that product work, the backend needs roughly five big things:
 
 Everything in the stack falls under one of those five.
 
-The algorithm layer (Juneha) is imported as a Python module and called from inside the backend. It is not a separate service in v1.
+Taste analysis and recommendation logic lives inside the backend as normal service
+modules. It is not a separate service or sibling package in v1.
 
 ## 3. High-Level Flow
 
@@ -235,23 +236,26 @@ The three things that actually differ:
 2. Storage SDK.
 3. Local dev compose file.
 
-## 6. Boundary with the Algorithm Module
+## 6. Boundary with Taste and Recommendation Logic
 
-The algorithm layer is a Python module the backend imports, not a separate service.
+The algorithm logic is backend-owned code under `app.services.algorithm`, with
+internal Pydantic contracts under `app.schemas.algorithm`. It is not a separate
+service or sibling Python package.
 
 Two entrypoints (defined together with Juneha):
 
-- `generate_taste_report(user_id, diary_entries) -> ReportPayload`
-- `generate_recommendations(user_id, context) -> RankedList`
+- `generate_taste_report(user_id, diary_entries, profile_provider) -> TasteProfileResponse`
+- `generate_recommendations(user_id, context) -> RecommendedResponse`
 
-Schemas live in a shared Pydantic file so backend and algorithm see the same types. Each result carries an `algorithm_version` stored with the row.
+Each result carries an `algorithm_version` stored with the row.
 
 Trigger points:
 
 - Diary create or update enqueues a Celery task → `generate_taste_report` → stored in `taste_reports`.
 - `/recommendations` calls `generate_recommendations` synchronously, with the last stored report as input. On failure, return the most recent stored result.
 
-The algorithm layer does not touch the database directly. The backend reads diary data, hands it to the algorithm function, and stores the result.
+The pure scoring/profiling functions do not touch the database directly. Backend
+services read diary data, call the algorithm functions, and store the result.
 
 ## 7. Performance Targets
 

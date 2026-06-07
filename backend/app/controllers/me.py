@@ -1,21 +1,21 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, UploadFile
- 
+
 from app.config.auth import UserContext, get_user_context
 from app.config.http_errors import AppError
 from app.config.lifespan import Context, get_context
-from app.dto.user import MeResponse, UpdateMeRequest, AvatarUploadResponse, AvatarUploadResponseCore
+from app.dto.user import AvatarUploadResponse, AvatarUploadResponseCore, MeResponse, UpdateMeRequest
 from app.repositories.user import UserRepository
 from app.services.document.image import ImageService
 from app.services.main.media import MediaService
 from app.services.main.user import UserService
 from app.services.s3.storage import StorageService
 from app.utils.ids import make_id
- 
+
 api = APIRouter()
- 
- 
+
+
 @api.get("/me", response_model=MeResponse)
 async def get_me(
     ctx: Context = Depends(get_context),
@@ -23,8 +23,8 @@ async def get_me(
 ) -> MeResponse:
     me = await UserService(ctx).get_me(user.user_id)
     return MeResponse(response=me)
- 
- 
+
+
 @api.patch("/me", response_model=MeResponse)
 async def update_me(
     body: UpdateMeRequest,
@@ -75,8 +75,8 @@ async def upload_avatar(
     # of being written to S3.
     try:
         processed = ImageService().process(data)
-    except Exception:
-        raise AppError(400, "unsupported_format", "File is not a valid image.")
+    except Exception as exc:
+        raise AppError(400, "unsupported_format", "File is not a valid image.") from exc
 
     key = f"avatars/{user.user_id}/{make_id('av')}.jpg"
     await StorageService(ctx.s3).put(key, processed.original, content_type="image/jpeg")

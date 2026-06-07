@@ -5,7 +5,7 @@ from datetime import timedelta
 from app.config.http_errors import AppError, NotFoundError, OwnershipError
 from app.config.lifespan import Context
 from app.dto.draft import CreateDraftData, UpdateDraftData
-from app.models.draft import DraftMediaModel, DraftModel
+from app.models.draft import DraftModel
 from app.models.entry import EntryMediaModel, EntryModel
 from app.repositories.draft import DraftMediaRepository, DraftRepository
 from app.repositories.media import MediaRepository
@@ -21,7 +21,7 @@ from app.services.kakao.client import KakaoService
 from app.services.main.taste import TasteService
 from app.services.s3.storage import StorageService
 from app.types.draft import DraftStatus
-from app.utils.ids import entry_id, make_id
+from app.utils.ids import entry_id
 from app.utils.time import as_utc, captured_relative, meal_period, utcnow
 
 _REMIND_AFTER = timedelta(hours=1)
@@ -51,6 +51,10 @@ class DraftService:
         restaurant_id: str | None,
         restaurant_suggested: bool | None,
     ) -> DraftDetailInfo:
+        captured = as_utc(captured_at) if captured_at else utcnow()
+        if captured > utcnow():
+            raise AppError(400, "invalid_captured_at", "Capture time can't be in the future.")
+
         if not media_ids:
             raise AppError(400, "media_required", "At least one photo is required.", "media_ids")
         # Every linked media must belong to the caller. Otherwise a guessed id
@@ -63,9 +67,6 @@ class DraftService:
         if cover_media_id is not None and cover_media_id not in owned:
             raise AppError(404, "media_not_found", "Media not found.", "cover_media_id")
         cover = cover_media_id or media_ids[0]
-        captured = as_utc(captured_at) if captured_at else utcnow()
-        if captured > utcnow():
-            raise AppError(400, "invalid_captured_at", "Capture time can't be in the future.")
 
         suggested = bool(restaurant_suggested)
         # GPS → restaurant suggestion when none provided.
@@ -145,7 +146,12 @@ class DraftService:
 
     # ── finalize (THE transaction) ─────────────────────────────────────────────
     async def finalize(
-        self, user_id: str, draft_id: str, note: str, rating: float | None, restaurant_id: str | None
+        self,
+        user_id: str,
+        draft_id: str,
+        note: str,
+        rating: float | None,
+        restaurant_id: str | None,
     ) -> str:
         draft = await self._owned(user_id, draft_id)
 
@@ -228,9 +234,7 @@ class DraftService:
         if draft.restaurant_id:
             r = await self.restaurants.find(draft.restaurant_id)
             if r:
-                restaurant = DraftRestaurantBrief(
-                    id=r.id, name=r.name, neighborhood=r.neighborhood
-                )
+                restaurant = DraftRestaurantBrief(id=r.id, name=r.name, neighborhood=r.neighborhood)
         return DraftSummaryInfo(
             id=draft.id,
             status=draft.status,

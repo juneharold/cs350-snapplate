@@ -1,8 +1,9 @@
+# pyright: reportArgumentType=false, reportAttributeAccessIssue=false, reportOptionalMemberAccess=false
 from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import and_, asc, desc, func, or_, select
+from sqlalchemy import and_, desc, func, or_, select
 
 from app.config.http_errors import AppError, NotFoundError, OwnershipError
 from app.config.lifespan import Context
@@ -190,13 +191,27 @@ class EntryService:
 
     async def _stats(self, user_id: str) -> EntryListStats:
         active = and_(EntryModel.user_id == user_id, EntryModel.deleted_at.is_(None))  # type: ignore[union-attr]
-        entries_total = (await self.db.execute(select(func.count()).select_from(EntryModel).where(active))).scalar() or 0
-        places_total = (await self.db.execute(select(func.count(func.distinct(EntryModel.restaurant_id))).where(active))).scalar() or 0
-        avg = (await self.db.execute(select(func.avg(EntryModel.rating)).where(and_(active, EntryModel.rating.is_not(None))))).scalar()  # type: ignore[union-attr]
+        entries_total = (
+            await self.db.execute(select(func.count()).select_from(EntryModel).where(active))
+        ).scalar() or 0
+        places_total = (
+            await self.db.execute(
+                select(func.count(func.distinct(EntryModel.restaurant_id))).where(active)
+            )
+        ).scalar() or 0
+        avg = (
+            await self.db.execute(
+                select(func.avg(EntryModel.rating)).where(
+                    and_(active, EntryModel.rating.is_not(None))
+                )
+            )
+        ).scalar()  # type: ignore[union-attr]
         now = utcnow()
         this_month = (
             await self.db.execute(
-                select(func.count()).select_from(EntryModel).where(
+                select(func.count())
+                .select_from(EntryModel)
+                .where(
                     and_(
                         active,
                         func.extract("year", EntryModel.captured_at) == now.year,

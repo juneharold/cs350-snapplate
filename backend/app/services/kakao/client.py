@@ -48,9 +48,7 @@ class KakaoService:
         reraise=True,
     )
     async def _get(self, path: str, params: dict) -> dict:
-        resp = await self.http.get(
-            f"{_BASE}/{path}", params=params, headers=_auth_header()
-        )
+        resp = await self.http.get(f"{_BASE}/{path}", params=params, headers=_auth_header())
         resp.raise_for_status()
         return resp.json()
 
@@ -94,7 +92,8 @@ class KakaoService:
     @staticmethod
     def _to_data(doc: dict) -> KakaoRestaurantData:
         name = doc.get("place_name", "")
-        category = _category_label(doc.get("category_name", ""))
+        raw_category = doc.get("category_name", "")
+        category = _category_label(raw_category)
         lat = float(doc.get("y", 0.0))
         lng = float(doc.get("x", 0.0))
         return KakaoRestaurantData(

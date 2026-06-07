@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false, reportAssignmentType=false
 from __future__ import annotations
 
 from datetime import datetime
@@ -5,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import CheckConstraint, DateTime
 from sqlmodel import Field
 
-from app.models.base import ForeignKeyField, OptionalTimestampField, SQLModelBase, TimestampField
+from app.models.base import ForeignKeyField, OptionalTimestampField, SQLModelBase
 from app.types.draft import DraftStatus
 from app.utils.ids import draft_id
 

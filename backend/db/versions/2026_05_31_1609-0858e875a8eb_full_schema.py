@@ -128,6 +128,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_recommendation_exposure_restaurant_id'), 'recommendation_exposure', ['restaurant_id'], unique=False)
+    op.create_index(op.f('ix_recommendation_exposure_shown_at'), 'recommendation_exposure', ['shown_at'], unique=False)
     op.create_index(op.f('ix_recommendation_exposure_user_id'), 'recommendation_exposure', ['user_id'], unique=False)
     op.create_table('settings',
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('current_timestamp(0)'), nullable=False),
@@ -252,6 +253,7 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_settings_user_id'), table_name='settings')
     op.drop_table('settings')
     op.drop_index(op.f('ix_recommendation_exposure_user_id'), table_name='recommendation_exposure')
+    op.drop_index(op.f('ix_recommendation_exposure_shown_at'), table_name='recommendation_exposure')
     op.drop_index(op.f('ix_recommendation_exposure_restaurant_id'), table_name='recommendation_exposure')
     op.drop_table('recommendation_exposure')
     op.drop_index(op.f('ix_push_tokens_user_id'), table_name='push_tokens')

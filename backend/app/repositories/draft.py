@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -18,9 +19,7 @@ class DraftRepository(BaseRepository[DraftModel, CreateDraftData, UpdateDraftDat
         conds = [DraftModel.user_id == user_id]
         if status:
             conds.append(DraftModel.status == status)
-        stmt = (
-            select(DraftModel).where(*conds).order_by(desc(DraftModel.created_at)).limit(limit)
-        )
+        stmt = select(DraftModel).where(*conds).order_by(desc(DraftModel.created_at)).limit(limit)
         return (await self.db.execute(stmt)).scalars().all()
 
 

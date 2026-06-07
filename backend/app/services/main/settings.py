@@ -14,9 +14,7 @@ class SettingsService:
         settings = await self.repo.get_or_create(user_id)
         return SettingsInfo.from_model(settings)
 
-    async def update_settings(
-        self, user_id: str, data: UpdateSettingsData
-    ) -> SettingsInfo:
+    async def update_settings(self, user_id: str, data: UpdateSettingsData) -> SettingsInfo:
         settings = await self.repo.get_or_create(user_id)
         if data.model_dump(exclude_unset=True):
             settings = await self.repo.update(settings, data)

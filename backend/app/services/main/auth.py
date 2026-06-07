@@ -100,7 +100,9 @@ class AuthService:
         if user is None:
             raise AppError(404, "not_found", "Account not found.")
         if user.email.strip().lower() != confirm_email.strip().lower():
-            raise AppError(400, "email_mismatch", "Email does not match this account.", "confirm_email")
+            raise AppError(
+                400, "email_mismatch", "Email does not match this account.", "confirm_email"
+            )
         await self.users.update(user, UpdateUserData(deleted_at=utcnow()))
 
     @staticmethod

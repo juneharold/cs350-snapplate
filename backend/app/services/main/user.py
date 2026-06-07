@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false
 from __future__ import annotations
 
 from sqlalchemy import func, select
@@ -25,9 +26,7 @@ class UserService:
         if user is None:
             raise AppError(404, "not_found", "User not found.")
         stats = await self._stats(user_id)
-        profile_image_url = None
-        if user.profile_image_url:
-            profile_image_url = await self.storage.signed_url(user.profile_image_url)
+        profile_image_url = await self._profile_image_url(user.profile_image_url)
         return MeInfo.from_model(user, stats, profile_image_url=profile_image_url)
 
     async def update_me(self, user_id: str, nickname: str | None) -> MeInfo:
@@ -45,10 +44,15 @@ class UserService:
         # First profile edit marks onboarding complete.
         changes.is_onboarded = True
         user = await self.users.update(user, changes)
-        profile_image_url = None
-        if user.profile_image_url:
-            profile_image_url = await self.storage.signed_url(user.profile_image_url)
-        return MeInfo.from_model(user, await self._stats(user_id), profile_image_url=profile_image_url)
+        profile_image_url = await self._profile_image_url(user.profile_image_url)
+        return MeInfo.from_model(
+            user,
+            await self._stats(user_id),
+            profile_image_url=profile_image_url,
+        )
+
+    async def _profile_image_url(self, key: str | None) -> str | None:
+        return await self.storage.signed_url(key) if key else None
 
     async def _stats(self, user_id: str) -> UserStatsInfo:
         db = self.ctx.db_session
@@ -71,9 +75,9 @@ class UserService:
         ).scalar()
         bookmarks_count = (
             await db.execute(
-                select(func.count()).select_from(BookmarkModel).where(
-                    BookmarkModel.user_id == user_id  # type: ignore[arg-type]
-                )
+                select(func.count())
+                .select_from(BookmarkModel)
+                .where(BookmarkModel.user_id == user_id)
             )
         ).scalar() or 0
 

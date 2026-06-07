@@ -1,10 +1,11 @@
+# pyright: reportAssignmentType=false
 from __future__ import annotations
 
 from datetime import datetime
 
 from sqlalchemy import CheckConstraint
-from sqlmodel import Column, Field
 from sqlmodel import JSON as SAJSON
+from sqlmodel import Column, Field
 
 from app.models.base import OptionalTimestampField, SQLModelBase, TimestampField
 from app.types.restaurant import FoodTone

@@ -128,13 +128,11 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             stmt = insert(self.model).values(values)
             if update_columns is None:
                 cols = [c.name for c in self.model.__table__.columns]  # type: ignore[attr-defined]
-                update_columns = [
-                    c for c in cols if c not in conflict_columns and c != "id"
-                ]
+                update_columns = [c for c in cols if c not in conflict_columns and c != "id"]
             set_ = {c: getattr(stmt.excluded, c) for c in update_columns}
-            stmt = stmt.on_conflict_do_update(
-                index_elements=conflict_columns, set_=set_
-            ).returning(self.model)
+            stmt = stmt.on_conflict_do_update(index_elements=conflict_columns, set_=set_).returning(
+                self.model
+            )
             result = await self.db.execute(stmt)
             await self.db.commit()
             return list(result.scalars().all())

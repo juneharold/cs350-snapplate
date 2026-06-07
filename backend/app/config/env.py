@@ -38,6 +38,10 @@ class Env(StrEnum):
     # Email provider for magic links
     SMTP_URL = auto()
 
+    # Algorithm profile provider. Defaults to OpenAI; tests/dev can opt into deterministic.
+    ALGORITHM_PROVIDER = auto()
+    OPENAI_API_KEY = auto()
+
     @staticmethod
     def load_defaults():
         from dotenv import load_dotenv
@@ -59,6 +63,8 @@ class Env(StrEnum):
             Env.JWT_SECRET_KEY: Env.raw_get("JWT_SECRET_KEY") or "dev-only-change-me",
             Env.JWT_EXPIRATION_HOURS: Env.raw_get("JWT_EXPIRATION_HOURS") or "720",
             Env.SMTP_URL: Env.raw_get("SMTP_URL") or "",
+            Env.ALGORITHM_PROVIDER: Env.raw_get("ALGORITHM_PROVIDER") or "openai",
+            Env.OPENAI_API_KEY: Env.raw_get("OPENAI_API_KEY") or "",
         }
         for key, value in variables.items():
             Env.set(key, value)

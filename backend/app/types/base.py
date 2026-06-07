@@ -14,9 +14,7 @@ class BaseStrEnum(StrEnum):
     """String enum with database integration."""
 
     @classmethod
-    def db_field(
-        cls: type[T], nullable: bool = False, default: T | None = None, **kwargs: Any
-    ):
+    def db_field(cls: type[T], nullable: bool = False, default: T | None = None, **kwargs: Any):
         return Field(
             sa_column=Column(
                 SQLEnum(

@@ -40,7 +40,9 @@ def test_full_capture_to_diary(client, headers):
         "/v1/media/upload", files={"files": ("p.jpg", _jpeg(), "image/jpeg")}, headers=headers
     ).json()["response"]["uploads"][0]["id"]
     # draft with GPS → restaurant suggested
-    d = client.post("/v1/drafts", json={"media_ids": [mid], **KAIST}, headers=headers).json()["response"]
+    d = client.post("/v1/drafts", json={"media_ids": [mid], **KAIST}, headers=headers).json()[
+        "response"
+    ]
     assert d["restaurant"] is not None
     assert d["restaurant_suggested"] is True
     # finalize
@@ -65,7 +67,9 @@ def test_finalize_requires_note(client, headers):
     mid = client.post(
         "/v1/media/upload", files={"files": ("p.jpg", _jpeg(), "image/jpeg")}, headers=headers
     ).json()["response"]["uploads"][0]["id"]
-    did = client.post("/v1/drafts", json={"media_ids": [mid], **KAIST}, headers=headers).json()["response"]["id"]
+    did = client.post("/v1/drafts", json={"media_ids": [mid], **KAIST}, headers=headers).json()[
+        "response"
+    ]["id"]
     r = client.post(f"/v1/drafts/{did}/finalize", json={"note": ""}, headers=headers)
     assert r.status_code == 400
     assert r.json()["error"]["code"] == "note_required"
@@ -99,7 +103,9 @@ def test_deleted_account_token_is_rejected(client):
     # works before deletion
     assert client.get("/v1/me", headers=h).status_code == 200
     # soft-delete the account (sets deleted_at)
-    d = client.request("DELETE", "/v1/account", json={"confirm_email": "t-deleted@snapplate.app"}, headers=h)
+    d = client.request(
+        "DELETE", "/v1/account", json={"confirm_email": "t-deleted@snapplate.app"}, headers=h
+    )
     assert d.status_code in (200, 204)
     # same (still unexpired) token must now be rejected
     assert client.get("/v1/me", headers=h).status_code == 401

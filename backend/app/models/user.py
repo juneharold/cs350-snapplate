@@ -1,10 +1,11 @@
+# pyright: reportAssignmentType=false
 from __future__ import annotations
 
 from datetime import datetime
 
 from sqlmodel import Field
 
-from app.models.base import OptionalTimestampField, SQLModelBase, TimestampField
+from app.models.base import OptionalTimestampField, SQLModelBase
 from app.utils.ids import user_id
 
 

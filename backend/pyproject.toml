@@ -18,8 +18,8 @@ dependencies = [
     "loguru>=0.7",
     "python-dotenv>=1.0",
     "python-multipart>=0.0.9",
-    # Algorithm package, imported in-process. Path dependency on the sibling repo dir.
-    "snapplate",
+    "pgvector>=0.4",
+    "openai>=2,<3",
 ]
 
 [dependency-groups]
@@ -29,9 +29,6 @@ dev = [
     "ruff>=0.6",
     "pyright>=1.1",
 ]
-
-[tool.uv.sources]
-snapplate = { path = "..", editable = true }
 
 [tool.ruff]
 line-length = 100

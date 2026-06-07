@@ -23,8 +23,11 @@ class MeInfo(BaseSchema):
 
     @classmethod
     def from_model(
-        cls, m: UserModel, stats: UserStatsInfo, profile_image_url: str | None = None
-    ) -> "MeInfo":
+        cls,
+        m: UserModel,
+        stats: UserStatsInfo,
+        profile_image_url: str | None = None,
+    ) -> MeInfo:
         return cls(
             id=m.id,
             email=m.email,

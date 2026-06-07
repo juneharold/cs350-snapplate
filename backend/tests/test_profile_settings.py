@@ -1,7 +1,9 @@
-from tests.conftest import auth_headers
 import io
 from urllib.parse import urlparse
+
 from PIL import Image
+
+from tests.conftest import auth_headers
 
 
 def _jpeg() -> bytes:
@@ -54,7 +56,7 @@ def test_settings_bad_appearance(client):
 
 def test_upload_avatar_success(client):
     h = auth_headers(client, "t-avatar@snapplate.app")
-    
+
     # 1. Upload avatar
     r = client.post(
         "/v1/me/avatar",

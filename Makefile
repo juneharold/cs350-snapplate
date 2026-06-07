@@ -11,10 +11,8 @@
 
 BACKEND_DIR = backend
 FRONTEND_DIR = frontend
-# Repo root on PYTHONPATH so the in-process `algorithm` package imports
-# (backend imports algorithm.* from the sibling package at the repo root).
-PY = PYTHONPATH=.. .venv/bin/python
-ALEMBIC = PYTHONPATH=.. .venv/bin/alembic
+PY = .venv/bin/python
+ALEMBIC = .venv/bin/alembic
 
 .DEFAULT_GOAL := help
 
@@ -68,16 +66,18 @@ db-rollback:  ## Roll back the last migration
 
 # Quality + tests
 lint:  ## ruff check + format check
-	cd $(BACKEND_DIR) && ruff check app && ruff format --check app
+	cd $(BACKEND_DIR) && $(PY) -m ruff check app && $(PY) -m ruff format --check app
 
 format:  ## ruff format + autofix
-	cd $(BACKEND_DIR) && ruff format app && ruff check --fix app
+	cd $(BACKEND_DIR) && $(PY) -m ruff format app && $(PY) -m ruff check --fix app
 
 typecheck:  ## pyright
-	cd $(BACKEND_DIR) && pyright app
+	cd $(BACKEND_DIR) && $(PY) -m pyright app
 
 test:  ## Run the backend pytest suite (needs `make up` first)
 	cd $(BACKEND_DIR) && $(PY) -m pytest tests/ -q
 
+test-all: test  ## Run the backend pytest suite
+
 .PHONY: help up down reset-db install run-backend frontend-install run-frontend \
-	dev db-migrate db-rollback lint format typecheck test
+	dev db-migrate db-rollback lint format typecheck test test-all

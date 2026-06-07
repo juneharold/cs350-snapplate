@@ -16,7 +16,7 @@ class SettingsInfo(BaseSchema):
     appearance: AppearancePref
 
     @classmethod
-    def from_model(cls, m: SettingsModel) -> "SettingsInfo":
+    def from_model(cls, m: SettingsModel) -> SettingsInfo:
         return cls(
             notifications=NotificationInfo(
                 meal_reminders=m.notif_meal_reminders,
