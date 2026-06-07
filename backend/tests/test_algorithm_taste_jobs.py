@@ -53,7 +53,7 @@ async def test_repository_reuses_active_job_without_requeue() -> None:
 
 async def test_repository_creates_new_row_after_finished_job(monkeypatch) -> None:
     from app.models.taste_job import TasteJobModel
-    from app.repositories import taste_job as taste_job_repo
+    from app.utils import ids as ids_module
 
     started_at = datetime(2026, 6, 1, 12, tzinfo=UTC)
     finished_at = datetime(2026, 6, 1, 12, 5, tzinfo=UTC)
@@ -65,12 +65,12 @@ async def test_repository_creates_new_row_after_finished_job(monkeypatch) -> Non
         finished_at=finished_at,
         error="old failure",
     )
-    monkeypatch.setattr(taste_job_repo, "make_id", lambda prefix: f"{prefix}_new")
+    monkeypatch.setattr(ids_module, "make_id", lambda prefix: f"{prefix}_new")
     db = _TasteJobDb([job])
 
-    returned, newly_queued = await taste_job_repo.TasteJobRepository(db).get_or_create_for_user(
-        "u_1"
-    )
+    from app.repositories.taste_job import TasteJobRepository
+
+    returned, newly_queued = await TasteJobRepository(db).get_or_create_for_user("u_1")
 
     assert returned is not job
     assert newly_queued is True
@@ -111,15 +111,15 @@ async def test_repository_returns_active_job_after_duplicate_insert_conflict(
     monkeypatch,
 ) -> None:
     from app.models.taste_job import TasteJobModel
-    from app.repositories import taste_job as taste_job_repo
+    from app.utils import ids as ids_module
 
     active = TasteJobModel(id="tj_active", user_id="u_1", state="queued")
-    monkeypatch.setattr(taste_job_repo, "make_id", lambda prefix: f"{prefix}_attempt")
+    monkeypatch.setattr(ids_module, "make_id", lambda prefix: f"{prefix}_attempt")
     db = _InsertConflictDb(active)
 
-    returned, newly_queued = await taste_job_repo.TasteJobRepository(db).get_or_create_for_user(
-        "u_1"
-    )
+    from app.repositories.taste_job import TasteJobRepository
+
+    returned, newly_queued = await TasteJobRepository(db).get_or_create_for_user("u_1")
 
     assert returned is active
     assert newly_queued is False
@@ -429,4 +429,4 @@ class _FakeInternal:
         self.db_sessionmaker = _FakeSessionmaker(db)
         self.http_client = object()
         self.s3 = object()
-        self.profile_provider = object()
+        self.algorithm_service = object()

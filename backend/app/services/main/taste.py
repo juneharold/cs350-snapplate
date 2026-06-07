@@ -7,8 +7,6 @@ from app.dto.auth import UpdateUserData
 from app.models.taste_report import TasteReportModel
 from app.repositories.algorithm_artifact import AlgorithmArtifactRepository
 from app.repositories.user import UserRepository
-from app.services.algorithm import generate_taste_report
-from app.services.algorithm.taste import build_taste_refresh_artifacts
 from app.services.main.diary_inputs import DiaryInputService
 from app.utils.time import utcnow
 
@@ -20,6 +18,7 @@ class TasteService:
         self.ctx = ctx
         self.db = ctx.db_session
         self.users = UserRepository(self.db)
+        self.algorithm = ctx.algorithm_service
 
     async def get_profile(self, user_id: str) -> dict:
         """Return the latest stored TasteProfileResponse payload, or compute it."""
@@ -40,11 +39,10 @@ class TasteService:
     async def recompute_and_store(self, user_id: str) -> dict:
         entries = await DiaryInputService(self.ctx).for_user(user_id)
         generated_at = utcnow()
-        artifacts = build_taste_refresh_artifacts(
+        artifacts = self.algorithm.build_taste_refresh_artifacts(
             user_id,
             entries,
             generated_at=generated_at,
-            profile_provider=self.ctx.profile_provider,
             min_entries_required=_MIN_ENTRIES,
         )
         report = artifacts.report
@@ -69,7 +67,7 @@ class TasteService:
                 payload_json=user_profile_payload,
                 long_term_embedding=user_profile_payload["long_term_embedding"],
                 short_term_embedding=user_profile_payload["short_term_embedding"],
-                algorithm_version=artifacts.user_profile.algorithm_version,
+                algorithm_version=user_profile_payload["algorithm_version"],
                 generated_at=generated_at,
                 commit=False,
             )
@@ -96,10 +94,9 @@ class TasteService:
 
     async def _compute_payload(self, user_id: str) -> dict:
         entries = await DiaryInputService(self.ctx).for_user(user_id)
-        report = generate_taste_report(
+        report = self.algorithm.generate_taste_report(
             user_id,
             entries,
-            profile_provider=self.ctx.profile_provider,
             min_entries_required=_MIN_ENTRIES,
         )
         return report.model_dump(mode="json")

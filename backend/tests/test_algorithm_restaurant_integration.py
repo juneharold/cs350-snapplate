@@ -98,7 +98,11 @@ async def test_profile_restaurants_skips_fresh_existing_profiles(monkeypatch) ->
         raising=False,
     )
 
-    await restaurant_module.profile_restaurants(internal, ["r_fresh", "r_stale", "r_fresh"])
+    await restaurant_module.profile_restaurants(
+        internal,
+        ["r_fresh", "r_stale", "r_fresh"],
+        profile_provider=provider,
+    )
 
     assert artifact_repo.requested_ids == ["r_fresh", "r_stale"]
     assert len(provider.embedded_texts) == 1
@@ -169,4 +173,3 @@ class _FakeSessionmaker:
 class _FakeInternal:
     def __init__(self, db: _CommitOnlyDb, profile_provider: _CountingProvider):
         self.db_sessionmaker = _FakeSessionmaker(db)
-        self.profile_provider = profile_provider

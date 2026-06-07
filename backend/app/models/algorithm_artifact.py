@@ -19,6 +19,7 @@ class EntryProfileArtifactModel(SQLModelBase, table=True):
     id: int | None = Field(
         default=None, sa_column=Column(BigInteger, primary_key=True, autoincrement=True)
     )
+    # The one-row-per-entry unique constraint covers entry_id for artifact upserts.
     entry_id: str = ForeignKeyField("entries.id", ondelete="CASCADE", index=False)
     user_id: str = ForeignKeyField("users.id", ondelete="CASCADE")
     payload_json: dict = Field(sa_column=Column(SAJSON, nullable=False))
@@ -33,6 +34,7 @@ class UserProfileArtifactModel(SQLModelBase, table=True):
     id: int | None = Field(
         default=None, sa_column=Column(BigInteger, primary_key=True, autoincrement=True)
     )
+    # The one-row-per-user unique constraint covers user_id for artifact upserts.
     user_id: str = ForeignKeyField("users.id", ondelete="CASCADE", index=False)
     source_entry_count: int = Field(nullable=False)
     payload_json: dict = Field(sa_column=Column(SAJSON, nullable=False))
@@ -57,6 +59,7 @@ class RestaurantProfileArtifactModel(SQLModelBase, table=True):
     id: int | None = Field(
         default=None, sa_column=Column(BigInteger, primary_key=True, autoincrement=True)
     )
+    # The one-row-per-restaurant unique constraint covers restaurant_id lookups.
     restaurant_id: str = ForeignKeyField("restaurants.id", ondelete="CASCADE", index=False)
     payload_json: dict = Field(sa_column=Column(SAJSON, nullable=False))
     embedding: Any = Field(

@@ -5,7 +5,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.taste_job import ACTIVE_TASTE_JOB_STATES, TasteJobModel
-from app.utils.ids import make_id
 from app.utils.time import utcnow
 
 
@@ -62,7 +61,7 @@ class TasteJobRepository:
         if job is not None:
             await self.db.commit()
             return job, False
-        job = TasteJobModel(id=make_id("tj"), user_id=user_id, state="queued")
+        job = TasteJobModel(user_id=user_id, state="queued")
         self.db.add(job)
         await self.db.commit()
         await self.db.refresh(job)

@@ -35,3 +35,7 @@ def bookmark_id() -> str:
 
 def push_token_id() -> str:
     return make_id("pt")
+
+
+def taste_job_id() -> str:
+    return make_id("tj")

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from app.config.algorithm_taxonomy import normalize_public_restaurant_category
 from app.models.entry import EntryModel
 from app.models.restaurant import RestaurantModel
 from app.schemas.algorithm import DiaryEntryInput, RestaurantInput
 from app.utils.geo import haversine_m
+from app.utils.restaurant_taxonomy import normalize_public_restaurant_category
 from app.utils.time import as_utc
 
 
@@ -15,10 +15,14 @@ def restaurant_input_from_model(
     lng: float | None = None,
     is_bookmarked: bool = False,
 ) -> RestaurantInput:
+    raw_payload = restaurant.raw_payload or {}
     return RestaurantInput(
         id=restaurant.id,
         name=restaurant.name,
-        category=normalize_public_restaurant_category(restaurant.category),
+        category=normalize_public_restaurant_category(
+            restaurant.category,
+            raw_payload.get("category_name"),
+        ),
         signature_dish=restaurant.signature_dish,
         rating=restaurant.rating,
         rating_count=restaurant.rating_count,

@@ -1,8 +1,3 @@
-import pytest
-
-from app.config.algorithm_taxonomy import UnknownRestaurantCategoryError
-
-
 def _doc(category_name: str) -> dict:
     return {
         "id": "123",
@@ -14,24 +9,25 @@ def _doc(category_name: str) -> dict:
     }
 
 
-def test_kakao_restaurant_data_uses_public_category() -> None:
+def test_kakao_restaurant_data_preserves_leaf_category_for_display() -> None:
     from app.services.kakao.client import KakaoService
 
     result = KakaoService._to_data(_doc("음식점 > 카페 > 커피전문점"))
 
-    assert result.category == "Cafe"
+    assert result.category == "커피전문점"
 
 
-def test_kakao_cafeteria_category_maps_to_set_meal() -> None:
+def test_kakao_cafeteria_category_preserves_leaf_category_for_display() -> None:
     from app.services.kakao.client import KakaoService
 
     result = KakaoService._to_data(_doc("음식점 > 구내식당"))
 
-    assert result.category == "Diner / Set meal"
+    assert result.category == "구내식당"
 
 
-def test_kakao_restaurant_data_rejects_unknown_category() -> None:
+def test_kakao_restaurant_data_preserves_unknown_leaf_category_for_display() -> None:
     from app.services.kakao.client import KakaoService
 
-    with pytest.raises(UnknownRestaurantCategoryError):
-        KakaoService._to_data(_doc("음식점 > 퓨전음식"))
+    result = KakaoService._to_data(_doc("음식점 > 퓨전음식"))
+
+    assert result.category == "퓨전음식"

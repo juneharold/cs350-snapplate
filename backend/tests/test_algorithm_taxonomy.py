@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from app.config.algorithm_taxonomy import (
+from app.utils.restaurant_taxonomy import (
     FLAVOR_LEAN_FIELDS,
     INTERNAL_PROFILE_TAXONOMY,
     PUBLIC_RESTAURANT_CATEGORIES,

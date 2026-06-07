@@ -10,7 +10,6 @@ from tenacity import (
     wait_exponential,
 )
 
-from app.config.algorithm_taxonomy import normalize_public_restaurant_category
 from app.config.env import Env
 from app.config.logger import create_logger
 from app.dto.restaurant import KakaoRestaurantData
@@ -94,10 +93,7 @@ class KakaoService:
     def _to_data(doc: dict) -> KakaoRestaurantData:
         name = doc.get("place_name", "")
         raw_category = doc.get("category_name", "")
-        category = normalize_public_restaurant_category(
-            _category_label(raw_category),
-            raw_category,
-        )
+        category = _category_label(raw_category)
         lat = float(doc.get("y", 0.0))
         lng = float(doc.get("x", 0.0))
         return KakaoRestaurantData(

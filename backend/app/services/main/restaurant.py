@@ -4,7 +4,6 @@ from collections.abc import Sequence
 
 from fastapi import BackgroundTasks
 
-from app.config.algorithm_taxonomy import UnknownRestaurantCategoryError
 from app.config.http_errors import AppError, NotFoundError
 from app.config.lifespan import Context, InternalContext
 from app.models.restaurant import RestaurantModel
@@ -16,7 +15,6 @@ from app.schemas.restaurant import (
     RestaurantSummaryInfo,
     SearchResultInfo,
 )
-from app.services.algorithm.restaurants import profile_restaurants
 from app.services.kakao.client import KakaoService
 from app.utils.geo import haversine_m
 
@@ -108,8 +106,6 @@ class RestaurantService:
     ) -> list[RestaurantModel]:
         try:
             kakao_rows = await self.kakao.category_search(lat, lng, radius_m)
-        except UnknownRestaurantCategoryError:
-            raise
         except Exception:
             # Kakao down + empty cache → nothing to serve.
             return []
@@ -126,7 +122,7 @@ class RestaurantService:
         if self.background_tasks is None or self.internal is None:
             return
         self.background_tasks.add_task(
-            profile_restaurants,
+            self.internal.algorithm_service.profile_restaurants,
             self.internal,
             [restaurant.id for restaurant in rows],
         )

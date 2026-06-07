@@ -22,12 +22,17 @@ class MeInfo(BaseSchema):
     created_at: str
 
     @classmethod
-    def from_model(cls, m: UserModel, stats: UserStatsInfo) -> MeInfo:
+    def from_model(
+        cls,
+        m: UserModel,
+        stats: UserStatsInfo,
+        profile_image_url: str | None = None,
+    ) -> MeInfo:
         return cls(
             id=m.id,
             email=m.email,
             nickname=m.nickname,
-            profile_image_url=m.profile_image_url,
+            profile_image_url=profile_image_url or m.profile_image_url,
             taste_type=m.taste_type,
             stats=stats,
             created_at=as_utc(m.created_at).isoformat(),

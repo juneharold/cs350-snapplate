@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime, timedelta
+from typing import Any
 
-from app.config.algorithm_taxonomy import normalize_public_restaurant_category
-from app.config.lifespan import InternalContext
 from app.config.logger import create_logger
 from app.models.restaurant import RestaurantModel
 from app.repositories.algorithm_artifact import AlgorithmArtifactRepository
@@ -12,6 +11,7 @@ from app.repositories.restaurant import RestaurantRepository
 from app.schemas.algorithm import KakaoRestaurantMetadata, RestaurantProfileArtifact
 from app.services.algorithm.providers import ProfileProvider
 from app.services.algorithm.restaurant_profiling import profile_kakao_restaurant
+from app.utils.restaurant_taxonomy import normalize_public_restaurant_category
 from app.utils.time import as_utc, utcnow
 
 logger = create_logger(__name__)
@@ -61,8 +61,10 @@ def build_restaurant_profile_artifact(
 
 
 async def profile_restaurants(
-    internal: InternalContext,
+    internal: Any,
     restaurant_ids: Sequence[str],
+    *,
+    profile_provider: ProfileProvider,
 ) -> None:
     if not restaurant_ids:
         return
@@ -83,7 +85,7 @@ async def profile_restaurants(
             profile = build_restaurant_profile_artifact(
                 restaurant,
                 generated_at=generated_at,
-                profile_provider=internal.profile_provider,
+                profile_provider=profile_provider,
             )
             await artifact_repo.add_restaurant_profile(
                 restaurant_id=restaurant.id,

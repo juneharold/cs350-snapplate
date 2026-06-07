@@ -204,6 +204,7 @@ class AlgorithmArtifactRepository:
         candidate_restaurant_ids: Sequence[str] | None = None,
         limit: int,
     ) -> list[tuple[RestaurantProfileArtifactModel, float]]:
+        # Upserts plus the restaurant_id UNIQUE constraint keep one profile row per restaurant.
         distance = RestaurantProfileArtifactModel.embedding.cosine_distance(
             list(query_embedding)
         ).label("distance")

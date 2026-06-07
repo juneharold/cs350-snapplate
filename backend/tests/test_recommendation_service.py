@@ -12,7 +12,9 @@ from app.services.main.recommendation import RecommendationService
 
 
 async def test_recommend_returns_plain_data_for_unauthenticated_user() -> None:
-    service = RecommendationService(SimpleNamespace(db_session=object()))
+    service = RecommendationService(
+        SimpleNamespace(db_session=object(), algorithm_service=_FakeAlgorithmService())
+    )
 
     result = await service.recommend(None, None, None, 10)
 
@@ -22,7 +24,7 @@ async def test_recommend_returns_plain_data_for_unauthenticated_user() -> None:
 
 async def test_recommend_returns_plain_data_for_insufficient_entries(monkeypatch) -> None:
     artifacts = _FakeArtifactRepository(user_profile=None)
-    _install_service_fakes(
+    algorithm = _install_service_fakes(
         monkeypatch,
         artifacts=artifacts,
         exposures=_FakeExposureRepository(),
@@ -30,9 +32,9 @@ async def test_recommend_returns_plain_data_for_insufficient_entries(monkeypatch
         candidates=[],
     )
 
-    result = await RecommendationService(SimpleNamespace(db_session=object())).recommend(
-        "u_short_history", None, None, 10
-    )
+    result = await RecommendationService(
+        SimpleNamespace(db_session=object(), algorithm_service=algorithm)
+    ).recommend("u_short_history", None, None, 10)
 
     assert result == {"items": [], "based_on_entries": 3, "has_enough_data": False}
     assert artifacts.nearest_calls == []
@@ -55,7 +57,7 @@ async def test_recommend_uses_nearest_restaurant_profiles(monkeypatch) -> None:
     exposures = _FakeExposureRepository()
     captured_context: dict[str, object] = {}
 
-    _install_service_fakes(
+    algorithm = _install_service_fakes(
         monkeypatch,
         artifacts=artifacts,
         exposures=exposures,
@@ -64,9 +66,9 @@ async def test_recommend_uses_nearest_restaurant_profiles(monkeypatch) -> None:
         captured_context=captured_context,
     )
 
-    result = await RecommendationService(SimpleNamespace(db_session=object())).recommend(
-        "u_ready", 36.3504, 127.3845, 3
-    )
+    result = await RecommendationService(
+        SimpleNamespace(db_session=object(), algorithm_service=algorithm)
+    ).recommend("u_ready", 36.3504, 127.3845, 3)
 
     assert result["items"][0]["id"] == "r_nearest"
     assert artifacts.nearest_calls == [
@@ -84,7 +86,7 @@ async def test_recommend_uses_nearest_restaurant_profiles(monkeypatch) -> None:
 
 async def test_recommend_missing_user_profile_has_distinct_error(monkeypatch) -> None:
     artifacts = _FakeArtifactRepository(user_profile=None)
-    _install_service_fakes(
+    algorithm = _install_service_fakes(
         monkeypatch,
         artifacts=artifacts,
         exposures=_FakeExposureRepository(),
@@ -93,9 +95,9 @@ async def test_recommend_missing_user_profile_has_distinct_error(monkeypatch) ->
     )
 
     with pytest.raises(AppError) as exc_info:
-        await RecommendationService(SimpleNamespace(db_session=object())).recommend(
-            "u_missing_profile", None, None, 10
-        )
+        await RecommendationService(
+            SimpleNamespace(db_session=object(), algorithm_service=algorithm)
+        ).recommend("u_missing_profile", None, None, 10)
 
     assert exc_info.value.status == 412
     assert exc_info.value.code == "user_profile_not_ready"
@@ -107,7 +109,7 @@ async def test_recommend_missing_restaurant_profiles_has_distinct_error(monkeypa
         long_term_embedding=[0.1, 0.2, 0.3],
     )
     artifacts = _FakeArtifactRepository(user_profile=user_profile, nearest_rows=[])
-    _install_service_fakes(
+    algorithm = _install_service_fakes(
         monkeypatch,
         artifacts=artifacts,
         exposures=_FakeExposureRepository(),
@@ -116,9 +118,9 @@ async def test_recommend_missing_restaurant_profiles_has_distinct_error(monkeypa
     )
 
     with pytest.raises(AppError) as exc_info:
-        await RecommendationService(SimpleNamespace(db_session=object())).recommend(
-            "u_ready", None, None, 10
-        )
+        await RecommendationService(
+            SimpleNamespace(db_session=object(), algorithm_service=algorithm)
+        ).recommend("u_ready", None, None, 10)
 
     assert exc_info.value.status == 503
     assert exc_info.value.code == "restaurant_profiles_not_ready"
@@ -140,16 +142,12 @@ def _install_service_fakes(
     entries,
     candidates,
     captured_context: dict[str, object] | None = None,
-) -> None:
+) -> "_FakeAlgorithmService":
     diary_service = _FakeDiaryInputService(entries)
+    algorithm = _FakeAlgorithmService(captured_context=captured_context)
 
     async def fake_candidates(self, entries, user_id, lat, lng):  # noqa: ARG001
         return candidates
-
-    def fake_context_from_artifacts(**kwargs):
-        if captured_context is not None:
-            captured_context.update(kwargs)
-        return SimpleNamespace()
 
     monkeypatch.setattr(
         recommendation_module,
@@ -177,16 +175,7 @@ def _install_service_fakes(
         lambda db_session: exposures,  # noqa: ARG005
     )
     monkeypatch.setattr(RecommendationService, "_candidates", fake_candidates)
-    monkeypatch.setattr(
-        recommendation_module,
-        "recommendation_context_from_artifacts",
-        fake_context_from_artifacts,
-    )
-    monkeypatch.setattr(
-        recommendation_module,
-        "generate_recommendations",
-        lambda *args, **kwargs: _FakeRecommendationResult(),  # noqa: ARG005
-    )
+    return algorithm
 
 
 class _FakeDiaryInputService:
@@ -284,3 +273,16 @@ class _FakeRecommendationResult:
             "based_on_entries": self.based_on_entries,
             "has_enough_data": self.has_enough_data,
         }
+
+
+class _FakeAlgorithmService:
+    def __init__(self, *, captured_context: dict[str, object] | None = None):
+        self.captured_context = captured_context
+
+    def build_recommendation_context(self, **kwargs):
+        if self.captured_context is not None:
+            self.captured_context.update(kwargs)
+        return SimpleNamespace()
+
+    def generate_recommendations(self, *args, **kwargs):  # noqa: ARG002
+        return _FakeRecommendationResult()

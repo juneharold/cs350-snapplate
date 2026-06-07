@@ -72,7 +72,7 @@ format:  ## ruff format + autofix
 	cd $(BACKEND_DIR) && $(PY) -m ruff format app && $(PY) -m ruff check --fix app
 
 typecheck:  ## pyright
-	cd $(BACKEND_DIR) && pyright app
+	cd $(BACKEND_DIR) && $(PY) -m pyright app
 
 test:  ## Run the backend pytest suite (needs `make up` first)
 	cd $(BACKEND_DIR) && $(PY) -m pytest tests/ -q

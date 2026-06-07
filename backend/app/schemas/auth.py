@@ -14,11 +14,17 @@ class AuthUserInfo(BaseSchema):
     is_new: bool = False
 
     @classmethod
-    def from_model(cls, m: UserModel, *, is_new: bool = False) -> AuthUserInfo:
+    def from_model(
+        cls,
+        m: UserModel,
+        *,
+        is_new: bool = False,
+        profile_image_url: str | None = None,
+    ) -> AuthUserInfo:
         return cls(
             id=m.id,
             email=m.email,
             nickname=m.nickname,
-            profile_image_url=m.profile_image_url,
+            profile_image_url=profile_image_url or m.profile_image_url,
             is_new=is_new,
         )

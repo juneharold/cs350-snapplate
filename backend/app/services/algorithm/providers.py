@@ -13,9 +13,9 @@ from app.config.algorithm import (
     SUMMARY_MODEL,
     TEXT_PROFILE_MODEL,
 )
-from app.config.algorithm_taxonomy import INTERNAL_PROFILE_TAXONOMY
 from app.schemas.algorithm import ProfileExtractionResult, ProfileSummaryResult
 from app.services.algorithm.embedding import deterministic_text_embedding
+from app.utils.restaurant_taxonomy import INTERNAL_PROFILE_TAXONOMY
 
 TParsed = TypeVar("TParsed", ProfileExtractionResult, ProfileSummaryResult)
 

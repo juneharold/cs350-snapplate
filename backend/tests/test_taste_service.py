@@ -41,39 +41,34 @@ async def test_get_profile_computes_payload_without_stored_report(
 
     monkeypatch.setattr(taste_module.DiaryInputService, "for_user", fake_for_user)
     monkeypatch.setattr(TasteService, "_compute_payload", fake_compute_payload)
-    ctx = SimpleNamespace(db_session=_FakeDb(), profile_provider=object())
+    ctx = SimpleNamespace(db_session=_FakeDb(), algorithm_service=object())
 
     payload = await TasteService(ctx).get_profile("u_taste")
 
     assert payload == expected_payload
 
 
-async def test_compute_payload_passes_context_provider_to_taste_report(monkeypatch) -> None:
+async def test_compute_payload_uses_context_algorithm_service(monkeypatch) -> None:
     from app.services.main import taste as taste_module
     from app.services.main.taste import TasteService
-
-    provider = object()
-    captured: dict[str, object] = {}
 
     async def fake_for_user(self, user_id):  # noqa: ARG001
         return [object()]
 
-    class FakeReport:
-        def model_dump(self, *, mode: str) -> dict:  # noqa: ARG002
-            return {"has_enough_data": False}
-
-    def fake_generate_taste_report(user_id, entries, **kwargs):  # noqa: ARG001
-        captured.update(kwargs)
-        return FakeReport()
-
     monkeypatch.setattr(taste_module.DiaryInputService, "for_user", fake_for_user)
-    monkeypatch.setattr(taste_module, "generate_taste_report", fake_generate_taste_report)
-    ctx = SimpleNamespace(db_session=_FakeDb(), profile_provider=provider)
+    algorithm = _FakeAlgorithmService()
+    ctx = SimpleNamespace(db_session=_FakeDb(), algorithm_service=algorithm)
 
     payload = await TasteService(ctx)._compute_payload("u_provider")
 
     assert payload == {"has_enough_data": False}
-    assert captured["profile_provider"] is provider
+    assert algorithm.taste_report_calls == [
+        {
+            "user_id": "u_provider",
+            "entry_count": 1,
+            "min_entries_required": 10,
+        }
+    ]
 
 
 async def test_recompute_and_store_uses_artifact_and_report_versions(monkeypatch) -> None:
@@ -86,26 +81,23 @@ async def test_recompute_and_store_uses_artifact_and_report_versions(monkeypatch
     async def fake_for_user(self, user_id):  # noqa: ARG001
         return [object() for _ in range(10)]
 
-    def fake_build_taste_refresh_artifacts(*args, **kwargs):  # noqa: ARG001
-        return SimpleNamespace(
-            report=_FakeReport(),
-            entry_profiles=[_FakeEntryProfile()],
-            user_profile=_FakeUserProfile(),
-        )
-
     monkeypatch.setattr(taste_module.DiaryInputService, "for_user", fake_for_user)
-    monkeypatch.setattr(
-        taste_module,
-        "build_taste_refresh_artifacts",
-        fake_build_taste_refresh_artifacts,
-    )
     monkeypatch.setattr(
         taste_module,
         "AlgorithmArtifactRepository",
         lambda db_session: artifact_repo,  # noqa: ARG005
         raising=False,
     )
-    ctx = SimpleNamespace(db_session=db, profile_provider=object())
+    ctx = SimpleNamespace(
+        db_session=db,
+        algorithm_service=_FakeAlgorithmService(
+            refresh_artifacts=SimpleNamespace(
+                report=_FakeReport(),
+                entry_profiles=[_FakeEntryProfile()],
+                user_profile=_FakeUserProfile(),
+            )
+        ),
+    )
 
     await TasteService(ctx).recompute_and_store("u_versioned")
 
@@ -171,3 +163,35 @@ class _FakeReport:
 
     def model_dump(self, *, mode: str) -> dict:  # noqa: ARG002
         return {"has_enough_data": True, "algorithm_version": self.algorithm_version}
+
+
+class _FakeAlgorithmService:
+    def __init__(self, refresh_artifacts=None):
+        self.taste_report_calls = []
+        self.refresh_artifacts = refresh_artifacts
+
+    def generate_taste_report(self, user_id, entries, *, min_entries_required):
+        entries = list(entries)
+        self.taste_report_calls.append(
+            {
+                "user_id": user_id,
+                "entry_count": len(entries),
+                "min_entries_required": min_entries_required,
+            }
+        )
+        return _FakeInsufficientReport()
+
+    def build_taste_refresh_artifacts(
+        self,
+        user_id,
+        entries,
+        *,
+        generated_at,
+        min_entries_required,
+    ):
+        return self.refresh_artifacts
+
+
+class _FakeInsufficientReport:
+    def model_dump(self, *, mode: str) -> dict:  # noqa: ARG002
+        return {"has_enough_data": False}

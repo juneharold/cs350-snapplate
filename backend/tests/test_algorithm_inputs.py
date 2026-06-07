@@ -21,6 +21,7 @@ def _restaurant(category: str = "음식점 > 카페 > 커피전문점") -> Resta
         lat=36.3504,
         lng=127.3845,
         neighborhood="Eoeun-dong",
+        raw_payload={"category_name": category},
     )
 
 

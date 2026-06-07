@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from app.config.algorithm_taxonomy import PROFILE_FIELD_NAMES
 from app.schemas.algorithm import DiaryEntryInput, EntryProfileArtifact, ProfileExtractionResult
 from app.services.algorithm.providers import ProfileProvider
+from app.utils.restaurant_taxonomy import PROFILE_FIELD_NAMES
 
 FIELD_NAMES = PROFILE_FIELD_NAMES
 

@@ -10,9 +10,6 @@ from app.repositories.bookmark import BookmarkRepository
 from app.repositories.recommendation_exposure import RecommendationExposureRepository
 from app.repositories.restaurant import RestaurantRepository
 from app.schemas.algorithm import DiaryEntryInput, RestaurantInput
-from app.services.algorithm import generate_recommendations
-from app.services.algorithm.inputs import restaurant_input_from_model
-from app.services.algorithm.recommendations import recommendation_context_from_artifacts
 from app.services.main.diary_inputs import DiaryInputService
 from app.utils.time import utcnow
 
@@ -27,6 +24,7 @@ class RecommendationService:
         self.bookmarks = BookmarkRepository(self.db)
         self.artifacts = AlgorithmArtifactRepository(self.db)
         self.exposures = RecommendationExposureRepository(self.db)
+        self.algorithm = ctx.algorithm_service
 
     async def recommend(
         self, user_id: str | None, lat: float | None, lng: float | None, limit: int
@@ -40,6 +38,7 @@ class RecommendationService:
 
         user_profile = await self.artifacts.latest_user_profile(user_id)
         if user_profile is None:
+            # Recommendations intentionally require a refreshed user profile artifact.
             raise AppError(
                 412,
                 "user_profile_not_ready",
@@ -65,7 +64,7 @@ class RecommendationService:
             )
 
         requested_at = utcnow()
-        context = recommendation_context_from_artifacts(
+        context = self.algorithm.build_recommendation_context(
             diary_entries=entries,
             peer_diary_entries=await DiaryInputService(self.ctx).for_peers(user_id),
             candidate_restaurants=profiled_candidates,
@@ -81,7 +80,7 @@ class RecommendationService:
             lng=lng,
             requested_at=requested_at,
         )
-        result = generate_recommendations(
+        result = self.algorithm.generate_recommendations(
             user_id,
             context,
             limit=limit,
@@ -106,7 +105,7 @@ class RecommendationService:
         bookmarked = await self.bookmarks.bookmarked_restaurant_ids(user_id)
         rows = await self.restaurants.list_active(None, None, limit=200)
         return [
-            restaurant_input_from_model(
+            self.algorithm.restaurant_input_from_model(
                 row,
                 lat=lat,
                 lng=lng,
