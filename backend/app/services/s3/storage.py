@@ -31,6 +31,12 @@ class StorageService:
         async with cast(Any, self._client()) as c:
             await c.put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=content_type)
 
+    async def get(self, key: str) -> bytes:
+        async with cast(Any, self._client()) as c:
+            response = await c.get_object(Bucket=self.bucket, Key=key)
+            body = response["Body"]
+            return await body.read()
+
     async def signed_url(self, key: str, ttl: int = _SIGNED_TTL_SEC) -> str:
         async with cast(Any, self._client()) as c:
             return await c.generate_presigned_url(

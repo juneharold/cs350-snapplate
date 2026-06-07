@@ -56,6 +56,7 @@ class AlgorithmService:
         lat: float | None = None,
         lng: float | None = None,
         is_bookmarked: bool = False,
+        image_references: list[str] | None = None,
     ) -> DiaryEntryInput:
         return diary_entry_input_from_models(
             entry,
@@ -63,6 +64,7 @@ class AlgorithmService:
             lat=lat,
             lng=lng,
             is_bookmarked=is_bookmarked,
+            image_references=image_references,
         )
 
     def build_recommendation_context(

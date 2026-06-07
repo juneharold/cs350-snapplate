@@ -46,6 +46,7 @@ def diary_entry_input_from_models(
     lat: float | None = None,
     lng: float | None = None,
     is_bookmarked: bool = False,
+    image_references: list[str] | None = None,
 ) -> DiaryEntryInput:
     return DiaryEntryInput(
         id=entry.id,
@@ -60,6 +61,7 @@ def diary_entry_input_from_models(
         rating=entry.rating,
         note=entry.note,
         image_labels=list(entry.ai_tags or []),
+        image_references=list(image_references or []),
     )
 
 

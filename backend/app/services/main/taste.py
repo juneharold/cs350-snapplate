@@ -37,7 +37,10 @@ class TasteService:
         return await self.recompute_and_store(user_id)
 
     async def recompute_and_store(self, user_id: str) -> dict:
-        entries = await DiaryInputService(self.ctx).for_user(user_id)
+        entries = await DiaryInputService(self.ctx).for_user(
+            user_id,
+            include_image_references=True,
+        )
         generated_at = utcnow()
         artifacts = self.algorithm.build_taste_refresh_artifacts(
             user_id,
@@ -93,7 +96,10 @@ class TasteService:
         return payload
 
     async def _compute_payload(self, user_id: str) -> dict:
-        entries = await DiaryInputService(self.ctx).for_user(user_id)
+        entries = await DiaryInputService(self.ctx).for_user(
+            user_id,
+            include_image_references=True,
+        )
         report = self.algorithm.generate_taste_report(
             user_id,
             entries,

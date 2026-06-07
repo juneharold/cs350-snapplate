@@ -52,9 +52,11 @@ async def test_compute_payload_uses_context_algorithm_service(monkeypatch) -> No
     from app.services.main import taste as taste_module
     from app.services.main.taste import TasteService
 
-    async def fake_for_user(self, user_id):  # noqa: ARG001
+    async def fake_for_user(self, user_id, *, include_image_references=False):  # noqa: ARG001
+        include_flags.append(include_image_references)
         return [object()]
 
+    include_flags = []
     monkeypatch.setattr(taste_module.DiaryInputService, "for_user", fake_for_user)
     algorithm = _FakeAlgorithmService()
     ctx = SimpleNamespace(db_session=_FakeDb(), algorithm_service=algorithm)
@@ -62,6 +64,7 @@ async def test_compute_payload_uses_context_algorithm_service(monkeypatch) -> No
     payload = await TasteService(ctx)._compute_payload("u_provider")
 
     assert payload == {"has_enough_data": False}
+    assert include_flags == [True]
     assert algorithm.taste_report_calls == [
         {
             "user_id": "u_provider",
@@ -78,9 +81,11 @@ async def test_recompute_and_store_uses_artifact_and_report_versions(monkeypatch
     artifact_repo = _FakeArtifactRepository()
     db = _RecordingDb()
 
-    async def fake_for_user(self, user_id):  # noqa: ARG001
+    async def fake_for_user(self, user_id, *, include_image_references=False):  # noqa: ARG001
+        include_flags.append(include_image_references)
         return [object() for _ in range(10)]
 
+    include_flags = []
     monkeypatch.setattr(taste_module.DiaryInputService, "for_user", fake_for_user)
     monkeypatch.setattr(
         taste_module,
@@ -101,6 +106,7 @@ async def test_recompute_and_store_uses_artifact_and_report_versions(monkeypatch
 
     await TasteService(ctx).recompute_and_store("u_versioned")
 
+    assert include_flags == [True]
     assert artifact_repo.entry_profiles[0]["algorithm_version"] == "entry-v1"
     assert artifact_repo.user_profiles[0]["algorithm_version"] == "user-v1"
     assert db.added[0].algorithm_version == "report-v1"

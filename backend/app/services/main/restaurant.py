@@ -7,6 +7,7 @@ from fastapi import BackgroundTasks
 from app.config.http_errors import AppError, NotFoundError
 from app.config.lifespan import Context, InternalContext
 from app.models.restaurant import RestaurantModel
+from app.repositories.algorithm_artifact import AlgorithmArtifactRepository
 from app.repositories.bookmark import BookmarkRepository
 from app.repositories.restaurant import RestaurantRepository
 from app.schemas.restaurant import (
@@ -15,8 +16,10 @@ from app.schemas.restaurant import (
     RestaurantSummaryInfo,
     SearchResultInfo,
 )
+from app.services.algorithm.restaurants import RESTAURANT_PROFILE_FRESHNESS_WINDOW
 from app.services.kakao.client import KakaoService
 from app.utils.geo import haversine_m
+from app.utils.time import as_utc, utcnow
 
 # Refresh from Kakao when the cached set is thinner than what the caller asked for
 # (cold/sparse cache). Once enough rows are cached, serve from DB (stale-while-revalidate).
@@ -31,6 +34,7 @@ class RestaurantService:
         internal: InternalContext | None = None,
     ):
         self.repo = RestaurantRepository(ctx.db_session)
+        self.artifacts = AlgorithmArtifactRepository(ctx.db_session)
         self.bookmarks = BookmarkRepository(ctx.db_session)
         self.kakao = KakaoService(ctx.http_client)
         self.background_tasks = background_tasks
@@ -55,7 +59,6 @@ class RestaurantService:
         if len(rows) < max(_REFRESH_BELOW, limit):
             rows = await self._refresh_from_kakao(lat, lng, radius_m, category, min_rating)
 
-        self._schedule_profile_refresh(rows)
         bookmarked = await self._bookmarked(user_id)
         items = [self._summary(r, lat, lng, bookmarked) for r in rows]
         # The cache (list_active) is not geo-bounded, so drop anything outside the
@@ -63,7 +66,10 @@ class RestaurantService:
         # places well outside radius_m (REQ-4.2-007).
         items = [i for i in items if i.distance_m <= radius_m]
         items = self._sort(items, sort)
-        return items[:limit]
+        items = items[:limit]
+        returned_ids = {item.id for item in items}
+        await self._schedule_profile_refresh([row for row in rows if row.id in returned_ids])
+        return items
 
     async def search(
         self,
@@ -118,13 +124,26 @@ class RestaurantService:
         await self.repo.upsert_many(kakao_rows)
         return list(await self.repo.list_active(category, min_rating, limit=200))
 
-    def _schedule_profile_refresh(self, rows: Sequence[RestaurantModel]) -> None:
+    async def _schedule_profile_refresh(self, rows: Sequence[RestaurantModel]) -> None:
         if self.background_tasks is None or self.internal is None:
+            return
+        restaurant_ids = list(dict.fromkeys(restaurant.id for restaurant in rows))
+        if not restaurant_ids:
+            return
+        existing_profiles = await self.artifacts.latest_restaurant_profiles(restaurant_ids)
+        fresh_after = utcnow() - RESTAURANT_PROFILE_FRESHNESS_WINDOW
+        stale_ids = []
+        for restaurant_id in restaurant_ids:
+            existing = existing_profiles.get(restaurant_id)
+            if existing is not None and as_utc(existing.generated_at) >= fresh_after:
+                continue
+            stale_ids.append(restaurant_id)
+        if not stale_ids:
             return
         self.background_tasks.add_task(
             self.internal.algorithm_service.profile_restaurants,
             self.internal,
-            [restaurant.id for restaurant in rows],
+            stale_ids,
         )
 
     async def _bookmarked(self, user_id: str | None) -> set[str]:

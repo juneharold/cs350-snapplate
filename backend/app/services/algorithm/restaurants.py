@@ -19,7 +19,7 @@ from app.utils.time import as_utc, utcnow
 
 logger = create_logger(__name__)
 
-_RESTAURANT_PROFILE_FRESHNESS_WINDOW = timedelta(hours=1)
+RESTAURANT_PROFILE_FRESHNESS_WINDOW = timedelta(hours=1)
 
 
 def metadata_from_restaurant_model(restaurant: RestaurantModel) -> KakaoRestaurantMetadata:
@@ -76,7 +76,7 @@ async def profile_restaurants(
         artifact_repo = AlgorithmArtifactRepository(db)
         generated_at = utcnow()
         unique_restaurant_ids = list(dict.fromkeys(restaurant_ids))
-        fresh_after = generated_at - _RESTAURANT_PROFILE_FRESHNESS_WINDOW
+        fresh_after = generated_at - RESTAURANT_PROFILE_FRESHNESS_WINDOW
         existing_profiles = await artifact_repo.latest_restaurant_profiles(unique_restaurant_ids)
         for restaurant_id in unique_restaurant_ids:
             existing = existing_profiles.get(restaurant_id)

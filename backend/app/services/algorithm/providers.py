@@ -122,9 +122,7 @@ class OpenAIProvider:
         return _profile_extraction_from_openai_response(response)
 
     def extract_image_profile(self, image_reference: str) -> ProfileExtractionResult:
-        file_id = image_reference.strip()
-        if not file_id.startswith("file-"):
-            raise ValueError("image_reference must be an OpenAI file ID beginning with 'file-'")
+        image_input = _image_input_from_reference(image_reference)
         response = self._client.responses.parse(
             model=self._image_model,
             instructions=_image_profile_instructions(),
@@ -138,8 +136,8 @@ class OpenAIProvider:
                         },
                         {
                             "type": "input_image",
-                            "file_id": file_id,
                             "detail": "low",
+                            **image_input,
                         },
                     ],
                 }
@@ -177,6 +175,15 @@ class OpenAIProvider:
 
 def _require_embedding_text(text: str) -> None:
     _require_text(text, "embedding text")
+
+
+def _image_input_from_reference(image_reference: str) -> dict[str, str]:
+    reference = image_reference.strip()
+    if reference.startswith("file-"):
+        return {"file_id": reference}
+    if reference.startswith(("data:image/", "http://", "https://")):
+        return {"image_url": reference}
+    raise ValueError("image_reference must be an OpenAI file ID, image URL, or image data URL")
 
 
 def _require_text(text: str, label: str) -> None:

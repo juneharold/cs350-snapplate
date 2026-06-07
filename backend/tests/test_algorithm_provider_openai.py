@@ -204,7 +204,35 @@ def test_openai_provider_extracts_image_profile_from_file_id_only() -> None:
     assert "file-food-image-123" in request_payload
 
 
-def test_openai_provider_rejects_non_file_image_reference() -> None:
+def test_openai_provider_extracts_image_profile_from_data_url() -> None:
+    parsed = {
+        "signals": [
+            {
+                "field_name": "food_type",
+                "term": "noodle",
+                "score": 0.74,
+                "confidence": 0.78,
+                "evidence": "image: noodle bowl",
+            },
+        ]
+    }
+    client = FakeOpenAIClient(parsed)
+    provider = OpenAIProvider(client=client)
+
+    result = provider.extract_image_profile("data:image/jpeg;base64,abc123")
+
+    assert result == ProfileExtractionResult(
+        profile={"food_type": {"noodle": 0.74}},
+        confidence={"food_type": 0.78},
+        evidence={"food_type": ["image: noodle bowl"]},
+    )
+    call = client.responses.calls[0]
+    request_payload = str(call["input"])
+    assert "image_url" in request_payload
+    assert "data:image/jpeg;base64,abc123" in request_payload
+
+
+def test_openai_provider_rejects_unsupported_image_reference() -> None:
     client = FakeOpenAIClient(
         ProfileExtractionResult(
             profile={"food_type": {"noodle": 0.7}},
@@ -214,8 +242,8 @@ def test_openai_provider_rejects_non_file_image_reference() -> None:
     )
     provider = OpenAIProvider(client=client)
 
-    with pytest.raises(ValueError, match="OpenAI file ID"):
-        provider.extract_image_profile("https://example.com/noodle.jpg")
+    with pytest.raises(ValueError, match="image_reference"):
+        provider.extract_image_profile("media/u_1/m_1.jpg")
 
     assert client.responses.calls == []
 

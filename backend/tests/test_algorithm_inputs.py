@@ -60,3 +60,25 @@ def test_diary_entry_input_from_models_uses_restaurant_adapter() -> None:
 
     assert result.restaurant.category == "Cafe"
     assert result.image_labels == ["coffee"]
+
+
+def test_diary_entry_input_from_models_uses_image_references_when_requested() -> None:
+    from app.services.algorithm.inputs import diary_entry_input_from_models
+
+    entry = EntryModel(
+        id="e_1",
+        user_id="u_1",
+        restaurant_id="r_1",
+        cover_media_id="m_1",
+        captured_at=datetime(2026, 5, 24, 12, 30, tzinfo=UTC),
+        rating=4.5,
+        note="quiet latte",
+        ai_tags=[],
+    )
+    result = diary_entry_input_from_models(
+        entry,
+        _restaurant(),
+        image_references=["data:image/jpeg;base64,abc123"],
+    )
+
+    assert result.image_references == ["data:image/jpeg;base64,abc123"]

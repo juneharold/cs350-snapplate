@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.config.algorithm import EMBEDDING_DIMENSIONS
 from app.config.http_errors import AppError
 from app.dto.restaurant import RecommendedResponseCore
 from app.models.recommendation_exposure import RecommendationExposureModel
@@ -46,12 +47,18 @@ async def test_recommend_returns_plain_data_for_insufficient_entries(monkeypatch
 
 async def test_recommend_uses_nearest_restaurant_profiles(monkeypatch) -> None:
     user_profile = SimpleNamespace(
-        payload_json={"user_id": "u_ready"},
-        long_term_embedding=[0.1, 0.2, 0.3],
+        payload_json={
+            "user_id": "u_ready",
+            "long_term_embedding": _embedding(0.1),
+            "short_term_embedding": _embedding(0.2),
+        },
+        long_term_embedding=_embedding(0.1),
+        short_term_embedding=_embedding(0.2),
     )
     restaurant_profile = SimpleNamespace(
         restaurant_id="r_nearest",
-        payload_json={"restaurant_id": "r_nearest"},
+        payload_json={"restaurant_id": "r_nearest", "embedding": _embedding(0.3)},
+        embedding=_embedding(0.3),
     )
     artifacts = _FakeArtifactRepository(
         user_profile=user_profile,
@@ -77,14 +84,16 @@ async def test_recommend_uses_nearest_restaurant_profiles(monkeypatch) -> None:
     assert result["items"][0]["id"] == "r_nearest"
     assert artifacts.nearest_calls == [
         {
-            "query_embedding": [0.1, 0.2, 0.3],
+            "query_embedding": _embedding(0.1),
             "candidate_restaurant_ids": ["r_far", "r_nearest"],
             "limit": 15,
         }
     ]
     assert artifacts.latest_calls == []
     assert captured_context["candidate_restaurants"] == [SimpleNamespace(id="r_nearest")]
-    assert captured_context["restaurant_profile_payloads"] == [{"restaurant_id": "r_nearest"}]
+    assert captured_context["restaurant_profile_payloads"] == [
+        {"restaurant_id": "r_nearest", "embedding": _embedding(0.3)}
+    ]
     assert exposures.added == [{"r_nearest": "Taste match"}]
 
 
@@ -109,8 +118,13 @@ async def test_recommend_missing_user_profile_has_distinct_error(monkeypatch) ->
 
 async def test_recommend_missing_restaurant_profiles_has_distinct_error(monkeypatch) -> None:
     user_profile = SimpleNamespace(
-        payload_json={"user_id": "u_ready"},
-        long_term_embedding=[0.1, 0.2, 0.3],
+        payload_json={
+            "user_id": "u_ready",
+            "long_term_embedding": _embedding(0.1),
+            "short_term_embedding": _embedding(0.2),
+        },
+        long_term_embedding=_embedding(0.1),
+        short_term_embedding=_embedding(0.2),
     )
     artifacts = _FakeArtifactRepository(user_profile=user_profile, nearest_rows=[])
     algorithm = _install_service_fakes(
@@ -128,6 +142,124 @@ async def test_recommend_missing_restaurant_profiles_has_distinct_error(monkeypa
 
     assert exc_info.value.status == 503
     assert exc_info.value.code == "restaurant_profiles_not_ready"
+
+
+async def test_recommend_invalid_user_embedding_returns_service_error(monkeypatch) -> None:
+    user_profile = SimpleNamespace(
+        payload_json={
+            "user_id": "u_ready",
+            "long_term_embedding": [0.0] * EMBEDDING_DIMENSIONS,
+            "short_term_embedding": _embedding(0.2),
+        },
+        long_term_embedding=[0.0] * EMBEDDING_DIMENSIONS,
+        short_term_embedding=_embedding(0.2),
+    )
+    artifacts = _FakeArtifactRepository(user_profile=user_profile)
+    algorithm = _install_service_fakes(
+        monkeypatch,
+        artifacts=artifacts,
+        exposures=_FakeExposureRepository(),
+        entries=[object() for _ in range(10)],
+        candidates=[SimpleNamespace(id="r_ready")],
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        await RecommendationService(
+            SimpleNamespace(db_session=object(), algorithm_service=algorithm)
+        ).recommend("u_ready", None, None, 10)
+
+    assert exc_info.value.status == 503
+    assert exc_info.value.code == "recommendation_artifacts_invalid"
+    assert artifacts.nearest_calls == []
+
+
+async def test_recommend_skips_invalid_restaurant_profile_embeddings(monkeypatch) -> None:
+    user_profile = SimpleNamespace(
+        payload_json={
+            "user_id": "u_ready",
+            "long_term_embedding": _embedding(0.1),
+            "short_term_embedding": _embedding(0.2),
+        },
+        long_term_embedding=_embedding(0.1),
+        short_term_embedding=_embedding(0.2),
+    )
+    invalid_profile = SimpleNamespace(
+        restaurant_id="r_bad",
+        payload_json={
+            "restaurant_id": "r_bad",
+            "embedding": [0.0] * EMBEDDING_DIMENSIONS,
+        },
+        embedding=[0.0] * EMBEDDING_DIMENSIONS,
+    )
+    valid_profile = SimpleNamespace(
+        restaurant_id="r_nearest",
+        payload_json={"restaurant_id": "r_nearest", "embedding": _embedding(0.3)},
+        embedding=_embedding(0.3),
+    )
+    artifacts = _FakeArtifactRepository(
+        user_profile=user_profile,
+        nearest_rows=[(invalid_profile, 0.05), (valid_profile, 0.1)],
+        fail_latest=True,
+    )
+    captured_context: dict[str, object] = {}
+    algorithm = _install_service_fakes(
+        monkeypatch,
+        artifacts=artifacts,
+        exposures=_FakeExposureRepository(),
+        entries=[object() for _ in range(10)],
+        candidates=[SimpleNamespace(id="r_bad"), SimpleNamespace(id="r_nearest")],
+        captured_context=captured_context,
+    )
+
+    result = await RecommendationService(
+        SimpleNamespace(db_session=object(), algorithm_service=algorithm)
+    ).recommend("u_ready", None, None, 3)
+
+    assert result["items"][0]["id"] == "r_nearest"
+    assert captured_context["candidate_restaurants"] == [SimpleNamespace(id="r_nearest")]
+    assert captured_context["restaurant_profile_payloads"] == [
+        {"restaurant_id": "r_nearest", "embedding": _embedding(0.3)}
+    ]
+
+
+async def test_recommend_invalid_restaurant_profiles_return_service_error(monkeypatch) -> None:
+    user_profile = SimpleNamespace(
+        payload_json={
+            "user_id": "u_ready",
+            "long_term_embedding": _embedding(0.1),
+            "short_term_embedding": _embedding(0.2),
+        },
+        long_term_embedding=_embedding(0.1),
+        short_term_embedding=_embedding(0.2),
+    )
+    invalid_profile = SimpleNamespace(
+        restaurant_id="r_bad",
+        payload_json={
+            "restaurant_id": "r_bad",
+            "embedding": [0.0] * EMBEDDING_DIMENSIONS,
+        },
+        embedding=[0.0] * EMBEDDING_DIMENSIONS,
+    )
+    artifacts = _FakeArtifactRepository(
+        user_profile=user_profile,
+        nearest_rows=[(invalid_profile, 0.05)],
+        fail_latest=True,
+    )
+    algorithm = _install_service_fakes(
+        monkeypatch,
+        artifacts=artifacts,
+        exposures=_FakeExposureRepository(),
+        entries=[object() for _ in range(10)],
+        candidates=[SimpleNamespace(id="r_bad")],
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        await RecommendationService(
+            SimpleNamespace(db_session=object(), algorithm_service=algorithm)
+        ).recommend("u_ready", None, None, 3)
+
+    assert exc_info.value.status == 503
+    assert exc_info.value.code == "recommendation_artifacts_invalid"
 
 
 async def test_candidates_skip_unmappable_restaurant_categories(monkeypatch) -> None:
@@ -168,6 +300,7 @@ def test_recommendation_exposure_declares_shown_at_index() -> None:
     }
 
     assert ("shown_at",) in indexed_columns
+    assert ("user_id", "shown_at") in indexed_columns
 
 
 def _install_service_fakes(
@@ -358,3 +491,7 @@ class _FakeCandidateBookmarkRepository:
 
     async def bookmarked_restaurant_ids(self, user_id):  # noqa: ARG002
         return self.restaurant_ids
+
+
+def _embedding(value: float) -> list[float]:
+    return [value] * EMBEDDING_DIMENSIONS

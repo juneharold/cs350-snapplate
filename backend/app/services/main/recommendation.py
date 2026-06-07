@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from app.config.algorithm import RECOMMENDATION_COOLDOWN_REQUESTS
+from app.config.algorithm import EMBEDDING_DIMENSIONS, RECOMMENDATION_COOLDOWN_REQUESTS
 from app.config.http_errors import AppError
 from app.config.lifespan import Context
 from app.config.logger import create_logger
@@ -48,6 +48,11 @@ class RecommendationService:
                 "user_profile_not_ready",
                 "Recommendations are not ready. Refresh taste analysis first.",
             )
+        try:
+            _validate_user_profile_artifact(user_profile)
+        except ValueError as exc:
+            logger.warning(f"invalid recommendation user artifact for {user_id}: {exc}")
+            raise _invalid_artifacts_error() from exc
 
         candidates = await self._candidates(entries, user_id, lat, lng)
         candidate_by_id = {candidate.id: candidate for candidate in candidates}
@@ -56,11 +61,25 @@ class RecommendationService:
             candidate_restaurant_ids=list(candidate_by_id),
             limit=max(limit * 5, limit),
         )
-        restaurant_artifacts = [artifact for artifact, _distance in nearest_restaurant_profiles]
+        restaurant_artifacts = []
+        skipped_invalid_artifacts = False
+        for artifact, _distance in nearest_restaurant_profiles:
+            try:
+                _validate_restaurant_profile_artifact(artifact)
+            except ValueError as exc:
+                skipped_invalid_artifacts = True
+                logger.warning(
+                    f"skipping invalid recommendation restaurant artifact "
+                    f"{artifact.restaurant_id}: {exc}"
+                )
+                continue
+            restaurant_artifacts.append(artifact)
         profiled_candidates = [
             candidate_by_id[artifact.restaurant_id] for artifact in restaurant_artifacts
         ]
         if not profiled_candidates:
+            if skipped_invalid_artifacts:
+                raise _invalid_artifacts_error()
             raise AppError(
                 503,
                 "restaurant_profiles_not_ready",
@@ -84,12 +103,18 @@ class RecommendationService:
             lng=lng,
             requested_at=requested_at,
         )
-        result = self.algorithm.generate_recommendations(
-            user_id,
-            context,
-            limit=limit,
-            min_entries_required=_MIN_ENTRIES,
-        )
+        try:
+            result = self.algorithm.generate_recommendations(
+                user_id,
+                context,
+                limit=limit,
+                min_entries_required=_MIN_ENTRIES,
+            )
+        except ValueError as exc:
+            if "embedding" not in str(exc):
+                raise
+            logger.warning(f"invalid recommendation artifacts for {user_id}: {exc}")
+            raise _invalid_artifacts_error() from exc
 
         await self.exposures.add_many(
             user_id=user_id,
@@ -126,3 +151,36 @@ class RecommendationService:
                     f"skipping recommendation candidate {row.id} with unsupported category: {exc}"
                 )
         return candidates
+
+
+def _validate_user_profile_artifact(user_profile) -> None:
+    _validate_embedding(user_profile.long_term_embedding, "user long-term embedding")
+    _validate_embedding(user_profile.short_term_embedding, "user short-term embedding")
+    payload = user_profile.payload_json
+    _validate_embedding(payload.get("long_term_embedding", []), "user payload long-term embedding")
+    _validate_embedding(
+        payload.get("short_term_embedding", []),
+        "user payload short-term embedding",
+    )
+
+
+def _validate_restaurant_profile_artifact(artifact) -> None:
+    _validate_embedding(artifact.embedding, "restaurant embedding")
+    _validate_embedding(artifact.payload_json.get("embedding", []), "restaurant payload embedding")
+
+
+def _validate_embedding(embedding: Sequence[float], label: str) -> None:
+    if len(embedding) != EMBEDDING_DIMENSIONS:
+        raise ValueError(
+            f"{label} must have {EMBEDDING_DIMENSIONS} embedding values; got {len(embedding)}"
+        )
+    if not any(value != 0 for value in embedding):
+        raise ValueError(f"{label} must not be all zeros")
+
+
+def _invalid_artifacts_error() -> AppError:
+    return AppError(
+        503,
+        "recommendation_artifacts_invalid",
+        "Recommendation artifacts are invalid. Refresh taste analysis first.",
+    )
