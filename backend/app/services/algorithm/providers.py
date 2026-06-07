@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any, Protocol, TypeVar
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from app.config.algorithm import (
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
@@ -25,6 +27,22 @@ ID_TOKEN_RE = re.compile(
     r"\b(?:user|u|entry|e|restaurant|r|kakao)_[A-Za-z0-9-]+\b",
     re.IGNORECASE,
 )
+
+
+class _OpenAIProfileSignal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    field_name: str
+    term: str
+    score: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence: str = Field(min_length=1)
+
+
+class _OpenAIProfileExtractionResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    signals: list[_OpenAIProfileSignal]
 
 
 class ProfileProvider(Protocol):
@@ -96,12 +114,12 @@ class OpenAIProvider:
             model=self._text_model,
             instructions=_text_profile_instructions(),
             input=f"Diary text:\n{redacted_text}",
-            text_format=ProfileExtractionResult,
+            text_format=_OpenAIProfileExtractionResult,
             temperature=0,
             store=False,
             timeout=self._timeout_seconds,
         )
-        return _validated_parsed_response(response, ProfileExtractionResult)
+        return _profile_extraction_from_openai_response(response)
 
     def extract_image_profile(self, image_reference: str) -> ProfileExtractionResult:
         file_id = image_reference.strip()
@@ -126,12 +144,12 @@ class OpenAIProvider:
                     ],
                 }
             ],
-            text_format=ProfileExtractionResult,
+            text_format=_OpenAIProfileExtractionResult,
             temperature=0,
             store=False,
             timeout=self._timeout_seconds,
         )
-        return _validated_parsed_response(response, ProfileExtractionResult)
+        return _profile_extraction_from_openai_response(response)
 
     def generate_profile_summary(self, profile_text: str) -> ProfileSummaryResult:
         redacted_text = _redacted_external_text(profile_text, "profile text")
@@ -183,15 +201,37 @@ def _validated_parsed_response(response: object, result_type: type[TParsed]) -> 
     return result_type.model_validate(parsed)
 
 
+def _profile_extraction_from_openai_response(response: object) -> ProfileExtractionResult:
+    parsed = getattr(response, "output_parsed", None)
+    if parsed is None:
+        raise ValueError("OpenAI structured output did not contain parsed data")
+    wire = _OpenAIProfileExtractionResult.model_validate(parsed)
+    profile: dict[str, dict[str, float]] = {}
+    confidence: dict[str, float] = {}
+    evidence: dict[str, list[str]] = {}
+    for signal in wire.signals:
+        terms = profile.setdefault(signal.field_name, {})
+        terms[signal.term] = max(terms.get(signal.term, 0.0), signal.score)
+        confidence[signal.field_name] = max(
+            confidence.get(signal.field_name, 0.0),
+            signal.confidence,
+        )
+        sources = evidence.setdefault(signal.field_name, [])
+        if signal.evidence not in sources:
+            sources.append(signal.evidence)
+    return ProfileExtractionResult(profile=profile, confidence=confidence, evidence=evidence)
+
+
 def _text_profile_instructions() -> str:
     return "\n".join(
         [
             "Extract a SnapPlate diary text profile.",
-            "Return only terms supported by the schema.",
+            "Return supported signals in the signals array.",
+            "Use an empty signals array when no supported signal is strongly evidenced.",
             "Allowed profile fields: taste, context, emotion.",
             _allowed_terms_text(("taste", "context", "emotion")),
             "Omit unsupported or weakly evidenced terms.",
-            "Every non-empty field must include confidence and evidence.",
+            "Every signal must include field_name, term, score, confidence, and evidence.",
             "Evidence must be short and must not include personal identifiers.",
         ]
     )
@@ -201,11 +241,12 @@ def _image_profile_instructions() -> str:
     return "\n".join(
         [
             "Extract a SnapPlate food image profile.",
-            "Return only terms supported by the schema.",
+            "Return supported signals in the signals array.",
+            "Use an empty signals array when no supported signal is strongly evidenced.",
             "Allowed profile fields: cuisine, food_type.",
             _allowed_terms_text(("cuisine", "food_type")),
             "Omit unsupported or weakly evidenced terms.",
-            "Every non-empty field must include confidence and evidence.",
+            "Every signal must include field_name, term, score, confidence, and evidence.",
         ]
     )
 
