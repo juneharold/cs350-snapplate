@@ -10,6 +10,7 @@ from app.config.algorithm import (
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
     IMAGE_PROFILE_MODEL,
+    OPENAI_TIMEOUT_SECONDS,
     SUMMARY_MODEL,
     TEXT_PROFILE_MODEL,
 )
@@ -34,6 +35,7 @@ class FakeEmbeddingClient:
         input: str,
         dimensions: int,
         encoding_format: str,
+        timeout: float,
     ) -> SimpleNamespace:
         self.calls.append(
             {
@@ -41,6 +43,7 @@ class FakeEmbeddingClient:
                 "input": input,
                 "dimensions": dimensions,
                 "encoding_format": encoding_format,
+                "timeout": timeout,
             }
         )
         return SimpleNamespace(
@@ -50,6 +53,22 @@ class FakeEmbeddingClient:
                 )
             ]
         )
+
+
+class FailingEmbeddingClient:
+    def __init__(self) -> None:
+        self.embeddings = self
+
+    def create(
+        self,
+        *,
+        model: str,
+        input: str,
+        dimensions: int,
+        encoding_format: str,
+        timeout: float,
+    ) -> SimpleNamespace:
+        raise RuntimeError("embedding unavailable")
 
 
 class FakeResponses:
@@ -110,8 +129,19 @@ def test_openai_provider_sends_embedding_request_shape() -> None:
             "input": "User profile text.",
             "dimensions": EMBEDDING_DIMENSIONS,
             "encoding_format": "float",
+            "timeout": OPENAI_TIMEOUT_SECONDS,
         }
     ]
+
+
+def test_openai_provider_can_fail_loudly_instead_of_using_deterministic_embedding() -> None:
+    provider = OpenAIProvider(
+        client=FailingEmbeddingClient(),
+        fallback_to_deterministic_embedding=False,
+    )
+
+    with pytest.raises(RuntimeError, match="embedding unavailable"):
+        provider.embed_text("User profile text.")
 
 
 def test_openai_provider_extracts_text_profile_with_redacted_input() -> None:

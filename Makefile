@@ -6,8 +6,9 @@
 # QUICK START:
 #   1)  make up            # start Postgres + MinIO (Docker), wait for healthy
 #   2)  make db-migrate    # apply migrations (first run / after model changes)
-#   3a) make run-backend   # FastAPI on http://localhost:8000
-#   3b) make run-frontend  # Next.js on http://localhost:3000
+#   3)  make db-seed       # optional: seed OpenAI-embedding + Kakao-image demo data
+#   4a) make run-backend   # FastAPI on http://localhost:8000
+#   4b) make run-frontend  # Next.js on http://localhost:3000
 
 BACKEND_DIR = backend
 FRONTEND_DIR = frontend
@@ -64,6 +65,9 @@ db-migrate:  ## Apply all migrations (alembic upgrade head)
 db-rollback:  ## Roll back the last migration
 	cd $(BACKEND_DIR) && $(ALEMBIC) downgrade -1
 
+db-seed:  ## Seed local demo data using OpenAI embeddings + Kakao images
+	cd $(BACKEND_DIR) && $(PY) -m scripts.seed_demo_data
+
 # Quality + tests
 lint:  ## ruff check + format check
 	cd $(BACKEND_DIR) && $(PY) -m ruff check app && $(PY) -m ruff format --check app
@@ -80,4 +84,4 @@ test:  ## Run the backend pytest suite (needs `make up` first)
 test-all: test  ## Run the backend pytest suite
 
 .PHONY: help up down reset-db install run-backend frontend-install run-frontend \
-	dev db-migrate db-rollback lint format typecheck test test-all
+	dev db-migrate db-rollback db-seed lint format typecheck test test-all

@@ -97,6 +97,7 @@ class OpenAIProvider:
         embedding_model: str | None = None,
         dimensions: int = EMBEDDING_DIMENSIONS,
         timeout_seconds: float = OPENAI_TIMEOUT_SECONDS,
+        fallback_to_deterministic_embedding: bool = True,
     ) -> None:
         if client is None:
             raise ValueError("client is required")
@@ -107,6 +108,7 @@ class OpenAIProvider:
         self._embedding_model = embedding_model or model or EMBEDDING_MODEL
         self._dimensions = dimensions
         self._timeout_seconds = timeout_seconds
+        self._fallback_to_deterministic_embedding = fallback_to_deterministic_embedding
 
     def extract_text_profile(self, text: str) -> ProfileExtractionResult:
         redacted_text = _redacted_external_text(text, "diary text")
@@ -167,9 +169,12 @@ class OpenAIProvider:
                 input=text,
                 dimensions=self._dimensions,
                 encoding_format="float",
+                timeout=self._timeout_seconds,
             )
             return _validated_embedding(_response_embedding(response), self._dimensions)
         except Exception:
+            if not self._fallback_to_deterministic_embedding:
+                raise
             # Embedding model unavailable for this project — fall back to deterministic
             return deterministic_text_embedding(text, dimensions=self._dimensions)
 
