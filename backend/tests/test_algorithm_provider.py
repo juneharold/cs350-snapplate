@@ -24,13 +24,15 @@ def test_build_profile_provider_rejects_unknown_provider(
         _build_profile_provider()
 
 
-def test_build_profile_provider_requires_openai_key(
+def test_build_profile_provider_falls_back_to_deterministic_without_openai_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # The openai path with no key falls back to the local provider instead of
+    # failing boot, so taste analysis still works in dev/CI/demo without billing.
     from app.config.lifespan import _build_profile_provider
+    from app.services.algorithm.providers import DeterministicProvider
 
     monkeypatch.setenv("ALGORITHM_PROVIDER", "openai")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
-        _build_profile_provider()
+    assert isinstance(_build_profile_provider(), DeterministicProvider)
