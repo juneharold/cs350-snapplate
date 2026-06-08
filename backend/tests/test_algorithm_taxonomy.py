@@ -175,6 +175,17 @@ def test_restaurant_input_rejects_unknown_public_category() -> None:
         ("양식", "음식점 > 양식", "Western"),
         ("호프,요리주점", "음식점 > 술집 > 호프,요리주점", "Bar"),
         ("Noodles", None, "Noodles"),
+        # Expanded alias coverage — labels from the wider Kakao harvest.
+        ("갈비", "음식점 > 한식 > 육류,고기 > 갈비", "Korean BBQ"),
+        ("칼국수", "음식점 > 한식 > 국수 > 칼국수", "Noodles"),
+        ("삼계탕", "음식점 > 한식 > 삼계탕", "Comfort Korean"),
+        ("치킨", "음식점 > 치킨", "Western"),
+        ("피자", "음식점 > 양식 > 피자", "Western"),
+        ("초밥,롤", "음식점 > 일식 > 초밥,롤", "Japanese"),
+        ("아이스크림", "음식점 > 간식 > 아이스크림", "Dessert"),
+        ("와인바", "음식점 > 술집 > 와인바", "Bar"),
+        # Leaf-first specificity: the deeper segment wins over the broader one.
+        ("육류,고기", "음식점 > 한식 > 육류,고기", "Korean BBQ"),
     ],
 )
 def test_normalize_public_restaurant_category_maps_kakao_labels(
