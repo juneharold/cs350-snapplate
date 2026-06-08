@@ -104,7 +104,7 @@ function CapturePreviewContent() {
   return (
     <Screen bg="#0A0A08">
       <div className="absolute inset-0 flex flex-col" style={{ color: "var(--color-cream)" }}>
-        {/* Header — back button + board on one line, hugging the left edge */}
+        {/* Header — back button + title on one line, hugging the left edge */}
         <div
           className="shrink-0 px-5 flex items-center gap-2.5"
           style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 16px)" }}
@@ -117,26 +117,50 @@ function CapturePreviewContent() {
           >
             <ChevronLeft size={22} />
           </Link>
-          {/* "We'll remember the rest" board, beside the back button */}
-          <div
-            className="flex-1 min-w-0"
-            style={{ background: "rgba(244,240,222,0.07)", borderRadius: 12, padding: 14 }}
+          <h1
+            className="leading-none font-bold"
+            style={{
+              flex: "1 1 0%",
+              minWidth: 0,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              fontSize: 22,
+              letterSpacing: "-0.015em",
+            }}
           >
-            <div className="flex justify-between items-baseline gap-2">
-              <div style={{ fontSize: 12, fontFamily: "var(--font-mono)", opacity: 0.7 }}>
-                WE&apos;LL REMEMBER THE REST
-              </div>
-              <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", opacity: 0.7 }}>
-                {timeLabel}
-              </div>
-            </div>
-            <div
-              className="flex items-center gap-1.5"
-              style={{ marginTop: 8, fontSize: 14, opacity: 0.92 }}
-            >
-              <MapPin size={15} style={{ opacity: 0.8, flexShrink: 0 }} />
-              {placeLabel}
-            </div>
+            We&apos;ll remember the rest
+          </h1>
+        </div>
+
+        {/* Location + time, each on its own card — place left, time right */}
+        <div className="shrink-0 px-5 flex items-stretch justify-between gap-2.5" style={{ marginTop: 16, marginBottom: 16 }}>
+          <div
+            className="min-w-0 flex items-start gap-1.5"
+            style={{
+              background: "rgba(244,240,222,0.07)",
+              borderRadius: 12,
+              padding: "11px 14px",
+              fontSize: 14,
+              lineHeight: 1.3,
+              color: "rgba(244,240,222,0.92)",
+            }}
+          >
+            <MapPin size={15} style={{ opacity: 0.8, flexShrink: 0, marginTop: 2 }} />
+            <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{placeLabel}</span>
+          </div>
+          <div
+            className="shrink-0 flex items-center"
+            style={{
+              background: "rgba(244,240,222,0.07)",
+              borderRadius: 12,
+              padding: "11px 14px",
+              fontSize: 13,
+              fontFamily: "var(--font-mono)",
+              color: "rgba(244,240,222,0.85)",
+            }}
+          >
+            {timeLabel}
           </div>
         </div>
 

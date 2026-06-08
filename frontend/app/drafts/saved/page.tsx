@@ -1,18 +1,28 @@
 "use client";
 
-import { Suspense } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Check } from "lucide-react";
 import { Screen } from "@/components/layout/Screen";
 import { FoodPlaceholder } from "@/components/ui/FoodPlaceholder";
 import { useDraft } from "@/lib/api/drafts";
 
+/** How long the confirmation lingers before we drop the user back home. */
+const REDIRECT_DELAY_MS = 3500;
+
 function SavedConfirm() {
+  const router = useRouter();
   const params = useSearchParams();
   const draftId = params.get("id");
   const { data: draft } = useDraft(draftId);
   const cover = draft?.media.find((m) => m.is_cover) ?? draft?.media[0];
+
+  // Auto-return home — this is a transient confirmation, not a screen to act on.
+  // replace() keeps it out of history so Back doesn't bounce here.
+  useEffect(() => {
+    const t = setTimeout(() => router.replace("/"), REDIRECT_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [router]);
 
   const remindAt = draft?.remind_at
     ? new Date(draft.remind_at).toLocaleTimeString("en-US", {
@@ -144,23 +154,16 @@ function SavedConfirm() {
       </div>
 
       <div
-        className="absolute left-7 right-7 flex flex-col gap-2"
-        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 36px)" }}
+        className="absolute left-7 right-7 text-center"
+        style={{
+          bottom: "calc(env(safe-area-inset-bottom, 0px) + 36px)",
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+          letterSpacing: "0.08em",
+          opacity: 0.55,
+        }}
       >
-        <Link
-          href="/"
-          className="btn btn-block"
-          style={{ background: "var(--color-cream)", color: "var(--color-olive-700)" }}
-        >
-          Done — back home
-        </Link>
-        <Link
-          href="/drafts"
-          className="btn btn-block btn-ghost"
-          style={{ color: "rgba(244,240,222,0.7)", height: 38, fontSize: 13 }}
-        >
-          See all drafts
-        </Link>
+        TAKING YOU HOME…
       </div>
     </Screen>
   );

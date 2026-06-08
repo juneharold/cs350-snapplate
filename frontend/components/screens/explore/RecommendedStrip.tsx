@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { FoodPlaceholder } from "@/components/ui/FoodPlaceholder";
-import { StarRow } from "@/components/ui/StarRating";
 import type { RecommendedResponse } from "@/lib/types";
 
 /**
@@ -42,59 +40,42 @@ export function RecommendedStrip({ data }: { data: RecommendedResponse }) {
           <Link
             key={r.id}
             href={`/restaurants/${r.id}`}
-            style={{ width: 184, flexShrink: 0 }}
+            className="flex"
+            style={{ width: 210, flexShrink: 0 }}
           >
-            <div className="card" style={{ overflow: "hidden", padding: 0 }}>
-              <FoodPlaceholder
-                src={r.thumbnail_url}
-                alt={r.name}
-                tone={r.thumbnail_tone}
-                label={r.signature_dish ?? r.thumbnail_label}
-                width="100%"
-                height={120}
-                radius={0}
-              />
-              <div style={{ padding: 12 }}>
-                <div
-                  className="truncate"
-                  style={{
-                    fontFamily: "var(--font-serif)",
-                    fontSize: 15,
-                    fontWeight: 500,
-                  }}
-                >
-                  {r.name}
-                </div>
-                <div
-                  className="truncate mt-0.5"
-                  style={{ fontSize: 11.5, color: "var(--color-muted)" }}
-                >
-                  {r.signature_dish ?? r.category}
-                </div>
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <StarRow value={r.rating} size={11} />
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 10,
-                      color: "var(--color-muted)",
-                    }}
-                  >
-                    {r.rating.toFixed(1)} · {r.distance_m}m
-                  </span>
-                </div>
-              </div>
-            </div>
             <div
-              className="mt-2 leading-snug"
-              style={{
-                fontSize: 11.5,
-                color: "var(--color-olive-700)",
-                fontStyle: "italic",
-                fontFamily: "var(--font-serif)",
-              }}
+              className="card flex flex-col"
+              style={{ padding: 14, width: "100%" }}
             >
-              &ldquo;{r.reason}&rdquo;
+              <div
+                className="truncate"
+                style={{
+                  fontFamily: "var(--font-serif)",
+                  fontSize: 15.5,
+                  fontWeight: 500,
+                }}
+              >
+                {r.name}
+              </div>
+              <div
+                className="truncate mt-0.5"
+                style={{ fontSize: 11.5, color: "var(--color-muted)" }}
+              >
+                {r.category} · {r.neighborhood}
+              </div>
+              <div
+                className="leading-snug"
+                style={{
+                  marginTop: "auto",
+                  paddingTop: 12,
+                  fontSize: 12,
+                  color: "var(--color-olive-700)",
+                  fontStyle: "italic",
+                  fontFamily: "var(--font-serif)",
+                }}
+              >
+                &ldquo;{r.reason}&rdquo;
+              </div>
             </div>
           </Link>
         ))}

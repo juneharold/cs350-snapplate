@@ -3,12 +3,15 @@ from __future__ import annotations
 from sqlalchemy import desc, select
 
 from app.config.lifespan import Context
+from app.config.logger import create_logger
 from app.dto.auth import UpdateUserData
 from app.models.taste_report import TasteReportModel
 from app.repositories.algorithm_artifact import AlgorithmArtifactRepository
 from app.repositories.user import UserRepository
 from app.services.main.diary_inputs import DiaryInputService
 from app.utils.time import utcnow
+
+logger = create_logger(__name__)
 
 _MIN_ENTRIES = 10
 
@@ -21,17 +24,36 @@ class TasteService:
         self.algorithm = ctx.algorithm_service
 
     async def get_profile(self, user_id: str) -> dict:
-        """Return the latest stored TasteProfileResponse payload, or compute it."""
+        """Return the taste profile reflecting the user's *current* diary.
+
+        Serve the latest stored report only while it still matches the live
+        entry count; otherwise recompute on the fly. The previous behaviour
+        returned the cached report unconditionally, so entries added or removed
+        through any path other than draft finalisation (the only recompute
+        trigger) stayed invisible until the next finalise.
+        """
+        latest = await self._latest_report(user_id)
+        if latest is not None and latest.source_entry_count == await self._live_entry_count(user_id):
+            return latest.payload_json
+        # Stale (entries changed) or nothing stored → reflect the live diary.
+        return await self._compute_payload(user_id)
+
+    async def _latest_report(self, user_id: str) -> TasteReportModel | None:
         stmt = (
             select(TasteReportModel)
             .where(TasteReportModel.user_id == user_id)  # type: ignore[reportArgumentType]
             .order_by(desc(TasteReportModel.generated_at))  # type: ignore[reportArgumentType]
             .limit(1)
         )
-        latest = (await self.db.execute(stmt)).scalars().first()
-        if latest is not None:
-            return latest.payload_json
-        return await self._compute_payload(user_id)
+        return (await self.db.execute(stmt)).scalars().first()
+
+    async def _live_entry_count(self, user_id: str) -> int:
+        """Count the entries that actually feed the report. Goes through the
+        same `for_user` path the report is built from (so rows skipped for an
+        unsupported category are excluded here too), but without image fetches,
+        so `source_entry_count` and this value compare apples to apples.
+        """
+        return len(await DiaryInputService(self.ctx).for_user(user_id))
 
     async def refresh(self, user_id: str) -> dict:
         return await self.recompute_and_store(user_id)
@@ -42,12 +64,25 @@ class TasteService:
             include_image_references=True,
         )
         generated_at = utcnow()
-        artifacts = self.algorithm.build_taste_refresh_artifacts(
-            user_id,
-            entries,
-            generated_at=generated_at,
-            min_entries_required=_MIN_ENTRIES,
-        )
+        try:
+            artifacts = self.algorithm.build_taste_refresh_artifacts(
+                user_id,
+                entries,
+                generated_at=generated_at,
+                min_entries_required=_MIN_ENTRIES,
+            )
+        except Exception:
+            # A recompute failure (e.g. the OpenAI call) must not 500 the caller
+            # or wipe the profile. Log it, then keep serving the genuinely-prior
+            # stored report. Return its payload directly rather than calling
+            # get_profile — get_profile would re-run this same compute on a stale
+            # cache and re-raise. Fall through to the insufficient-data shape
+            # only when there's no prior report at all.
+            logger.exception("taste recompute failed for user %s", user_id)
+            prior = await self._latest_report(user_id)
+            if prior is not None:
+                return prior.payload_json
+            return await self._compute_payload(user_id)
         report = artifacts.report
         artifact_repo = AlgorithmArtifactRepository(self.db)
 

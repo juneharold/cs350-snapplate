@@ -48,6 +48,83 @@ async def test_get_profile_computes_payload_without_stored_report(
     assert payload == expected_payload
 
 
+async def test_get_profile_recomputes_when_cache_is_stale(monkeypatch) -> None:
+    # A stored report whose source_entry_count no longer matches the live diary
+    # must be ignored and recomputed, so entries added/removed outside a refresh
+    # still show up.
+    from app.services.main import taste as taste_module
+    from app.services.main.taste import TasteService
+
+    stored = SimpleNamespace(source_entry_count=3, payload_json={"stale": True})
+
+    async def fake_latest(self, user_id):  # noqa: ARG001
+        return stored
+
+    async def fake_for_user(self, user_id, *, include_image_references=False):  # noqa: ARG001
+        return [object() for _ in range(5)]  # live count 5 != stored 3 → stale
+
+    async def fake_compute(self, user_id):  # noqa: ARG001
+        return {"fresh": True}
+
+    monkeypatch.setattr(TasteService, "_latest_report", fake_latest)
+    monkeypatch.setattr(taste_module.DiaryInputService, "for_user", fake_for_user)
+    monkeypatch.setattr(TasteService, "_compute_payload", fake_compute)
+    ctx = SimpleNamespace(db_session=_FakeDb(), algorithm_service=object())
+
+    payload = await TasteService(ctx).get_profile("u_stale")
+
+    assert payload == {"fresh": True}
+
+
+async def test_get_profile_serves_cache_when_count_matches(monkeypatch) -> None:
+    from app.services.main import taste as taste_module
+    from app.services.main.taste import TasteService
+
+    stored = SimpleNamespace(source_entry_count=4, payload_json={"cached": True})
+
+    async def fake_latest(self, user_id):  # noqa: ARG001
+        return stored
+
+    async def fake_for_user(self, user_id, *, include_image_references=False):  # noqa: ARG001
+        return [object() for _ in range(4)]  # matches → serve cache
+
+    monkeypatch.setattr(TasteService, "_latest_report", fake_latest)
+    monkeypatch.setattr(taste_module.DiaryInputService, "for_user", fake_for_user)
+    ctx = SimpleNamespace(db_session=_FakeDb(), algorithm_service=object())
+
+    payload = await TasteService(ctx).get_profile("u_fresh")
+
+    assert payload == {"cached": True}
+
+
+async def test_recompute_failure_returns_prior_report_not_500(monkeypatch) -> None:
+    # When the recompute raises (e.g. the OpenAI call), the caller must get the
+    # genuinely-prior stored report back, NOT a re-raised exception, and NOT a
+    # re-run of get_profile (which would recompute on a stale cache and re-raise).
+    from app.services.main import taste as taste_module
+    from app.services.main.taste import TasteService
+
+    stored = SimpleNamespace(source_entry_count=10, payload_json={"prior": True})
+
+    async def fake_latest(self, user_id):  # noqa: ARG001
+        return stored
+
+    async def fake_for_user(self, user_id, *, include_image_references=False):  # noqa: ARG001
+        return [object() for _ in range(10)]
+
+    class _ExplodingAlgorithm:
+        def build_taste_refresh_artifacts(self, *a, **k):  # noqa: ARG002
+            raise RuntimeError("openai boom")
+
+    monkeypatch.setattr(TasteService, "_latest_report", fake_latest)
+    monkeypatch.setattr(taste_module.DiaryInputService, "for_user", fake_for_user)
+    ctx = SimpleNamespace(db_session=_FakeDb(), algorithm_service=_ExplodingAlgorithm())
+
+    payload = await TasteService(ctx).recompute_and_store("u_boom")
+
+    assert payload == {"prior": True}
+
+
 async def test_compute_payload_uses_context_algorithm_service(monkeypatch) -> None:
     from app.services.main import taste as taste_module
     from app.services.main.taste import TasteService

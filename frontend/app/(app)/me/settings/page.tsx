@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect } from "react";
 import { Bell, BookOpen, Camera, ChevronLeft, ChevronRight, Compass, Image as ImageIcon, MapPin, Send, Sparkles, Sun, User, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/store/auth";
 import { useLogout, useMe, useUpdateMe, useUploadAvatar } from "@/lib/api/auth";
@@ -13,6 +14,11 @@ import type { SettingsResponse } from "@/lib/types";
 const AVATAR_MAX_BYTES = 10 * 1024 * 1024;
 const AVATAR_TYPES = ["image/jpeg", "image/png"];
 
+const APP_VERSION = "v0.1.0";
+const SUPPORT_MAILTO = `mailto:support@snapplate.app?subject=${encodeURIComponent(
+  `SnapPlate support · ${APP_VERSION}`,
+)}`;
+
 /**
  * Settings screen — list-of-rows pattern, grouped by section.
  *
@@ -21,6 +27,7 @@ const AVATAR_TYPES = ["image/jpeg", "image/png"];
  * read-only since it's the account identity.
  */
 export default function SettingsPage() {
+  const router = useRouter();
   const { data: me } = useMe();
   const { data: settings } = useSettings();
   const update = useUpdateSettings();
@@ -140,9 +147,14 @@ export default function SettingsPage() {
 
       <SectionLabel>PRIVACY &amp; PERMISSIONS</SectionLabel>
       <Group>
-        <Row Icon={MapPin} label="Location" value="While using" />
-        <Row Icon={Camera} label="Camera" value="Allowed" last />
-        <Row Icon={ImageIcon} label="Photos" value="All photos" last />
+        <PermissionRow
+          Icon={MapPin}
+          label="Location"
+          name="geolocation"
+          requester={requestGeolocation}
+        />
+        <PermissionRow Icon={Camera} label="Camera" name="camera" requester={requestCamera} last />
+        <Row Icon={ImageIcon} label="Photos" value="On request" last />
       </Group>
 
       <SectionLabel>PREFERENCES</SectionLabel>
@@ -156,10 +168,34 @@ export default function SettingsPage() {
 
       <SectionLabel>SUPPORT</SectionLabel>
       <Group>
-        <Row Icon={Send} label="Contact support" right="chev" />
-        <Row Icon={BookOpen} label="Terms of service" right="chev" last />
-        <Row Icon={BookOpen} label="Privacy policy" right="chev" last />
-        <Row Icon={Sparkles} label="What's new" value="v0.1.0" last />
+        <Row
+          Icon={Send}
+          label="Contact support"
+          right="chev"
+          onClick={() => {
+            window.location.href = SUPPORT_MAILTO;
+          }}
+        />
+        <Row
+          Icon={BookOpen}
+          label="Terms of service"
+          right="chev"
+          onClick={() => router.push("/me/settings/terms")}
+        />
+        <Row
+          Icon={BookOpen}
+          label="Privacy policy"
+          right="chev"
+          onClick={() => router.push("/me/settings/privacy")}
+        />
+        <Row
+          Icon={Sparkles}
+          label="What's new"
+          value={APP_VERSION}
+          right="chev"
+          onClick={() => router.push("/me/settings/whats-new")}
+          last
+        />
       </Group>
 
       <div className="flex gap-2 mt-6 px-4">
@@ -189,7 +225,7 @@ export default function SettingsPage() {
           color: "var(--color-muted-2)",
         }}
       >
-        SnapPlate · v0.1.0 · Made at KAIST
+        SnapPlate · {APP_VERSION} · Made at KAIST
       </div>
 
       {confirming === "logout" && (
@@ -370,6 +406,131 @@ function Toggle({ on }: { on: boolean }) {
         }}
       />
     </span>
+  );
+}
+
+/* ── Privacy & permissions ──────────────────────────────────────────────
+ * Real browser permission state instead of hardcoded labels. We read the
+ * live state via the Permissions API (where supported) and let a tap fire
+ * the actual prompt — getCurrentPosition for location, getUserMedia for the
+ * camera. Browsers without `permissions.query` (notably Safari for camera)
+ * skip the read and stay tappable, requesting directly on press.
+ */
+type PermName = "geolocation" | "camera";
+type PermState = "granted" | "denied" | "prompt";
+
+function usePermission(name: PermName) {
+  const [state, setState] = useState<PermState>("prompt");
+  useEffect(() => {
+    let cancelled = false;
+    let status: PermissionStatus | null = null;
+    const sync = () => {
+      if (status && !cancelled) setState(status.state as PermState);
+    };
+    (async () => {
+      if (typeof navigator === "undefined" || !navigator.permissions?.query) return;
+      try {
+        status = await navigator.permissions.query({ name: name as PermissionName });
+        sync();
+        status.addEventListener("change", sync);
+      } catch {
+        // e.g. Firefox/Safari reject the "camera" descriptor — stay tappable.
+      }
+    })();
+    return () => {
+      cancelled = true;
+      status?.removeEventListener("change", sync);
+    };
+  }, [name]);
+  return [state, setState] as const;
+}
+
+async function requestGeolocation(): Promise<PermState> {
+  if (typeof navigator === "undefined" || !navigator.geolocation) return "prompt";
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      () => resolve("granted"),
+      // Only an explicit PERMISSION_DENIED (code 1) is a real block. A timeout
+      // (code 3) or position-unavailable (code 2) means we couldn't get a fix,
+      // not that the user denied us — leave the row on "Tap to allow".
+      (err) => resolve(err.code === err.PERMISSION_DENIED ? "denied" : "prompt"),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
+    );
+  });
+}
+
+async function requestCamera(): Promise<PermState> {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) return "prompt";
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    stream.getTracks().forEach((t) => t.stop()); // release immediately; we only wanted the grant
+    return "granted";
+  } catch {
+    return "denied";
+  }
+}
+
+function PermissionRow({
+  Icon,
+  label,
+  name,
+  requester,
+}: {
+  Icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties }>;
+  label: string;
+  name: PermName;
+  requester: () => Promise<PermState>;
+  last?: boolean;
+}) {
+  const [state, setState] = usePermission(name);
+  const [busy, setBusy] = useState(false);
+  const showToast = useToast((s) => s.show);
+
+  const valueLabel =
+    state === "granted" ? "Allowed" : state === "denied" ? "Blocked" : "Tap to allow";
+  const valueColor =
+    state === "granted"
+      ? "var(--color-olive-700)"
+      : state === "denied"
+        ? "var(--color-danger)"
+        : "var(--color-muted)";
+
+  async function handleClick() {
+    if (busy) return;
+    if (state === "granted") {
+      showToast(`${label} access is already on.`);
+      return;
+    }
+    if (state === "denied") {
+      showToast(`${label} is blocked — turn it back on in your browser's site settings.`);
+      return;
+    }
+    setBusy(true);
+    const result = await requester();
+    setBusy(false);
+    setState(result);
+    if (result === "denied") {
+      showToast(`${label} permission wasn't granted.`);
+    } else if (result === "prompt") {
+      showToast(`Couldn't reach ${label.toLowerCase()} — try again.`);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="flex items-center gap-3.5 w-full text-left"
+      style={{ padding: "13px 16px", color: "var(--color-ink)", background: "transparent" }}
+    >
+      <Icon size={18} strokeWidth={1.6} style={{ color: "var(--color-olive-700)", flexShrink: 0 }} />
+      <span style={{ flex: 1, fontSize: 14 }}>{label}</span>
+      {busy ? (
+        <Loader2 size={15} className="animate-spin" style={{ color: "var(--color-muted)" }} />
+      ) : (
+        <span style={{ fontSize: 12.5, color: valueColor }}>{valueLabel}</span>
+      )}
+    </button>
   );
 }
 
