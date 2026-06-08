@@ -395,7 +395,7 @@ function TasteFull({ data }: { data: Extract<TasteProfileResponse, { has_enough_
           color: "var(--color-muted)",
         }}
       >
-        Updated {new Date(data.computed_at).toLocaleString()}
+        {/* Updated {new Date(data.computed_at).toLocaleString()} */}
       </div>
     </div>
   );
