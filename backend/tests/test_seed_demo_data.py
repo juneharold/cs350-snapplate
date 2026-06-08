@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from io import BytesIO
 
 import pytest
@@ -48,6 +49,31 @@ class _ScalarResult:
         return self.restaurant
 
 
+class _FakeKakaoImageClient:
+    def __init__(self) -> None:
+        self.requests: list[tuple[tuple[str, ...], int]] = []
+
+    async def fetch_images(
+        self, queries: Sequence[str], count: int
+    ) -> list[seed_demo_data.FetchedImage]:
+        self.requests.append((tuple(queries), count))
+        return [
+            seed_demo_data.FetchedImage(
+                source_url=f"https://example.com/source-{len(self.requests)}-{index}.jpg",
+                data=_jpeg_bytes(index),
+            )
+            for index in range(count)
+        ]
+
+
+def _jpeg_bytes(index: int) -> bytes:
+    source = BytesIO()
+    Image.new("RGB", (1200, 900), ((180 + index * 10) % 255, 80, 40)).save(
+        source, format="JPEG"
+    )
+    return source.getvalue()
+
+
 def test_demo_seed_data_is_algorithm_demo_ready() -> None:
     data = seed_demo_data.demo_seed_data()
 
@@ -94,6 +120,25 @@ def test_image_variants_are_resized_from_source_photo() -> None:
         assert image.format == "JPEG"
 
 
+async def test_restaurant_images_assign_distinct_kakao_images_per_entry() -> None:
+    data = seed_demo_data.demo_seed_data()
+    restaurant = data.visited_restaurants[0]
+    entries = [
+        entry
+        for entry in [*data.demo_entries, *data.peer_entries]
+        if entry.restaurant_id == restaurant.id
+    ][:3]
+    image_client = _FakeKakaoImageClient()
+
+    images = await seed_demo_data._restaurant_images(image_client, [restaurant], entries)
+
+    entry_images = images[restaurant.id].entries
+    source_urls = [entry_images[entry.id].source_url for entry in entries]
+    assert image_client.requests[0][1] == len(entries)
+    assert len(source_urls) == len(set(source_urls))
+    assert images[restaurant.id].thumbnail.source_url == source_urls[0]
+
+
 async def test_seed_restaurants_update_existing_seed_id_when_kakao_id_changed() -> None:
     source = BytesIO()
     Image.new("RGB", (1200, 900), (180, 80, 40)).save(source, format="JPEG")
@@ -117,9 +162,12 @@ async def test_seed_restaurants_update_existing_seed_id_when_kakao_id_changed() 
         db,
         [seed],
         {
-            seed.id: seed_demo_data.RestaurantImage(
-                source_url="https://example.com/source.jpg",
-                variants=seed_demo_data.image_variants_from_bytes(source.getvalue()),
+            seed.id: seed_demo_data.RestaurantImages(
+                thumbnail=seed_demo_data.RestaurantImage(
+                    source_url="https://example.com/source.jpg",
+                    variants=seed_demo_data.image_variants_from_bytes(source.getvalue()),
+                ),
+                entries={},
             )
         },
     )
@@ -167,9 +215,12 @@ async def test_seed_restaurants_prefer_existing_kakao_row_over_stale_seed_id() -
         db,
         [seed],
         {
-            seed.id: seed_demo_data.RestaurantImage(
-                source_url="https://example.com/source.jpg",
-                variants=seed_demo_data.image_variants_from_bytes(source.getvalue()),
+            seed.id: seed_demo_data.RestaurantImages(
+                thumbnail=seed_demo_data.RestaurantImage(
+                    source_url="https://example.com/source.jpg",
+                    variants=seed_demo_data.image_variants_from_bytes(source.getvalue()),
+                ),
+                entries={},
             )
         },
     )

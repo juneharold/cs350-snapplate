@@ -306,6 +306,8 @@ export default function ExploreHome() {
               className="flex gap-3 p-3 items-center"
             >
               <FoodPlaceholder
+                src={r.thumbnail_url}
+                alt={r.name}
                 tone={r.thumbnail_tone}
                 label={r.signature_dish ?? r.thumbnail_label}
                 width={68}

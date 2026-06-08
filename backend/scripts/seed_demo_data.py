@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from io import BytesIO
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 import aioboto3
 import httpx
@@ -100,6 +100,17 @@ class FetchedImage:
 class RestaurantImage:
     source_url: str
     variants: dict[str, bytes]
+
+
+@dataclass(frozen=True)
+class RestaurantImages:
+    thumbnail: RestaurantImage
+    entries: dict[str, RestaurantImage]
+
+
+class SeedImageClient(Protocol):
+    async def fetch_images(self, queries: Sequence[str], count: int) -> list[FetchedImage]:
+        ...
 
 
 @dataclass(frozen=True)
@@ -229,19 +240,16 @@ async def seed_demo_database(
 ) -> dict[str, int | str]:
     seed = data or demo_seed_data()
     storage = StorageService(s3)
+    all_entries = [*seed.demo_entries, *seed.peer_entries]
     async with httpx.AsyncClient(timeout=30, follow_redirects=True) as http_client:
         image_client = KakaoImageClient(http_client, require_kakao_api_key())
-        restaurant_images = await _restaurant_images(image_client, seed.restaurants)
+        restaurant_images = await _restaurant_images(image_client, seed.restaurants, all_entries)
 
     users = await _seed_users(db, seed)
     restaurants = await _seed_restaurants(db, seed.restaurants, restaurant_images)
-    await _seed_media_objects(storage, [*seed.demo_entries, *seed.peer_entries], restaurant_images)
-    media = await _seed_media(
-        db, [*seed.demo_entries, *seed.peer_entries], users, restaurant_images
-    )
-    entries = await _seed_entries(
-        db, [*seed.demo_entries, *seed.peer_entries], users, restaurants, media
-    )
+    await _seed_media_objects(storage, all_entries, restaurant_images)
+    media = await _seed_media(db, all_entries, users, restaurant_images)
+    entries = await _seed_entries(db, all_entries, users, restaurants, media)
     await _seed_entry_media(db, entries, media)
     await _seed_bookmarks(db, users[seed.demo_user_id], restaurants, seed.bookmarked_restaurant_ids)
     await db.commit()
@@ -345,7 +353,7 @@ async def _seed_users(db: AsyncSession, seed: DemoSeedData) -> dict[str, UserMod
 async def _seed_restaurants(
     db: AsyncSession,
     restaurant_seeds: Sequence[RestaurantSeed],
-    restaurant_images: dict[str, RestaurantImage],
+    restaurant_images: dict[str, RestaurantImages],
 ) -> dict[str, RestaurantModel]:
     out = {}
     for seed in restaurant_seeds:
@@ -359,7 +367,7 @@ async def _seed_restaurants(
         elif old_seed_restaurant is not None and old_seed_restaurant.id != restaurant.id:
             old_seed_restaurant.deleted_at = utcnow()
             db.add(old_seed_restaurant)
-        values = _restaurant_values(seed, restaurant_images[seed.id])
+        values = _restaurant_values(seed, restaurant_images[seed.id].thumbnail)
         if restaurant is None:
             restaurant = RestaurantModel(**values)
         else:
@@ -376,10 +384,10 @@ async def _seed_restaurants(
 async def _seed_media_objects(
     storage: StorageService,
     entries: Sequence[EntrySeed],
-    restaurant_images: dict[str, RestaurantImage],
+    restaurant_images: dict[str, RestaurantImages],
 ) -> None:
     for entry in entries:
-        variants = restaurant_images[entry.restaurant_id].variants
+        variants = restaurant_images[entry.restaurant_id].entries[entry.id].variants
         for variant, key in _media_keys(entry.media_id).items():
             await storage.put(key, variants[variant], content_type="image/jpeg")
 
@@ -388,14 +396,14 @@ async def _seed_media(
     db: AsyncSession,
     entries: Sequence[EntrySeed],
     users: dict[str, UserModel],
-    restaurant_images: dict[str, RestaurantImage],
+    restaurant_images: dict[str, RestaurantImages],
 ) -> dict[str, MediaModel]:
     out = {}
     for entry in entries:
         media_id = entry.media_id
         media = await db.get(MediaModel, media_id)
         keys = _media_keys(media_id)
-        variants = restaurant_images[entry.restaurant_id].variants
+        variants = restaurant_images[entry.restaurant_id].entries[entry.id].variants
         values = {
             "id": media_id,
             "user_id": users[entry.user_id].id,
@@ -500,7 +508,7 @@ async def _seed_algorithm_artifacts(
     demo_user: UserModel,
     entries: dict[str, EntryModel],
     restaurants: dict[str, RestaurantModel],
-    restaurant_images: dict[str, RestaurantImage],
+    restaurant_images: dict[str, RestaurantImages],
 ) -> None:
     generated_at = utcnow()
     demo_inputs = []
@@ -512,7 +520,9 @@ async def _seed_algorithm_artifacts(
             and len(image_profiled_restaurant_ids) < _ALGORITHM_IMAGE_RESTAURANT_LIMIT
         ):
             image_profiled_restaurant_ids.add(entry.restaurant_id)
-            image_references = [restaurant_images[entry.restaurant_id].source_url]
+            image_references = [
+                restaurant_images[entry.restaurant_id].entries[entry.id].source_url
+            ]
         demo_inputs.append(
             algorithm.diary_entry_input_from_models(
                 entries[entry.id],
@@ -602,15 +612,35 @@ async def _ensure_bucket(s3: aioboto3.Session) -> None:
 
 
 async def _restaurant_images(
-    image_client: KakaoImageClient,
+    image_client: SeedImageClient,
     restaurants: Sequence[RestaurantSeed],
-) -> dict[str, RestaurantImage]:
+    entries: Sequence[EntrySeed],
+) -> dict[str, RestaurantImages]:
+    entries_by_restaurant_id = {restaurant.id: [] for restaurant in restaurants}
+    for entry in entries:
+        if entry.restaurant_id in entries_by_restaurant_id:
+            entries_by_restaurant_id[entry.restaurant_id].append(entry)
+
     images = {}
     for restaurant in restaurants:
-        source = await image_client.fetch_image(restaurant.image_query)
-        images[restaurant.id] = RestaurantImage(
-            source_url=source.source_url,
-            variants=image_variants_from_bytes(source.data),
+        restaurant_entries = entries_by_restaurant_id[restaurant.id]
+        sources = await image_client.fetch_images(
+            _restaurant_image_queries(restaurant),
+            max(1, len(restaurant_entries)),
+        )
+        restaurant_images = [
+            RestaurantImage(
+                source_url=source.source_url,
+                variants=image_variants_from_bytes(source.data),
+            )
+            for source in sources
+        ]
+        images[restaurant.id] = RestaurantImages(
+            thumbnail=restaurant_images[0],
+            entries={
+                entry.id: restaurant_images[index]
+                for index, entry in enumerate(restaurant_entries)
+            },
         )
     return images
 
@@ -621,26 +651,47 @@ class KakaoImageClient:
         self.api_key = api_key
 
     async def fetch_image(self, query: str) -> FetchedImage:
-        response = await self.http.get(
-            _KAKAO_IMAGE_SEARCH_URL,
-            headers={"Authorization": f"KakaoAK {self.api_key}"},
-            params={"query": query, "sort": "accuracy", "size": 10},
+        return (await self.fetch_images([query], 1))[0]
+
+    async def fetch_images(self, queries: Sequence[str], count: int) -> list[FetchedImage]:
+        seen_urls = set()
+        images = []
+        for query in queries:
+            response = await self.http.get(
+                _KAKAO_IMAGE_SEARCH_URL,
+                headers={"Authorization": f"KakaoAK {self.api_key}"},
+                params={"query": query, "sort": "accuracy", "size": 50},
+            )
+            response.raise_for_status()
+            for doc in response.json().get("documents", []):
+                for url in (doc.get("image_url"), doc.get("thumbnail_url")):
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        try:
+                            image_response = await self.http.get(url)
+                            image_response.raise_for_status()
+                            image_variants_from_bytes(image_response.content)
+                            images.append(
+                                FetchedImage(source_url=url, data=image_response.content)
+                            )
+                            if len(images) == count:
+                                return images
+                        except Exception:
+                            continue
+        raise RuntimeError(
+            f"Kakao image search found only {len(images)} usable images "
+            f"for {queries[0]!r}; need {count}."
         )
-        response.raise_for_status()
-        urls = [
-            doc.get("image_url") or doc.get("thumbnail_url")
-            for doc in response.json().get("documents", [])
-            if doc.get("image_url") or doc.get("thumbnail_url")
-        ]
-        for url in urls:
-            try:
-                image_response = await self.http.get(url)
-                image_response.raise_for_status()
-                image_variants_from_bytes(image_response.content)
-                return FetchedImage(source_url=url, data=image_response.content)
-            except Exception:
-                continue
-        raise RuntimeError(f"Kakao image search found no usable image for {query!r}.")
+
+
+def _restaurant_image_queries(restaurant: RestaurantSeed) -> list[str]:
+    return [
+        f"{restaurant.image_query} {restaurant.signature_dish}",
+        f"{restaurant.image_query} 음식",
+        f"{restaurant.image_query} 메뉴",
+        f"{restaurant.image_query} 후기",
+        restaurant.image_query,
+    ]
 
 
 def image_variants_from_bytes(data: bytes) -> dict[str, bytes]:

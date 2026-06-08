@@ -46,6 +46,8 @@ export function RecommendedStrip({ data }: { data: RecommendedResponse }) {
           >
             <div className="card" style={{ overflow: "hidden", padding: 0 }}>
               <FoodPlaceholder
+                src={r.thumbnail_url}
+                alt={r.name}
                 tone={r.thumbnail_tone}
                 label={r.signature_dish ?? r.thumbnail_label}
                 width="100%"
