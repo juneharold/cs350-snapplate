@@ -185,13 +185,14 @@ function CapturePageContent() {
           </Link>
           <h1
             ref={titleRef}
-            className="leading-tight font-normal"
+            className="leading-none font-bold"
             style={{
               flex: "1 1 0%",
               minWidth: 0,
               whiteSpace: "nowrap",
               overflow: "hidden",
               fontSize: titleSize,
+              letterSpacing: "-0.015em",
             }}
           >
             What are you{" "}
@@ -202,7 +203,7 @@ function CapturePageContent() {
         {/* Description — full width, left-aligned from the same margin */}
         <p
           className="shrink-0 px-5"
-          style={{ marginTop: 8, fontSize: 14, lineHeight: 1.55, opacity: 0.78 }}
+          style={{ marginTop: 16, fontSize: 14, lineHeight: 1.55, opacity: 0.72 }}
         >
           Snap it now — we&apos;ll remember the place and time. Add the rating
           later when you&apos;re done eating.
