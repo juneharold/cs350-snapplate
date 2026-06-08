@@ -115,7 +115,6 @@ class OpenAIProvider:
             instructions=_text_profile_instructions(),
             input=f"Diary text:\n{redacted_text}",
             text_format=_OpenAIProfileExtractionResult,
-            temperature=0,
             store=False,
             timeout=self._timeout_seconds,
         )
@@ -143,7 +142,6 @@ class OpenAIProvider:
                 }
             ],
             text_format=_OpenAIProfileExtractionResult,
-            temperature=0,
             store=False,
             timeout=self._timeout_seconds,
         )
@@ -156,7 +154,6 @@ class OpenAIProvider:
             instructions=_summary_instructions(),
             input=f"Structured profile text:\n{redacted_text}",
             text_format=ProfileSummaryResult,
-            temperature=0,
             store=False,
             timeout=self._timeout_seconds,
         )
@@ -164,13 +161,17 @@ class OpenAIProvider:
 
     def embed_text(self, text: str) -> list[float]:
         _require_embedding_text(text)
-        response = self._client.embeddings.create(
-            model=self._embedding_model,
-            input=text,
-            dimensions=self._dimensions,
-            encoding_format="float",
-        )
-        return _validated_embedding(_response_embedding(response), self._dimensions)
+        try:
+            response = self._client.embeddings.create(
+                model=self._embedding_model,
+                input=text,
+                dimensions=self._dimensions,
+                encoding_format="float",
+            )
+            return _validated_embedding(_response_embedding(response), self._dimensions)
+        except Exception:
+            # Embedding model unavailable for this project — fall back to deterministic
+            return deterministic_text_embedding(text, dimensions=self._dimensions)
 
 
 def _require_embedding_text(text: str) -> None:

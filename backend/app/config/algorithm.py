@@ -12,9 +12,9 @@ MIN_SIMILAR_USERS: Final[int] = 3
 RECOMMENDATION_LIMIT: Final[int] = 10
 RECOMMENDATION_COOLDOWN_REQUESTS: Final[int] = 20
 
-TEXT_PROFILE_MODEL: Final[str] = "gpt-5.4-mini"
-IMAGE_PROFILE_MODEL: Final[str] = "gpt-5.4-mini"
-SUMMARY_MODEL: Final[str] = "gpt-5.4-mini"
+TEXT_PROFILE_MODEL: Final[str] = "gpt-5-nano"
+IMAGE_PROFILE_MODEL: Final[str] = "gpt-5-nano"
+SUMMARY_MODEL: Final[str] = "gpt-5-nano"
 EMBEDDING_MODEL: Final[str] = "text-embedding-3-large"
 EMBEDDING_DIMENSIONS: Final[int] = 1024
 OPENAI_TIMEOUT_SECONDS: Final[float] = 30.0
