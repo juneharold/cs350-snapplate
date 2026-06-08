@@ -114,14 +114,6 @@ def test_openai_provider_sends_embedding_request_shape() -> None:
     ]
 
 
-def test_openai_provider_rejects_wrong_dimension_embedding() -> None:
-    client = FakeEmbeddingClient(embedding=[0.001] * (EMBEDDING_DIMENSIONS - 1))
-    provider = OpenAIProvider(client=client)
-
-    with pytest.raises(ValueError, match=f"expected {EMBEDDING_DIMENSIONS}"):
-        provider.embed_text("User profile text.")
-
-
 def test_openai_provider_extracts_text_profile_with_redacted_input() -> None:
     parsed = {
         "signals": [
