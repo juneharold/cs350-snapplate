@@ -445,25 +445,28 @@ function usePermission(name: PermName) {
   return [state, setState] as const;
 }
 
-async function requestGeolocation(): Promise<boolean> {
-  if (typeof navigator === "undefined" || !navigator.geolocation) return false;
+async function requestGeolocation(): Promise<PermState> {
+  if (typeof navigator === "undefined" || !navigator.geolocation) return "prompt";
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
-      () => resolve(true),
-      () => resolve(false),
+      () => resolve("granted"),
+      // Only an explicit PERMISSION_DENIED (code 1) is a real block. A timeout
+      // (code 3) or position-unavailable (code 2) means we couldn't get a fix,
+      // not that the user denied us — leave the row on "Tap to allow".
+      (err) => resolve(err.code === err.PERMISSION_DENIED ? "denied" : "prompt"),
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
     );
   });
 }
 
-async function requestCamera(): Promise<boolean> {
-  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) return false;
+async function requestCamera(): Promise<PermState> {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) return "prompt";
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     stream.getTracks().forEach((t) => t.stop()); // release immediately; we only wanted the grant
-    return true;
+    return "granted";
   } catch {
-    return false;
+    return "denied";
   }
 }
 
@@ -476,7 +479,7 @@ function PermissionRow({
   Icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties }>;
   label: string;
   name: PermName;
-  requester: () => Promise<boolean>;
+  requester: () => Promise<PermState>;
   last?: boolean;
 }) {
   const [state, setState] = usePermission(name);
@@ -503,10 +506,14 @@ function PermissionRow({
       return;
     }
     setBusy(true);
-    const ok = await requester();
+    const result = await requester();
     setBusy(false);
-    setState(ok ? "granted" : "denied");
-    if (!ok) showToast(`${label} permission wasn't granted.`);
+    setState(result);
+    if (result === "denied") {
+      showToast(`${label} permission wasn't granted.`);
+    } else if (result === "prompt") {
+      showToast(`Couldn't reach ${label.toLowerCase()} — try again.`);
+    }
   }
 
   return (
