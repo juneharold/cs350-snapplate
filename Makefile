@@ -36,7 +36,7 @@ reset-db:  ## Drop the data-layer volumes (wipes all local data) and restart fre
 
 # Backend (FastAPI on the host)
 install:  ## Install backend deps into backend/.venv
-	cd $(BACKEND_DIR) && python3 -m venv .venv && .venv/bin/python -m pip install -e .
+	cd $(BACKEND_DIR) && python3 -m venv --clear .venv && .venv/bin/python -m pip install -e . --group dev
 
 run-backend:  ## Run FastAPI (host) with reload on http://localhost:8000
 	cd $(BACKEND_DIR) && $(PY) -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
