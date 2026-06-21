@@ -22,7 +22,7 @@ from app.services.main.taste import TasteService
 from app.services.s3.storage import StorageService
 from app.types.draft import DraftStatus
 from app.utils.ids import entry_id
-from app.utils.time import as_utc, captured_relative, meal_period, utcnow
+from app.utils.time import as_utc, captured_relative, is_capture_too_future, meal_period, utcnow
 
 _REMIND_AFTER = timedelta(hours=1)
 _NOTE_MAX = 500
@@ -52,7 +52,7 @@ class DraftService:
         restaurant_suggested: bool | None,
     ) -> DraftDetailInfo:
         captured = as_utc(captured_at) if captured_at else utcnow()
-        if captured > utcnow():
+        if is_capture_too_future(captured):
             raise AppError(400, "invalid_captured_at", "Capture time can't be in the future.")
 
         if not media_ids:
@@ -166,7 +166,7 @@ class DraftService:
         resolved_restaurant = restaurant_id or draft.restaurant_id
         if resolved_restaurant is None:
             raise AppError(400, "restaurant_required", "Pick a restaurant first.", "restaurant_id")
-        if as_utc(draft.captured_at) > utcnow():
+        if is_capture_too_future(as_utc(draft.captured_at)):
             raise AppError(400, "invalid_captured_at", "Capture time can't be in the future.")
 
         links = list(await self.draft_media.for_draft(draft.id))

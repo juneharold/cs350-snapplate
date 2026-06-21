@@ -484,7 +484,7 @@ export const handlers = [
     const lat = parseFloat(url.searchParams.get("lat") ?? "");
     const lng = parseFloat(url.searchParams.get("lng") ?? "");
     const limit = parseInt(url.searchParams.get("limit") ?? "10", 10);
-    const MIN_ENTRIES = 3;
+    const MIN_ENTRIES = 10;
 
     const entries = Object.values(db.get().entries).filter((e) => e.user_id === user.id);
     if (entries.length < MIN_ENTRIES) {

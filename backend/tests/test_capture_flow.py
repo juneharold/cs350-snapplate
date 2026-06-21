@@ -1,4 +1,5 @@
 import io
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from PIL import Image
@@ -61,6 +62,28 @@ def test_full_capture_to_diary(client, headers):
     det = client.get(f"/v1/entries/{eid}", headers=headers).json()["response"]
     assert det["meal_period"]
     assert "user_visit_history" in det
+
+
+def test_capture_allows_small_clock_skew(client, headers):
+    mid = client.post(
+        "/v1/media/upload", files={"files": ("p.jpg", _jpeg(), "image/jpeg")}, headers=headers
+    ).json()["response"]["uploads"][0]["id"]
+    captured_at = (datetime.now(UTC) + timedelta(seconds=30)).isoformat()
+
+    d = client.post(
+        "/v1/drafts",
+        json={"media_ids": [mid], "captured_at": captured_at, **KAIST},
+        headers=headers,
+    )
+
+    assert d.status_code == 201
+    draft = d.json()["response"]
+    r = client.post(
+        f"/v1/drafts/{draft['id']}/finalize",
+        json={"note": "Captured from a slightly fast phone clock."},
+        headers=headers,
+    )
+    assert r.status_code == 201
 
 
 def test_finalize_requires_note(client, headers):

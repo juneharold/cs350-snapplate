@@ -56,9 +56,9 @@ def test_public_imports_expose_stable_scaffold_metadata() -> None:
     assert algorithm.RECOMMENDATION_LIMIT == RECOMMENDATION_LIMIT
     assert algorithm.generate_recommendation_artifact == generate_recommendation_artifact
     assert algorithm.RecommendationScoreBreakdown == RecommendationScoreBreakdown
-    assert algorithm.TEXT_PROFILE_MODEL == TEXT_PROFILE_MODEL == "gpt-5.4-mini"
-    assert algorithm.IMAGE_PROFILE_MODEL == IMAGE_PROFILE_MODEL == "gpt-5.4-mini"
-    assert algorithm.SUMMARY_MODEL == SUMMARY_MODEL == "gpt-5.4-mini"
+    assert algorithm.TEXT_PROFILE_MODEL == TEXT_PROFILE_MODEL == "gpt-5-nano"
+    assert algorithm.IMAGE_PROFILE_MODEL == IMAGE_PROFILE_MODEL == "gpt-5-nano"
+    assert algorithm.SUMMARY_MODEL == SUMMARY_MODEL == "gpt-5-nano"
     assert algorithm.EMBEDDING_MODEL == EMBEDDING_MODEL == "text-embedding-3-large"
     assert algorithm.EMBEDDING_DIMENSIONS == EMBEDDING_DIMENSIONS == 1024
     assert MIN_ENTRIES_FOR_PERSONALIZATION > 0

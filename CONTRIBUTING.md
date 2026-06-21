@@ -4,9 +4,9 @@ This file is for the four SnapPlate teammates working in this repository. It def
 
 SnapPlate is currently specified as:
 
-- Mobile client: Expo / React Native
+- Mobile-style web client: Next.js
 - Backend: FastAPI REST API
-- Auth / database / storage: Supabase
+- Auth / database / storage: self-issued JWT, Postgres, MinIO
 - External restaurant data: Kakao Local REST API
 - Core features: account/profile, restaurant search, bookmarks, camera/photo upload, food diary, taste analysis, recommendations, settings
 

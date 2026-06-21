@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+
+CAPTURED_AT_FUTURE_SKEW = timedelta(seconds=60)
 
 
 def utcnow() -> datetime:
@@ -10,6 +12,10 @@ def utcnow() -> datetime:
 def as_utc(dt: datetime) -> datetime:
     """Coerce a possibly-naive datetime to aware UTC (DB reads can be naive)."""
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
+def is_capture_too_future(dt: datetime, now: datetime | None = None) -> bool:
+    return as_utc(dt) > (now or utcnow()) + CAPTURED_AT_FUTURE_SKEW
 
 
 def captured_relative(dt: datetime, now: datetime | None = None) -> str:

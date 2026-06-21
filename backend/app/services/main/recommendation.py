@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from app.config.algorithm import EMBEDDING_DIMENSIONS, RECOMMENDATION_COOLDOWN_REQUESTS
+from app.config.algorithm import (
+    EMBEDDING_DIMENSIONS,
+    MIN_ENTRIES_FOR_PERSONALIZATION,
+    RECOMMENDATION_COOLDOWN_REQUESTS,
+)
 from app.config.http_errors import AppError
 from app.config.lifespan import Context
 from app.config.logger import create_logger
@@ -14,8 +18,6 @@ from app.schemas.algorithm import DiaryEntryInput, RestaurantInput
 from app.services.main.diary_inputs import DiaryInputService
 from app.utils.restaurant_taxonomy import UnknownRestaurantCategoryError
 from app.utils.time import utcnow
-
-_MIN_ENTRIES = 10
 
 logger = create_logger(__name__)
 
@@ -37,7 +39,7 @@ class RecommendationService:
             return {"items": [], "based_on_entries": 0, "has_enough_data": False}
 
         entries = await DiaryInputService(self.ctx).for_user(user_id)
-        if len(entries) < _MIN_ENTRIES:
+        if len(entries) < MIN_ENTRIES_FOR_PERSONALIZATION:
             return {"items": [], "based_on_entries": len(entries), "has_enough_data": False}
 
         user_profile = await self.artifacts.latest_user_profile(user_id)
@@ -108,7 +110,7 @@ class RecommendationService:
                 user_id,
                 context,
                 limit=limit,
-                min_entries_required=_MIN_ENTRIES,
+                min_entries_required=MIN_ENTRIES_FOR_PERSONALIZATION,
             )
         except ValueError as exc:
             if "embedding" not in str(exc):

@@ -161,17 +161,13 @@ class OpenAIProvider:
 
     def embed_text(self, text: str) -> list[float]:
         _require_embedding_text(text)
-        try:
-            response = self._client.embeddings.create(
-                model=self._embedding_model,
-                input=text,
-                dimensions=self._dimensions,
-                encoding_format="float",
-            )
-            return _validated_embedding(_response_embedding(response), self._dimensions)
-        except Exception:
-            # Embedding model unavailable for this project — fall back to deterministic
-            return deterministic_text_embedding(text, dimensions=self._dimensions)
+        response = self._client.embeddings.create(
+            model=self._embedding_model,
+            input=text,
+            dimensions=self._dimensions,
+            encoding_format="float",
+        )
+        return _validated_embedding(_response_embedding(response), self._dimensions)
 
 
 def _require_embedding_text(text: str) -> None:

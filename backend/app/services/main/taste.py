@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import desc, select
 
+from app.config.algorithm import MIN_ENTRIES_FOR_PERSONALIZATION
 from app.config.lifespan import Context
 from app.config.logger import create_logger
 from app.dto.auth import UpdateUserData
@@ -12,8 +13,6 @@ from app.services.main.diary_inputs import DiaryInputService
 from app.utils.time import utcnow
 
 logger = create_logger(__name__)
-
-_MIN_ENTRIES = 10
 
 
 class TasteService:
@@ -33,7 +32,9 @@ class TasteService:
         trigger) stayed invisible until the next finalise.
         """
         latest = await self._latest_report(user_id)
-        if latest is not None and latest.source_entry_count == await self._live_entry_count(user_id):
+        if latest is not None and latest.source_entry_count == await self._live_entry_count(
+            user_id
+        ):
             return latest.payload_json
         # Stale (entries changed) or nothing stored → reflect the live diary.
         return await self._compute_payload(user_id)
@@ -69,7 +70,7 @@ class TasteService:
                 user_id,
                 entries,
                 generated_at=generated_at,
-                min_entries_required=_MIN_ENTRIES,
+                min_entries_required=MIN_ENTRIES_FOR_PERSONALIZATION,
             )
         except Exception:
             # A recompute failure (e.g. the OpenAI call) must not 500 the caller
@@ -138,6 +139,6 @@ class TasteService:
         report = self.algorithm.generate_taste_report(
             user_id,
             entries,
-            min_entries_required=_MIN_ENTRIES,
+            min_entries_required=MIN_ENTRIES_FOR_PERSONALIZATION,
         )
         return report.model_dump(mode="json")
