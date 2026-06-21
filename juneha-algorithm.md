@@ -42,10 +42,10 @@ Resolved client decision:
 - Team 6 confirmed that external APIs, including OpenAI, may be used for profile extraction capabilities.
 - Exact provider and model IDs are configuration values, not hardcoded into algorithm logic.
 - The first quality-focused model set is:
-  - `ALGORITHM_PROVIDER = "openai"`
-  - `TEXT_PROFILE_MODEL = "gpt-5.4-mini"`
-  - `IMAGE_PROFILE_MODEL = "gpt-5.4-mini"`
-  - `SUMMARY_MODEL = "gpt-5.4-mini"`
+  - `ALGORITHM_PROVIDER = "deterministic"` for keyless local demos; `"openai"` when an API key is configured
+  - `TEXT_PROFILE_MODEL = "gpt-5-nano"`
+  - `IMAGE_PROFILE_MODEL = "gpt-5-nano"`
+  - `SUMMARY_MODEL = "gpt-5-nano"`
   - `EMBEDDING_MODEL = "text-embedding-3-large"`
   - `EMBEDDING_DIMENSIONS = 1024`
 
@@ -69,10 +69,10 @@ The following values should be defined once in configuration instead of being ha
 | `MIN_SIMILAR_USERS` | `3` | Minimum similar users before collaborative score is active |
 | `RECOMMENDATION_LIMIT` | `10` | Default number of recommendations returned |
 | `RECOMMENDATION_COOLDOWN_REQUESTS` | `20` | Number of recent recommendation requests used to avoid repeated exposure |
-| `ALGORITHM_PROVIDER` | `openai` | External profile provider |
-| `TEXT_PROFILE_MODEL` | `gpt-5.4-mini` | Model used for diary text profile extraction |
-| `IMAGE_PROFILE_MODEL` | `gpt-5.4-mini` | Model used for food image profile extraction |
-| `SUMMARY_MODEL` | `gpt-5.4-mini` | Model used for profile labels, blurbs, and explanation text |
+| `ALGORITHM_PROVIDER` | `deterministic` | Profile provider; set to `openai` with `OPENAI_API_KEY` for the API-backed provider |
+| `TEXT_PROFILE_MODEL` | `gpt-5-nano` | Model used for diary text profile extraction |
+| `IMAGE_PROFILE_MODEL` | `gpt-5-nano` | Model used for food image profile extraction |
+| `SUMMARY_MODEL` | `gpt-5-nano` | Model used for profile labels, blurbs, and explanation text |
 | `EMBEDDING_MODEL` | `text-embedding-3-large` | Model used for user and restaurant embeddings |
 | `EMBEDDING_DIMENSIONS` | `1024` | Stored embedding vector dimensions |
 

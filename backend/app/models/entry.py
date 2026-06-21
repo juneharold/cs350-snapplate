@@ -14,7 +14,10 @@ from app.utils.ids import entry_id
 class EntryModel(SQLModelBase, table=True):
     __tablename__ = "entries"
     __table_args__ = (
-        CheckConstraint("captured_at <= now()", name="ck_entry_captured_at_not_future"),
+        CheckConstraint(
+            "captured_at <= now() + interval '60 seconds'",
+            name="ck_entry_captured_at_not_future",
+        ),
     )
 
     id: str = Field(default_factory=entry_id, primary_key=True)

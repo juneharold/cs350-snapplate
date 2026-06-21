@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import (
 
 from app.config.env import Env, db_dsn
 from app.config.http_client import create_httpx_client
-from app.config.logger import create_logger
 from app.services.algorithm.providers import DeterministicProvider, OpenAIProvider, ProfileProvider
 from app.services.algorithm.service import AlgorithmService
 
@@ -106,19 +105,12 @@ async def get_context(request: Request) -> AsyncIterator[Context]:
 
 
 def _build_profile_provider() -> ProfileProvider:
-    provider = Env.raw_get("ALGORITHM_PROVIDER") or "openai"
+    provider = Env.raw_get("ALGORITHM_PROVIDER") or "deterministic"
     match provider.strip().casefold():
         case "openai":
             api_key = Env.raw_get("OPENAI_API_KEY") or ""
             if not api_key:
-                # Fall back to the local, no-network provider instead of failing
-                # boot, so taste analysis still works in dev/CI (and demos run
-                # without billing). The radar/categories/heatmap still differ
-                # per user; only the LLM-authored persona label becomes generic.
-                create_logger(__name__).warning(
-                    "OPENAI_API_KEY not set; using DeterministicProvider for the algorithm."
-                )
-                return DeterministicProvider()
+                raise RuntimeError("OPENAI_API_KEY is required when ALGORITHM_PROVIDER=openai")
             return OpenAIProvider(client=OpenAI(api_key=api_key))
         case "deterministic":
             return DeterministicProvider()

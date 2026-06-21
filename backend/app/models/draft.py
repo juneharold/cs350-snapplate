@@ -14,7 +14,10 @@ from app.utils.ids import draft_id
 class DraftModel(SQLModelBase, table=True):
     __tablename__ = "drafts"
     __table_args__ = (
-        CheckConstraint("captured_at <= now()", name="ck_draft_captured_at_not_future"),
+        CheckConstraint(
+            "captured_at <= now() + interval '60 seconds'",
+            name="ck_draft_captured_at_not_future",
+        ),
     )
 
     id: str = Field(default_factory=draft_id, primary_key=True)

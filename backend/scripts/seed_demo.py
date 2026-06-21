@@ -13,7 +13,7 @@ The seed is ADDITIVE (reuses real Kakao restaurants, never deletes existing data
 and idempotent (re-uses B/C by email; only tops up entries when short).
 
 Run:   cd backend && uv run python -m scripts.seed_demo
-Flags: --skip-taste     create users/entries but don't run the OpenAI pipeline
+Flags: --skip-taste     create users/entries but don't run the taste pipeline
        --taste-only     skip seeding, just (re)run the taste pipeline for B & C
        --force-entries  add a fresh batch of entries even if the user already has some
 """
@@ -41,6 +41,7 @@ from app.models.entry import EntryMediaModel, EntryModel
 from app.models.media import MediaModel
 from app.models.restaurant import RestaurantModel
 from app.models.user import UserModel
+from app.repositories.algorithm_artifact import AlgorithmArtifactRepository
 from app.repositories.restaurant import RestaurantRepository
 from app.services.algorithm.service import AlgorithmService
 from app.services.kakao.client import KakaoService
@@ -52,6 +53,7 @@ from app.utils.restaurant_taxonomy import (
     normalize_public_restaurant_category,
 )
 from app.utils.time import meal_period as derive_meal_period
+from app.utils.time import utcnow
 
 # KAIST / Daejeon area — matches FALLBACK_LOCATION the frontend uses.
 ANCHOR_LAT = 36.371
@@ -200,6 +202,43 @@ CATEGORY_SEARCH_KEYWORDS = {
     "Cafe": ["카페", "커피"],
 }
 
+DEMO_RESTAURANT_NAMES = {
+    "Korean BBQ": ["Demo Charcoal Table", "Demo Galbi House", "Demo Samgyeopsal Lab"],
+    "Comfort Korean": ["Demo Gukbap Kitchen", "Demo Stew House", "Demo Soup Table"],
+    "Korean": ["Demo Hansik Table", "Demo Campus Baekban", "Demo Home Meal"],
+    "Noodles": ["Demo Noodle Bar", "Demo Kalguksu Room", "Demo Cold Noodle House"],
+    "Japanese": ["Demo Sushi Counter", "Demo Donkatsu Table", "Demo Udon Bar"],
+    "Cafe": ["Demo Slow Cafe", "Demo Cream Coffee", "Demo Study Cafe"],
+}
+
+
+def demo_fallback_restaurants(needed: dict[str, int]) -> list[KakaoRestaurantData]:
+    items: list[KakaoRestaurantData] = []
+    for category, count in needed.items():
+        names = DEMO_RESTAURANT_NAMES.get(category, [f"Demo {category} Table"])
+        for index in range(count):
+            name = names[index % len(names)]
+            suffix = f"{category.lower().replace(' ', '-').replace('/', '')}-{index + 1}"
+            items.append(
+                KakaoRestaurantData(
+                    kakao_id=f"demo-{suffix}",
+                    name=name if index < len(names) else f"{name} {index + 1}",
+                    category=category,
+                    signature_dish=category,
+                    rating=round(4.1 + (index % 5) * 0.1, 1),
+                    rating_count=80 + index * 17,
+                    thumbnail_tone=FoodTone.BONE,
+                    thumbnail_label=category,
+                    tags=[category],
+                    lat=ANCHOR_LAT + index * 0.001,
+                    lng=ANCHOR_LNG + index * 0.001,
+                    neighborhood="Eoeun-dong",
+                    address="Demo data near KAIST",
+                    raw_payload={"category_name": f"음식점 > Demo > {category}"},
+                )
+            )
+    return items
+
 
 # ───────────────────────────────────────────────────────────────────────────
 # Photo sourcing — LoremFlickr (keyword, no API key) → Foodish → gray placeholder.
@@ -332,6 +371,12 @@ async def restaurants_by_category(
                 await repo.upsert_many(usable)
         rows = list(await repo.list_active(category=None, min_rating=None, limit=500))
         buckets = bucket(rows)
+        if len(buckets[category]) < count:
+            remaining = count - len(buckets[category])
+            print(f"  using {remaining} demo fallback restaurant(s) for {category}")
+            await repo.upsert_many(demo_fallback_restaurants({category: remaining}))
+            rows = list(await repo.list_active(category=None, min_rating=None, limit=500))
+            buckets = bucket(rows)
 
     return buckets
 
@@ -447,6 +492,36 @@ async def seed_entries_for(
     return created
 
 
+async def profile_seed_restaurants(
+    ctx: Context,
+    cat_pool: dict[str, list[RestaurantModel]],
+) -> int:
+    artifact_repo = AlgorithmArtifactRepository(ctx.db_session)
+    generated_at = utcnow()
+    restaurants = {restaurant.id: restaurant for rows in cat_pool.values() for restaurant in rows}
+    created = 0
+    for restaurant in restaurants.values():
+        try:
+            profile = ctx.algorithm_service.build_restaurant_profile_artifact(
+                restaurant,
+                generated_at=generated_at,
+            )
+        except UnknownRestaurantCategoryError as exc:
+            print(f"  ! skipped restaurant profile for {restaurant.name}: {exc}")
+            continue
+        await artifact_repo.add_restaurant_profile(
+            restaurant_id=restaurant.id,
+            payload_json=profile.model_dump(mode="json"),
+            embedding=profile.embedding,
+            algorithm_version=profile.algorithm_version,
+            generated_at=generated_at,
+            commit=False,
+        )
+        created += 1
+    await ctx.db_session.commit()
+    return created
+
+
 async def run_taste(ctx: Context, user: UserModel, persona: Persona) -> str | None:
     payload = await TasteService(ctx).recompute_and_store(user.id)
     label = (payload.get("type") or {}).get("label")
@@ -455,7 +530,7 @@ async def run_taste(ctx: Context, user: UserModel, persona: Persona) -> str | No
     return label
 
 
-async def smoke_test_openai(algorithm: AlgorithmService) -> None:
+async def smoke_test_profile_provider(algorithm: AlgorithmService) -> None:
     provider = algorithm.profile_provider
     print("Smoke-testing the configured profile provider …")
     try:
@@ -471,7 +546,6 @@ async def smoke_test_openai(algorithm: AlgorithmService) -> None:
             "only the persona label becomes generic).\n"
         )
         raise
-    # embed_text falls back to deterministic automatically if the embedding model is unavailable
     provider.embed_text("savory smoky korean bbq")
     print("  ✓ provider OK\n")
 
@@ -498,7 +572,7 @@ async def main() -> None:
         kakao = KakaoService(kakao_http)
 
         if not args.skip_taste:
-            await smoke_test_openai(algorithm_service)
+            await smoke_test_profile_provider(algorithm_service)
 
         async with sessionmaker() as session:
             ctx = Context(
@@ -521,6 +595,8 @@ async def main() -> None:
                 cat_pool = await restaurants_by_category(session, kakao, needed)
                 for c, rows in cat_pool.items():
                     print(f"  {c}: {len(rows)} available")
+                profiled_count = await profile_seed_restaurants(ctx, cat_pool)
+                print(f"  restaurant profiles: {profiled_count}")
 
                 for persona in personas:
                     print(f"\nSeeding entries for {persona.nickname} <{persona.email}> …")
@@ -530,7 +606,7 @@ async def main() -> None:
                     )
 
             if not args.skip_taste:
-                print("\nRunning taste pipeline (OpenAI) …")
+                print("\nRunning taste pipeline with the configured provider …")
                 for persona in personas:
                     await run_taste(ctx, users[persona.email], persona)
 

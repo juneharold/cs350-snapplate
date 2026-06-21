@@ -88,7 +88,11 @@ class AuthService:
         profile_image_url = None
         if user.profile_image_url:
             profile_image_url = await self.storage.signed_url(user.profile_image_url)
-        return token, expires_in, AuthUserInfo.from_model(user, is_new=is_new, profile_image_url=profile_image_url)
+        return (
+            token,
+            expires_in,
+            AuthUserInfo.from_model(user, is_new=is_new, profile_image_url=profile_image_url),
+        )
 
     async def logout(self, user_id: str) -> None:
         """v1: client-discards the JWT (stateless). No server-side denylist — the

@@ -47,7 +47,9 @@ class DiaryInputService:
         rows = (await self.db.execute(stmt)).all()
         return await self._inputs_from_rows(rows, include_image_references=False)
 
-    async def _inputs_from_rows(self, rows, *, include_image_references: bool) -> list[DiaryEntryInput]:
+    async def _inputs_from_rows(
+        self, rows, *, include_image_references: bool
+    ) -> list[DiaryEntryInput]:
         image_references = {}
         if include_image_references:
             entries = [entry for entry, _restaurant in rows]
