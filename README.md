@@ -37,7 +37,7 @@ API_URL=http://localhost:8000
 ```
 
 The default backend env uses `ALGORITHM_PROVIDER=deterministic`, so no OpenAI
-key is required for grading/demo. `KAKAO_REST_API_KEY` is optional for local
+key is required for local testing. `KAKAO_REST_API_KEY` is optional for local
 testing; the demo seed has deterministic restaurant fallback data when Kakao is
 not configured.
 
@@ -139,5 +139,5 @@ Use frontend mocks instead of the real backend:
 NEXT_PUBLIC_ENABLE_MOCKS=true
 ```
 
-Mocks are useful for UI-only work, but grading should use
+Mocks are useful for UI-only work, but integrated testing should use
 `NEXT_PUBLIC_ENABLE_MOCKS=false`.
